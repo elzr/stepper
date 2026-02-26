@@ -58,6 +58,8 @@ No fn — direct arrow keys. Repeat same combo within 1 hour to undo.
 
 Position preserved. Oversized windows shrink to fit (restored when moved back).
 
+| ⌃⌥ | Delete | Restore saved window layout |
+
 ## Shrink/Grow Detail (⌥ + ↔↕)
 
 | Modifier | ↔↕ | Action |

@@ -13,6 +13,15 @@ local M = {}
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 local dataFile = scriptPath .. "../data/window-layout.json"
 
+local TARGET_DISPLAY_COUNT = 5
+local DEBOUNCE_DELAY = 2          -- seconds (screens appear sequentially)
+local PERIODIC_SAVE_INTERVAL = 300  -- 5 minutes
+
+local screenWatcher = nil
+local debounceTimer = nil
+local periodicTimer = nil
+local lastScreenCount = 0
+
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
@@ -49,6 +58,10 @@ local function findScreen(savedSF)
   end
 
   return hs.screen.mainScreen(), "fallback"
+end
+
+local function showRestoreHint()
+  print("[layout] Restore available — fn+ctrl+alt+delete to restore layout")
 end
 
 -- ---------------------------------------------------------------------------
@@ -289,6 +302,84 @@ function M.gather()
   end
 
   print(string.format("[layout.gather] Closed %d spaces, moved %d windows to built-in", closedSpaces, movedWindows))
+end
+
+-- ---------------------------------------------------------------------------
+-- M.autoSave() — guarded: only saves when at TARGET_DISPLAY_COUNT
+-- ---------------------------------------------------------------------------
+
+function M.autoSave()
+  local count = #hs.screen.allScreens()
+  if count ~= TARGET_DISPLAY_COUNT then
+    return
+  end
+  M.save()
+end
+
+-- ---------------------------------------------------------------------------
+-- Screen watcher — detect display changes, prompt for restore
+-- ---------------------------------------------------------------------------
+
+local function startPeriodicSave()
+  if periodicTimer then periodicTimer:stop() end
+  periodicTimer = hs.timer.doEvery(PERIODIC_SAVE_INTERVAL, function()
+    M.autoSave()
+  end)
+  print("[layout] Periodic auto-save started (every " .. PERIODIC_SAVE_INTERVAL .. "s)")
+end
+
+local function stopPeriodicSave()
+  if periodicTimer then
+    periodicTimer:stop()
+    periodicTimer = nil
+    print("[layout] Periodic auto-save stopped")
+  end
+end
+
+local function onScreenChange()
+  -- Reset debounce timer on every callback (collapses rapid sequential detections)
+  if debounceTimer then debounceTimer:stop() end
+  debounceTimer = hs.timer.doAfter(DEBOUNCE_DELAY, function()
+    local count = #hs.screen.allScreens()
+    print(string.format("[layout] Screens stabilized: %d (was %d)", count, lastScreenCount))
+
+    if count == TARGET_DISPLAY_COUNT and lastScreenCount ~= TARGET_DISPLAY_COUNT then
+      -- Transitioning TO 5 displays
+      showRestoreHint()
+      startPeriodicSave()
+    elseif count ~= TARGET_DISPLAY_COUNT and lastScreenCount == TARGET_DISPLAY_COUNT then
+      -- Transitioning FROM 5 displays
+      stopPeriodicSave()
+    end
+
+    lastScreenCount = count
+  end)
+end
+
+-- ---------------------------------------------------------------------------
+-- M.onWake() — show restore prompt if waking at 5 displays
+-- ---------------------------------------------------------------------------
+
+function M.onWake()
+  if #hs.screen.allScreens() == TARGET_DISPLAY_COUNT then
+    showRestoreHint()
+  end
+end
+
+-- ---------------------------------------------------------------------------
+-- M.init() — start screen watcher and periodic save if already at 5
+-- ---------------------------------------------------------------------------
+
+function M.init()
+  lastScreenCount = #hs.screen.allScreens()
+
+  screenWatcher = hs.screen.watcher.new(onScreenChange)
+  screenWatcher:start()
+  print("[layout] Screen watcher started")
+
+  if lastScreenCount == TARGET_DISPLAY_COUNT then
+    startPeriodicSave()
+  end
 end
 
 return M

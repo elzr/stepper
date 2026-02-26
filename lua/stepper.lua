@@ -822,3 +822,22 @@ mousemove.init({
 
 -- Initialize Bear HUD (note hotkeys + caret position persistence)
 bear_hud.init(projectRoot, focus)
+
+-- Initialize layout auto-save and screen watcher
+layout.init()
+
+-- Restore layout hotkey: fn+ctrl+alt+delete (in the ⌃⌥ move-to-display family)
+hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.restore)
+
+-- Save state before sleep, prompt restore on wake
+hs.caffeinate.watcher.new(function(event)
+  if event == hs.caffeinate.watcher.systemWillSleep
+  or event == hs.caffeinate.watcher.screensDidSleep then
+    print("[stepper] Sleep/screen-off — saving Bear positions + layout")
+    bear_hud.saveCurrentPosition()
+    layout.autoSave()
+  elseif event == hs.caffeinate.watcher.screensDidWake then
+    print("[stepper] Wake detected — checking displays")
+    layout.onWake()
+  end
+end):start()

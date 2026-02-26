@@ -798,7 +798,7 @@ function M.init(projectRoot, focus)
     if appName ~= "Bear" then return end
     if eventType == hs.application.watcher.activated then
       if not saveTimer then
-        saveTimer = hs.timer.doEvery(1800, guardedSave)
+        saveTimer = hs.timer.doEvery(60, guardedSave)
       end
     elseif eventType == hs.application.watcher.deactivated then
       if saveTimer then saveTimer:stop(); saveTimer = nil end
@@ -810,7 +810,7 @@ function M.init(projectRoot, focus)
   -- If Bear is already active at init time, start the timer
   local bear = hs.application.get("Bear")
   if bear and bear:isFrontmost() then
-    saveTimer = hs.timer.doEvery(1800, guardedSave)
+    saveTimer = hs.timer.doEvery(60, guardedSave)
   end
 
   -- Track physical right-option (0x40), right-shift (0x04), right-cmd (0x10) via device-specific flag bits
