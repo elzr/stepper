@@ -6,7 +6,8 @@
 -- layout.gather()  — consolidate all windows into one space on the built-in display
 --
 -- Designed for a 5-display setup with 4 identical LG HDR 4K monitors (no serials).
--- Screens are identified by frame origin (x,y); falls back to resolution then main.
+-- Screens are identified by spatial position name (via screenswitch.buildScreenMap),
+-- with origin/resolution fallback for backwards compatibility.
 
 local M = {}
 
@@ -41,13 +42,37 @@ local function roundFrame(f)
   }
 end
 
--- Find the live screen whose origin matches saved screenFrame within tolerance.
--- Falls back to resolution match, then mainScreen.
-local function findScreen(savedSF)
+-- Reverse lookup: screen ID -> position name using screenswitch.buildScreenMap()
+local function buildScreenIdToPosition()
+  if not screenswitch then return {} end
+  local map = screenswitch.buildScreenMap()
+  local idToPos = {}
+  for position, screen in pairs(map) do
+    idToPos[screen:id()] = position
+  end
+  return idToPos
+end
+
+-- Find the live screen matching a saved entry.
+-- Pass 1: position name match (stable across reconnections)
+-- Pass 2: origin match (for backwards compat with old save files)
+-- Pass 3: resolution match
+-- Pass 4: mainScreen fallback
+local function findScreen(entry)
+  local savedSF = entry.screenFrame
+  local savedPos = entry.screenPosition
   local tol = 2
   local allScreens = hs.screen.allScreens()
 
-  -- Pass 1: exact origin match
+  -- Pass 1: position name match via screenswitch
+  if savedPos and screenswitch then
+    local map = screenswitch.buildScreenMap()
+    if map[savedPos] then
+      return map[savedPos], "position"
+    end
+  end
+
+  -- Pass 2: exact origin match
   for _, s in ipairs(allScreens) do
     local sf = s:frame()
     if math.abs(sf.x - savedSF.x) <= tol and math.abs(sf.y - savedSF.y) <= tol then
@@ -55,7 +80,7 @@ local function findScreen(savedSF)
     end
   end
 
-  -- Pass 2: resolution match
+  -- Pass 3: resolution match
   for _, s in ipairs(allScreens) do
     local sf = s:frame()
     if math.abs(sf.w - savedSF.w) <= tol and math.abs(sf.h - savedSF.h) <= tol then
@@ -149,22 +174,25 @@ end
 function M.save()
   local windows = hs.window.orderedWindows()
   local entries = {}
+  local idToPos = buildScreenIdToPosition()
 
   for _, win in ipairs(windows) do
     local app = win:application()
     if not app then goto continue end
 
-    local sf = win:screen():frame()
+    local screen = win:screen()
+    local sf = screen:frame()
     local f  = win:frame()
     local rf = roundFrame(f)
     local rsf = roundFrame(sf)
 
     table.insert(entries, {
-      app         = app:name(),
-      title       = win:title(),
-      screenFrame = rsf,
-      frame       = rf,
-      frameRel    = {
+      app            = app:name(),
+      title          = win:title(),
+      screenPosition = idToPos[screen:id()],
+      screenFrame    = rsf,
+      frame          = rf,
+      frameRel       = {
         x = (f.x - sf.x) / sf.w,
         y = (f.y - sf.y) / sf.h,
         w = f.w / sf.w,
@@ -281,12 +309,23 @@ function M.restore()
 
   for _, p in ipairs(pairs_list) do
     local win, entry = p.win, p.entry
-    local screen, matchType = findScreen(entry.screenFrame)
+    local screen, matchType = findScreen(entry)
     local sf = screen:frame()
     local targetFrame
 
-    if matchType == "exact" then
+    if matchType == "exact" or matchType == "position" then
       targetFrame = entry.frame
+      -- If position matched but origins differ, use relative coordinates
+      local sf_saved = entry.screenFrame
+      if math.abs(sf.x - sf_saved.x) > 2 or math.abs(sf.y - sf_saved.y) > 2 then
+        local rel = entry.frameRel
+        targetFrame = {
+          x = math.floor(sf.x + rel.x * sf.w + 0.5),
+          y = math.floor(sf.y + rel.y * sf.h + 0.5),
+          w = math.floor(rel.w * sf.w + 0.5),
+          h = math.floor(rel.h * sf.h + 0.5),
+        }
+      end
     else
       -- Scale from relative coordinates onto the found screen
       local rel = entry.frameRel
@@ -427,8 +466,12 @@ local function onScreenChange()
     print(string.format("[layout] Screens stabilized: %d (was %d)", count, lastScreenCount))
 
     if count == TARGET_DISPLAY_COUNT and lastScreenCount ~= TARGET_DISPLAY_COUNT then
-      -- Transitioning TO 5 displays
-      showRestoreHint()
+      -- Transitioning TO 5 displays — auto-restore after a short delay
+      -- (give macOS a moment to finalize screen arrangement)
+      hs.timer.doAfter(1, function()
+        print("[layout] Auto-restoring layout for " .. TARGET_DISPLAY_COUNT .. " displays")
+        M.restore()
+      end)
       startPeriodicSave()
       -- Sync Lunar display names after a short delay for Lunar to detect screens
       if lunarSyncTimer then lunarSyncTimer:stop() end
