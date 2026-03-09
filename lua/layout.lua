@@ -17,7 +17,7 @@ local lunarSyncScript = scriptPath .. "../features/sync-display-names-in-Lunar/l
 
 local TARGET_DISPLAY_COUNT = 5
 local DEBOUNCE_DELAY = 2          -- seconds (screens appear sequentially)
-local PERIODIC_SAVE_INTERVAL = 300  -- 5 minutes
+local PERIODIC_SAVE_INTERVAL = 60   -- 1 minute
 local LUNAR_SYNC_DELAY = 3         -- seconds after screen stabilization
 
 local screenWatcher = nil
@@ -26,8 +26,41 @@ local periodicTimer = nil
 local lunarSyncTimer = nil
 local lastScreenCount = 0
 
+local SAVE_TRIGGER_DELAY = 3        -- seconds after last triggered operation
+local LOG_RETENTION = 600            -- 10 minutes of log entries
+
 -- screenswitch module reference (set during init)
 local screenswitch = nil
+local triggerTimer = nil
+
+-- ---------------------------------------------------------------------------
+-- Ring buffer log — keeps last 10 minutes of layout events for debugging
+-- ---------------------------------------------------------------------------
+local logBuffer = {}  -- {timestamp, event, detail}
+
+local function logEvent(event, detail)
+  local now = hs.timer.secondsSinceEpoch()
+  table.insert(logBuffer, {timestamp = now, event = event, detail = detail})
+  -- Prune entries older than LOG_RETENTION
+  local cutoff = now - LOG_RETENTION
+  while #logBuffer > 0 and logBuffer[1].timestamp < cutoff do
+    table.remove(logBuffer, 1)
+  end
+  print(string.format("[layout.log] %s: %s", event, detail or ""))
+end
+
+function M.dumpLog()
+  if #logBuffer == 0 then
+    print("[layout.log] (empty)")
+    return
+  end
+  local now = hs.timer.secondsSinceEpoch()
+  for _, entry in ipairs(logBuffer) do
+    local ago = now - entry.timestamp
+    print(string.format("[layout.log] -%ds  %s: %s",
+      math.floor(ago), entry.event, entry.detail or ""))
+  end
+end
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -208,6 +241,14 @@ function M.save()
     return
   end
 
+  -- Build log summary: Bear windows and their screens
+  local summary = {}
+  for _, e in ipairs(entries) do
+    if e.app == "Bear" then
+      table.insert(summary, string.format("%s@%s", e.title, e.screenPosition or "?"))
+    end
+  end
+
   local json = hs.json.encode(entries, true)
   local fh, err = io.open(dataFile, "w")
   if not fh then
@@ -217,6 +258,7 @@ function M.save()
   fh:write(json)
   fh:close()
 
+  logEvent("save", string.format("%d windows; Bear: %s", #entries, table.concat(summary, ", ")))
   print(string.format("[layout.save] Saved %d windows to %s", #entries, dataFile))
 end
 
@@ -260,11 +302,13 @@ function M.restore()
     local candidates = appWindows[entry.app] or {}
 
     local found = nil
+    local matchTier = nil
 
     -- Tier 1: exact title match
     for _, win in ipairs(candidates) do
       if not matched[win:id()] and win:title() == entry.title then
         found = win
+        matchTier = "exact-title"
         break
       end
     end
@@ -275,6 +319,7 @@ function M.restore()
       for _, win in ipairs(candidates) do
         if not matched[win:id()] and win:title():sub(1, 40) == savedPrefix then
           found = win
+          matchTier = "prefix-40"
           break
         end
       end
@@ -282,13 +327,10 @@ function M.restore()
 
     -- Tier 3: index fallback (nth unmatched window for this app)
     if not found then
-      local appIdx = 0
       for _, win in ipairs(candidates) do
         if not matched[win:id()] then
-          appIdx = appIdx + 1
-          -- Count how many saved entries before this one are for the same app
-          -- and also unmatched → use a simple approach: match by insertion order
           found = win
+          matchTier = "index-fallback"
           break
         end
       end
@@ -296,7 +338,9 @@ function M.restore()
 
     if found then
       matched[found:id()] = true
-      table.insert(pairs_list, { win = found, entry = entry, idx = idx })
+      table.insert(pairs_list, { win = found, entry = entry, idx = idx, matchTier = matchTier })
+    else
+      logEvent("restore-miss", string.format("%s '%s' → no live window", entry.app, entry.title))
     end
   end
 
@@ -306,6 +350,8 @@ function M.restore()
 
   local origDuration = hs.window.animationDuration
   hs.window.animationDuration = 0
+
+  local restoreDetails = {}
 
   for _, p in ipairs(pairs_list) do
     local win, entry = p.win, p.entry
@@ -325,6 +371,7 @@ function M.restore()
           w = math.floor(rel.w * sf.w + 0.5),
           h = math.floor(rel.h * sf.h + 0.5),
         }
+        matchType = matchType .. "+rel"
       end
     else
       -- Scale from relative coordinates onto the found screen
@@ -335,6 +382,15 @@ function M.restore()
         w = math.floor(rel.w * sf.w + 0.5),
         h = math.floor(rel.h * sf.h + 0.5),
       }
+    end
+
+    -- Log Bear windows in detail (most likely to have issues)
+    if entry.app == "Bear" then
+      table.insert(restoreDetails, string.format(
+        "%s: saved@%s → screen:%s (win-match:%s, scr-match:%s) %dx%d",
+        entry.title, entry.screenPosition or "?",
+        screen:name(), p.matchTier, matchType,
+        targetFrame.w, targetFrame.h))
     end
 
     win:setFrame(targetFrame)
@@ -348,6 +404,10 @@ function M.restore()
     pairs_list[i].win:focus()
   end
 
+  logEvent("restore", string.format("%d restored, %d skipped", savedCount, skippedCount))
+  for _, detail in ipairs(restoreDetails) do
+    logEvent("restore-bear", detail)
+  end
   print(string.format("[layout.restore] Restored %d windows, skipped %d", savedCount, skippedCount))
 end
 
@@ -439,6 +499,21 @@ function M.autoSave()
 end
 
 -- ---------------------------------------------------------------------------
+-- M.triggerSave(reason) — debounced save after a window operation
+-- ---------------------------------------------------------------------------
+-- Called by stepper/bear-hud after cross-display moves, summons, etc.
+-- Collapses rapid consecutive triggers into a single save.
+
+function M.triggerSave(reason)
+  if triggerTimer then triggerTimer:stop() end
+  logEvent("trigger", reason or "unknown")
+  triggerTimer = hs.timer.doAfter(SAVE_TRIGGER_DELAY, function()
+    triggerTimer = nil
+    M.autoSave()
+  end)
+end
+
+-- ---------------------------------------------------------------------------
 -- Screen watcher — detect display changes, prompt for restore
 -- ---------------------------------------------------------------------------
 
@@ -463,7 +538,7 @@ local function onScreenChange()
   if debounceTimer then debounceTimer:stop() end
   debounceTimer = hs.timer.doAfter(DEBOUNCE_DELAY, function()
     local count = #hs.screen.allScreens()
-    print(string.format("[layout] Screens stabilized: %d (was %d)", count, lastScreenCount))
+    logEvent("screens", string.format("%d → %d", lastScreenCount, count))
 
     if count == TARGET_DISPLAY_COUNT and lastScreenCount ~= TARGET_DISPLAY_COUNT then
       -- Transitioning TO 5 displays — auto-restore after a short delay

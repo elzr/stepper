@@ -608,6 +608,9 @@ local function handleLiveSummon(slotKey)
     hs.window.animationDuration = 0.3
     win:minimize()
     summonedNotes[slotKey] = nil
+    if layout and layout.triggerSave then
+      layout.triggerSave(string.format("unsummon-live:%s '%s'", slotKey, slot.title))
+    end
     return
   end
 
@@ -653,6 +656,9 @@ local function handleLiveSummon(slotKey)
   }
   centerOnCursor(win)
   focusModule.focusSingleWindow(win)
+  if layout and layout.triggerSave then
+    layout.triggerSave(string.format("summon-live:%s '%s'", slotKey, slot.title))
+  end
 end
 
 -- Handle a summon hotkey press (right-shift + hyper: summon to cursor / unsummon)
@@ -669,6 +675,9 @@ local function handleNoteSummon(noteTitle)
     hs.window.animationDuration = 0.3
     noteWin:minimize()
     summonedNotes[noteTitle] = nil
+    if layout and layout.triggerSave then
+      layout.triggerSave(string.format("unsummon-note:'%s'", noteTitle))
+    end
     return
   end
 
@@ -709,6 +718,9 @@ local function handleNoteSummon(noteTitle)
   }
   centerOnCursor(noteWin)
   focusModule.focusSingleWindow(noteWin)
+  if layout and layout.triggerSave then
+    layout.triggerSave(string.format("summon-note:'%s'", noteTitle))
+  end
 end
 
 -- =============================================================================

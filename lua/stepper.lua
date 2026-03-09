@@ -849,6 +849,8 @@ local function moveToDisplay(position)
     setupWindowOperation(true)
     instant(function() win:setFrame(undo.frame) end)
     focus.flashFocusHighlight(win, nil)
+    local app = win:application()
+    layout.triggerSave(string.format("undo-display:%s '%s'", position, app and app:name() or "?"))
     return
   end
 
@@ -867,6 +869,8 @@ local function moveToDisplay(position)
 
   -- Perform the move
   screenswitch.moveToScreen(position, setupWindowOperation, instant, focus.flashFocusHighlight)
+  local app = win:application()
+  layout.triggerSave(string.format("move-to-display:%s '%s'", position, app and app:name() or "?"))
 end
 hs.hotkey.bind({"ctrl", "alt"}, "down", function() moveToDisplay("bottom") end)
 hs.hotkey.bind({"ctrl", "alt"}, "up", function() moveToDisplay("top") end)
