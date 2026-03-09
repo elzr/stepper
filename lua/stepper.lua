@@ -77,6 +77,9 @@ local DISPLAY_UNDO_TTL = 3600  -- seconds
 -- Forward declaration for edge highlight (defined later with other visual feedback)
 local flashEdgeHighlight
 
+-- Shift-first resize mode (global, managed by callback at end of file)
+_G.shiftFirstMode = false
+
 -- Clear existing hotkeys
 local existingHotkeys = hs.hotkey.getHotkeys()
 for _, hotkey in ipairs(existingHotkeys) do
@@ -195,6 +198,36 @@ local function resizeToEdge(dir)
   instant(function() win:setFrame(frame) end)
 end
 
+-- Resize from the top-left anchor (opposite of default bottom-right)
+-- up = grow upward (y decreases, h increases), down = shrink from top (y increases, h decreases)
+-- left = grow leftward (x decreases, w increases), right = shrink from left (x increases, w decreases)
+local function topLeftAnchorResize(dir)
+  local win = hs.window.focusedWindow()
+  if not win then return end
+
+  local f = win:frame()
+  local step = spoon.WinWin.gridparts
+  local screen = win:screen():frame()
+  local stepW = screen.w / step
+  local stepH = screen.h / step
+
+  if dir == "up" then
+    f.y = f.y - stepH
+    f.h = f.h + stepH
+  elseif dir == "down" then
+    f.y = f.y + stepH
+    f.h = f.h - stepH
+  elseif dir == "left" then
+    f.x = f.x - stepW
+    f.w = f.w + stepW
+  elseif dir == "right" then
+    f.x = f.x + stepW
+    f.w = f.w - stepW
+  end
+
+  instant(function() win:setFrame(f) end)
+end
+
 local function smartStepResize(dir)
   local win = hs.window.focusedWindow()
   if not win then return end
@@ -203,7 +236,17 @@ local function smartStepResize(dir)
   local screen = win:screen():frame()
   local snap = 5
 
-  if dir == "down" and frame.y + frame.h >= screen.y + screen.h - snap then
+  -- Edge detection
+  local atBottom = frame.y + frame.h >= screen.y + screen.h - snap
+  local atTop = frame.y <= screen.y + snap
+  local atRight = frame.x + frame.w >= screen.x + screen.w - snap
+  local atLeft = frame.x <= screen.x + snap
+
+  -- Skip wraparound when touching both opposite edges (max height/width)
+  local bottomOnly = atBottom and not atTop
+  local rightOnly = atRight and not atLeft
+
+  if dir == "down" and atBottom then
     -- Wraparound: bottom edge at screen bottom, shrink from top instead
     stepResize("up")
     local f = win:frame()
@@ -212,9 +255,37 @@ local function smartStepResize(dir)
     return
   end
 
-  if dir == "right" and frame.x + frame.w >= screen.x + screen.w - snap then
+  if dir == "up" and bottomOnly then
+    -- Grow upward: bottom pinned to screen bottom, extend top edge up
+    updateAnimationDuration()
+    local stepH = screen.h / spoon.WinWin.gridparts
+    frame.y = frame.y - stepH
+    frame.h = frame.h + stepH
+    win:setFrame(frame)
+    -- Re-snap bottom edge after Retina rounding
+    local f = win:frame()
+    f.y = screen.y + screen.h - f.h
+    instant(function() win:setFrame(f) end)
+    return
+  end
+
+  if dir == "right" and atRight then
     -- Wraparound: right edge at screen right, shrink from left instead
     stepResize("left")
+    local f = win:frame()
+    f.x = screen.x + screen.w - f.w
+    instant(function() win:setFrame(f) end)
+    return
+  end
+
+  if dir == "left" and rightOnly then
+    -- Grow leftward: right pinned to screen right, extend left edge left
+    updateAnimationDuration()
+    local stepW = screen.w / spoon.WinWin.gridparts
+    frame.x = frame.x - stepW
+    frame.w = frame.w + stepW
+    win:setFrame(frame)
+    -- Re-snap right edge after Retina rounding
     local f = win:frame()
     f.x = screen.x + screen.w - f.w
     instant(function() win:setFrame(f) end)
@@ -717,10 +788,16 @@ local keyMap = {
 
 -- Define operations with modifiers
 local operations = {
-  [{} ]                = {fn = function(dir) stepMove(dir) end},
-  [{"shift"}]          = {fn = function(dir) smartStepResize(dir) end},
-  [{"ctrl"}]           = {fn = function(dir) moveToEdge(dir) end},
-  [{"ctrl", "shift"}]  = {fn = function(dir) resizeToEdge(dir) end},
+  [{} ]                = {fn = function(dir) _G.shiftFirstMode = false; stepMove(dir) end},
+  [{"shift"}]          = {fn = function(dir)
+    if _G.shiftFirstMode then
+      topLeftAnchorResize(dir)
+    else
+      smartStepResize(dir)
+    end
+  end},
+  [{"ctrl"}]           = {fn = function(dir) _G.shiftFirstMode = false; moveToEdge(dir) end},
+  [{"ctrl", "shift"}]  = {fn = function(dir) _G.shiftFirstMode = false; resizeToEdge(dir) end},
   -- option is handled separately below for toggle shrink behavior
 }
 
@@ -841,3 +918,19 @@ hs.caffeinate.watcher.new(function(event)
     layout.onWake()
   end
 end):start()
+
+-- Shift-first detection: press shift before fn to resize from the top-left anchor.
+-- This callback rides on bear-hud's raltWatcher because it's the only flagsChanged
+-- eventtap that reliably sees getFlags().fn from physical keyboard input.
+-- See the comment on raltWatcher in bear-hud.lua for details.
+_G.shiftFirstCallback = function(flags)
+  local before = _G.shiftFirstMode
+  if flags.shift and not flags.fn then
+    _G.shiftFirstMode = true
+  elseif flags.fn and not flags.shift then
+    _G.shiftFirstMode = false
+  end
+  if before ~= _G.shiftFirstMode then
+    print(string.format("[shiftFirst] %s→%s", tostring(before), tostring(_G.shiftFirstMode)))
+  end
+end

@@ -813,12 +813,22 @@ function M.init(projectRoot, focus)
     saveTimer = hs.timer.doEvery(60, guardedSave)
   end
 
-  -- Track physical right-option (0x40), right-shift (0x04), right-cmd (0x10) via device-specific flag bits
+  -- Track physical modifier keys via flagsChanged eventtap.
+  -- IMPORTANT: This is the ONLY flagsChanged eventtap that reliably sees flags.fn from
+  -- physical keyboard input. Separate eventtaps created in stepper.lua (whether at the top
+  -- or bottom of the file) receive flagsChanged events but getFlags().fn is always nil for
+  -- physical fn presses. The cause is unknown — possibly related to creation order relative
+  -- to hotkey bindings or dofile() scope. Other modules that need fn-aware flag detection
+  -- should register a callback here rather than creating their own eventtap.
   raltWatcher = hs.eventtap.new({hs.eventtap.event.types.flagsChanged}, function(event)
     local flags = event:rawFlags()
     rightOptionHeld = (flags & 0x40) ~= 0
     rightShiftHeld = (flags & 0x04) ~= 0
     rightCmdHeld = (flags & 0x10) ~= 0
+    -- Dispatch to stepper's shift-first detection (if registered)
+    if _G.shiftFirstCallback then
+      _G.shiftFirstCallback(event:getFlags())
+    end
     return false
   end)
   raltWatcher:start()
