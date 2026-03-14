@@ -851,8 +851,8 @@ function M.init(projectRoot, focus)
   if nf then
     local content = nf:read("*a")
     nf:close()
-    -- Strip // line comments for JSONC support
-    content = content:gsub("//[^\n]*", "")
+    -- Strip // line comments for JSONC support (but not :// in URLs)
+    content = content:gsub("([^:])//[^\n]*", "%1")
     local config = hs.json.decode(content)
     if config then
       local vars = config.vars or {}
@@ -894,6 +894,16 @@ function M.init(projectRoot, focus)
         else
           print(string.format("[bear-hud] Bound %s → '%s'", note.key, title))
         end
+      end
+
+      -- Generic URL hotkeys (action: "open-url")
+      for _, entry in ipairs(config.urls or {}) do
+        local url = entry.url
+        print(string.format("[bear-hud] Binding URL hotkey: %s → '%s'", entry.key, url))
+        hs.hotkey.bind(mods, entry.key, function()
+          print(string.format("[bear-hud] URL hotkey FIRED: %s → %s", entry.key, url))
+          hs.urlevent.openURL(url)
+        end)
       end
 
       -- Live window hotkeys (hyper+X/Q/A/Z): any window, Bear gets caret persistence

@@ -206,6 +206,16 @@ Four independently assignable "quick access" hotkeys for any window — terminal
 - **Window gone**: If the app quit or the window was closed, a console message is printed (no-op). Bear notes are re-opened automatically.
 - **Persist**: Stored in `data/live-toggle-hotkeys.json`, survives Hammerspoon reloads.
 
+### URL Hotkeys (hyper+letter → open URL)
+
+The `urls` array in `bear-notes.jsonc` binds hyperkey shortcuts to arbitrary URLs, using the same modifier infrastructure as Bear note hotkeys.
+
+| Key | URL |
+|-----|-----|
+| F | `raycast://extensions/sara/featurebase/index` (Featurebase — see topsight/F020) |
+
+**JSONC caveat:** The comment stripper (`content:gsub("//...", "")`) was updated to skip `://` in URLs. Without this fix, `raycast://extensions/...` gets mangled — the `//` is treated as a comment, silently corrupting the JSON and preventing the binding from registering.
+
 ### URL Handler
 
 The `hammerspoon://open-bear-note` URL handler is also available for external launchers:
