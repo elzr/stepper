@@ -926,6 +926,21 @@ hs.caffeinate.watcher.new(function(event)
   end
 end):start()
 
+-- Weekly bear-notes.jsonc updater (replaces launchd which can't access CloudStorage)
+-- Runs on load + daily at 7am. The python script is idempotent.
+local weekUpdateScript = projectRoot .. "features/local/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
+local function updateBearWeeks()
+  hs.task.new("/usr/bin/python3", function(exitCode, stdout, stderr)
+    if exitCode == 0 then
+      print("[weekUpdate] " .. (stdout or ""):gsub("\n$", ""))
+    else
+      print("[weekUpdate] ERROR: " .. (stderr or ""):gsub("\n$", ""))
+    end
+  end, {weekUpdateScript}):start()
+end
+updateBearWeeks()  -- run on load
+hs.timer.doAt("07:00", "1d", updateBearWeeks)
+
 -- Shift-first detection: press shift before fn to resize from the top-left anchor.
 -- This callback rides on bear-hud's raltWatcher because it's the only flagsChanged
 -- eventtap that reliably sees getFlags().fn from physical keyboard input.
