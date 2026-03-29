@@ -2,6 +2,16 @@
 
 > The full hyperkey system: how Caps Lock becomes a launcher/action key across three tools and three use cases.
 
+## Contents
+
+- [The stack](#the-stack)
+- [Three use cases](#three-use-cases-in-hammerspoon) — [Bear notes](#1-bear-note-launchers) · [Live toggles](#2-live-window-toggles) · [General actions](#3-general-actions)
+- [What BTT still handles](#what-bettertouchtool-still-handles) — [Known conflict pattern](#known-conflict-pattern)
+- [Why JSONC](#why-jsonc)
+- [Key files](#key-files)
+- [How to add a new shortcut](#how-to-add-a-new-hyperkey-shortcut)
+- [Origin story](#origin-story)
+
 ## The stack
 
 | Layer | Tool | Role |
@@ -42,11 +52,16 @@ Keys: X, Q, A, Z (reserved in [bear-notes.jsonc](https://stepper.internal/data/b
 
 Config: [`data/hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc)
 
-Hyper + key → arbitrary action (keystroke sequence, URL, script). For shortcuts that aren't launchers.
+Hyper + key → arbitrary action (keystroke sequence, URL, script). For shortcuts that aren't launchers. Supports two action types: `keystroke` (single key combo) and `keystroke-sequence` (chained keystrokes with delays for menu navigation).
 
-Current entries:
-- **hyper+[** → Insert → Columns → Insert 1 column left (Google Sheets)
-- **hyper+]** → Insert → Columns → Insert 1 column right (Google Sheets)
+Current entries — all Google Sheets insert shortcuts:
+
+| Shortcut | Action |
+|----------|--------|
+| **hyper+[** | Insert → Columns → Insert 1 column left |
+| **hyper+]** | Insert → Columns → Insert 1 column right |
+| **hyper+-** | Insert → Rows → Insert 1 row above |
+| **hyper+=** | Insert → Rows → Insert 1 row below |
 
 ### Technical note: posting keystrokes
 
@@ -102,3 +117,17 @@ A `"comment"` property works but pollutes the data structure — it gets parsed,
 ```
 
 Then run `~/bin/hs-reload.sh`.
+
+## Origin story
+
+Google Sheets has no direct keyboard shortcuts for inserting rows/columns in a specific direction. The built-in ctrl+shift+= inserts based on the current selection, which is inconsistent — sometimes it selects the full row/column, sometimes just a partial range, and the behavior changes depending on context. This inconsistency breaks muscle memory and forces you back to the menu every time.
+
+This frustration persisted for **years**. Multiple attempts to solve it were abandoned — BetterTouchTool could trigger the right keystrokes but clashed with the Hyperkey app (see [Known conflict pattern](#known-conflict-pattern)). A conversation with David Pang (founder of [SheetWiz](https://sheetwiz.app/)) confirmed that the inconsistency is a Google limitation, not a configuration problem.
+
+The inspiration for directional insert shortcuts came from **Bear Notes**, which has beautifully consistent table shortcuts: ctrl+cmd+arrow to add rows/columns in any direction. That convinced me the desire for consistency was valid — the problem was Google Sheets, not my expectations.
+
+The solution: bypass the shortcut system entirely and automate the menu accelerator sequences (Insert → Columns/Rows → direction) through Hammerspoon's `keystroke-sequence` action type, posting directly to the app to avoid the Hyperkey modifier conflict.
+
+References:
+- [Claude conversation](https://claude.ai/chat/802e77d8-2da4-4704-b2c0-45cd149d4c61) that led to discovering SheetWiz
+- [Email thread with David Pang](https://mail.google.com/mail/u/0/#inbox/FMfcgzQgLFfdXdhfcwbKGGhPqjHZrPdG) confirming the Google limitation
