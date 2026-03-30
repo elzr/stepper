@@ -913,21 +913,8 @@ hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
 -- Manual layout restore: fn+ctrl+alt+shift+delete (reads pinned save, fallback to autosave)
 hs.hotkey.bind({"ctrl", "alt", "shift"}, "forwarddelete", layout.manualRestore)
 
--- Save state before sleep, prompt restore on wake
-hs.caffeinate.watcher.new(function(event)
-  if event == hs.caffeinate.watcher.systemWillSleep
-  or event == hs.caffeinate.watcher.screensDidSleep then
-    print("[stepper] Sleep/screen-off — saving Bear positions + layout")
-    bear_hud.saveCurrentPosition()
-    layout.autoSave()
-  elseif event == hs.caffeinate.watcher.screensDidWake then
-    print("[stepper] Wake detected — checking displays")
-    layout.onWake()
-  end
-end):start()
-
 -- Weekly bear-notes.jsonc updater (replaces launchd which can't access CloudStorage)
--- Runs on load + daily at 7am. The python script is idempotent.
+-- Runs on load, on wake, and daily at 7am. The python script is idempotent.
 local weekUpdateScript = projectRoot .. "features/local/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
 local function updateBearWeeks()
   hs.task.new("/usr/bin/python3", function(exitCode, stdout, stderr)
@@ -940,6 +927,20 @@ local function updateBearWeeks()
 end
 updateBearWeeks()  -- run on load
 hs.timer.doAt("07:00", "1d", updateBearWeeks)
+
+-- Save state before sleep, prompt restore on wake
+hs.caffeinate.watcher.new(function(event)
+  if event == hs.caffeinate.watcher.systemWillSleep
+  or event == hs.caffeinate.watcher.screensDidSleep then
+    print("[stepper] Sleep/screen-off — saving Bear positions + layout")
+    bear_hud.saveCurrentPosition()
+    layout.autoSave()
+  elseif event == hs.caffeinate.watcher.screensDidWake then
+    print("[stepper] Wake detected — checking displays")
+    layout.onWake()
+    updateBearWeeks()
+  end
+end):start()
 
 -- Shift-first detection: press shift before fn to resize from the top-left anchor.
 -- This callback rides on bear-hud's raltWatcher because it's the only flagsChanged
