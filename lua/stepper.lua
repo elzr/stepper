@@ -917,7 +917,7 @@ hs.hotkey.bind({"ctrl", "alt", "shift"}, "forwarddelete", layout.manualRestore)
 
 -- Weekly bear-notes.jsonc updater (replaces launchd which can't access CloudStorage)
 -- Runs on load, on wake, and daily at 7am. The python script is idempotent.
-local weekUpdateScript = projectRoot .. "features/local/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
+local weekUpdateScript = projectRoot .. "features/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
 local function updateBearWeeks()
   hs.task.new("/usr/bin/python3", function(exitCode, stdout, stderr)
     if exitCode == 0 then
