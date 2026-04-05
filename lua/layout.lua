@@ -7,20 +7,57 @@
 -- layout.manualRestore() — restore from pinned save (fallback to autosave)
 -- layout.gather()        — consolidate all windows into one space on the built-in display
 --
--- Designed for a 5-display setup with 4 identical LG HDR 4K monitors (no serials).
+-- Supports multiple display configurations identified by screen count.
+-- Each config gets its own layout file, manual save, and backup ring.
 -- Screens are identified by spatial position name (via screenswitch.buildScreenMap),
 -- with origin/resolution fallback for backwards compatibility.
 
 local M = {}
 
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
-local dataFile = scriptPath .. "../data/window-layout.json"
-local manualFile = scriptPath .. "../data/window-layout-manual.json"
-local backupDir = scriptPath .. "../data/layout-backups/"
+local dataDir = scriptPath .. "../data/"
+local backupDir = dataDir .. "layout-backups/"
 local lunarSyncScript = scriptPath .. "../features/sync-display-names-in-Lunar/lunar-sync-names.py"
 
-local TARGET_DISPLAY_COUNT = 5
+-- Known display configurations, keyed by screen count
+local KNOWN_CONFIGS = {
+  [5] = { name = "quad-32",   lunarSync = true  },
+  [3] = { name = "37-and-43", lunarSync = false },
+  [2] = { name = "only-43",   lunarSync = false },
+  [1] = { name = "native",    lunarSync = false },
+}
+
+local function configForCount(n)
+  return KNOWN_CONFIGS[n]
+end
+
+-- Per-config file paths
+local function dataFileForCount(n)
+  return dataDir .. string.format("window-layout-%d.json", n)
+end
+
+local function manualFileForCount(n)
+  return dataDir .. string.format("window-layout-manual-%d.json", n)
+end
+
+local function backupNameForCount(ring, slot, count)
+  return backupDir .. string.format("layout-%s-%02d-c%d.json", ring, slot, count)
+end
+
+-- Active config state
+local activeConfig = nil   -- current KNOWN_CONFIGS entry, or nil
+local activeCount = 0      -- screen count of the active config
+
+local function currentDataFile()
+  return activeCount > 0 and dataFileForCount(activeCount) or nil
+end
+
+local function currentManualFile()
+  return activeCount > 0 and manualFileForCount(activeCount) or nil
+end
+
 local DEBOUNCE_DELAY = 2          -- seconds (screens appear sequentially)
+local STABILITY_DELAY = 3         -- seconds after debounce before committing to a config
 local PERIODIC_SAVE_INTERVAL = 60   -- 1 minute
 local PERIODIC_10M_INTERVAL = 600   -- 10 minutes
 local LUNAR_SYNC_DELAY = 3         -- seconds after screen stabilization
@@ -30,6 +67,7 @@ local RING_10M_SIZE = 10            -- keep 10 ten-minute backups
 
 local screenWatcher = nil
 local debounceTimer = nil
+local stabilityTimer = nil
 local periodicTimer = nil
 local periodic10mTimer = nil
 local lunarSyncTimer = nil
@@ -38,9 +76,9 @@ local lastScreenCount = 0
 local SAVE_TRIGGER_DELAY = 3        -- seconds after last triggered operation
 local LOG_RETENTION = 600            -- 10 minutes of log entries
 
--- Ring buffer indices (1-based, wrap around)
-local ring1mIndex = 0
-local ring10mIndex = 0
+-- Ring buffer indices per config: [screenCount] = current slot
+local ring1mIndex = {}
+local ring10mIndex = {}
 
 -- Module references (set during init)
 local screenswitch = nil
@@ -243,20 +281,26 @@ local function copyFile(src, dst)
 end
 
 local function rotateRing1m()
+  if activeCount == 0 then return end
   ensureBackupDir()
-  ring1mIndex = (ring1mIndex % RING_1M_SIZE) + 1
-  local dst = backupDir .. string.format("layout-1m-%02d.json", ring1mIndex)
-  if copyFile(dataFile, dst) then
-    logEvent("backup-1m", string.format("slot %d/%d", ring1mIndex, RING_1M_SIZE))
+  local idx = ((ring1mIndex[activeCount] or 0) % RING_1M_SIZE) + 1
+  ring1mIndex[activeCount] = idx
+  local src = currentDataFile()
+  local dst = backupNameForCount("1m", idx, activeCount)
+  if src and copyFile(src, dst) then
+    logEvent("backup-1m", string.format("slot %d/%d (c%d)", idx, RING_1M_SIZE, activeCount))
   end
 end
 
 local function rotateRing10m()
+  if activeCount == 0 then return end
   ensureBackupDir()
-  ring10mIndex = (ring10mIndex % RING_10M_SIZE) + 1
-  local dst = backupDir .. string.format("layout-10m-%02d.json", ring10mIndex)
-  if copyFile(dataFile, dst) then
-    logEvent("backup-10m", string.format("slot %d/%d", ring10mIndex, RING_10M_SIZE))
+  local idx = ((ring10mIndex[activeCount] or 0) % RING_10M_SIZE) + 1
+  ring10mIndex[activeCount] = idx
+  local src = currentDataFile()
+  local dst = backupNameForCount("10m", idx, activeCount)
+  if src and copyFile(src, dst) then
+    logEvent("backup-10m", string.format("slot %d/%d (c%d)", idx, RING_10M_SIZE, activeCount))
   end
 end
 
@@ -378,6 +422,10 @@ end
 -- ---------------------------------------------------------------------------
 
 function M.save()
+  if not activeConfig then return end
+  local df = currentDataFile()
+  if not df then return end
+
   local windows = hs.window.orderedWindows()
   local entries = {}
   local idToPos = buildScreenIdToPosition()
@@ -446,16 +494,17 @@ function M.save()
   end
 
   local json = hs.json.encode(entries, true)
-  local fh, err = io.open(dataFile, "w")
+  local fh, err = io.open(df, "w")
   if not fh then
-    print("[layout.save] ERROR: could not write " .. dataFile .. ": " .. tostring(err))
+    print("[layout.save] ERROR: could not write " .. df .. ": " .. tostring(err))
     return
   end
   fh:write(json)
   fh:close()
 
-  logEvent("save", string.format("%d windows; Bear: %s", #entries, table.concat(summary, ", ")))
-  print(string.format("[layout.save] Saved %d windows to %s", #entries, dataFile))
+  logEvent("save", string.format("%d windows (%s); Bear: %s",
+    #entries, activeConfig.name, table.concat(summary, ", ")))
+  print(string.format("[layout.save] Saved %d windows to %s", #entries, df))
 
   -- Rotate into 1-minute backup ring
   rotateRing1m()
@@ -471,14 +520,19 @@ end
 -- ---------------------------------------------------------------------------
 
 function M.restore()
-  local fh = io.open(dataFile, "r")
+  local df = currentDataFile()
+  if not df then
+    print("[layout.restore] No active config")
+    return {}
+  end
+  local fh = io.open(df, "r")
   if not fh then
-    print("[layout.restore] No saved layout found at " .. dataFile)
+    print("[layout.restore] No saved layout found at " .. df)
     return {}
   end
   local json = fh:read("*a")
   fh:close()
-  return M.restoreFromJSON(json, dataFile) or {}
+  return M.restoreFromJSON(json, df) or {}
 end
 
 -- ---------------------------------------------------------------------------
@@ -487,9 +541,11 @@ end
 
 function M.manualSave()
   clearProtection("manual save")
-  M.save()  -- writes to main dataFile + 1m ring as usual
-  if copyFile(dataFile, manualFile) then
-    logEvent("manual-save", manualFile)
+  M.save()  -- writes to currentDataFile() + 1m ring as usual
+  local df = currentDataFile()
+  local mf = currentManualFile()
+  if df and mf and copyFile(df, mf) then
+    logEvent("manual-save", mf)
     print("[layout] Manual layout saved (pinned)")
     hs.alert.show("Layout saved")
   else
@@ -505,12 +561,14 @@ function M.manualRestore()
   cancelRetry("manual restore")
   clearProtection("manual restore")
   -- Try manual save first
-  local fh = io.open(manualFile, "r")
-  local source = manualFile
+  local mf = currentManualFile()
+  local df = currentDataFile()
+  local fh = mf and io.open(mf, "r") or nil
+  local source = mf
   if not fh then
     -- Fallback to latest autosave
-    fh = io.open(dataFile, "r")
-    source = dataFile
+    fh = df and io.open(df, "r") or nil
+    source = df
     if not fh then
       print("[layout.restore] No saved layout found (checked manual + auto)")
       hs.alert.show("No saved layout found")
@@ -850,12 +908,12 @@ function M.gather()
 end
 
 -- ---------------------------------------------------------------------------
--- M.autoSave() — guarded: only saves when at TARGET_DISPLAY_COUNT
+-- M.autoSave() — guarded: only saves when at a known config
 -- ---------------------------------------------------------------------------
 
 function M.autoSave()
   local count = #hs.screen.allScreens()
-  if count ~= TARGET_DISPLAY_COUNT then
+  if not activeConfig or count ~= activeCount then
     return
   end
   if retryActive then
@@ -917,11 +975,12 @@ local function startPeriodicSave()
   end)
   if periodic10mTimer then periodic10mTimer:stop() end
   periodic10mTimer = hs.timer.doEvery(PERIODIC_10M_INTERVAL, function()
-    if #hs.screen.allScreens() == TARGET_DISPLAY_COUNT then
+    if activeConfig and #hs.screen.allScreens() == activeCount then
       rotateRing10m()
     end
   end)
-  print("[layout] Periodic auto-save started (1m + 10m rings)")
+  print(string.format("[layout] Periodic auto-save started for %s (1m + 10m rings)",
+    activeConfig and activeConfig.name or "?"))
 end
 
 local function stopPeriodicSave()
@@ -936,49 +995,110 @@ local function stopPeriodicSave()
   print("[layout] Periodic auto-save stopped")
 end
 
-local function onScreenChange()
-  -- Reset debounce timer on every callback (collapses rapid sequential detections)
-  if debounceTimer then debounceTimer:stop() end
-  debounceTimer = hs.timer.doAfter(DEBOUNCE_DELAY, function()
-    local count = #hs.screen.allScreens()
-    logEvent("screens", string.format("%d → %d", lastScreenCount, count))
+-- ---------------------------------------------------------------------------
+-- transitionToConfig — switch active config, restore layout
+-- ---------------------------------------------------------------------------
 
-    if count == TARGET_DISPLAY_COUNT and lastScreenCount ~= TARGET_DISPLAY_COUNT then
-      -- Transitioning TO 5 displays
-      -- Cancel any stale retry from a previous reconnection
-      cancelRetry("new screen change")
+local function transitionToConfig(newCount, newCfg)
+  local prevCfg = activeConfig
+  local prevCount = activeCount
 
-      hs.timer.doAfter(1, function()
-        print("[layout] Auto-restoring layout for " .. TARGET_DISPLAY_COUNT .. " displays")
+  logEvent("transition", string.format("%s (c%d) → %s (c%d)",
+    prevCfg and prevCfg.name or "none", prevCount,
+    newCfg.name, newCount))
 
-        -- Load saved layout for detection before restore
-        local fh = io.open(dataFile, "r")
-        if fh then
-          local json = fh:read("*a")
-          fh:close()
-          local ok, savedEntries = pcall(hs.json.decode, json)
-          if ok and type(savedEntries) == "table" then
-            detectMacOSPlacements(savedEntries)
+  -- Do NOT save old config — macOS already shuffled windows from disconnected screens.
+  -- Periodic save (60s) + triggerSave() keep each config's file fresh.
+
+  -- Stop old config's timers
+  stopPeriodicSave()
+  cancelRetry("config transition")
+  clearProtection("config transition")
+
+  -- Activate new config
+  activeConfig = newCfg
+  activeCount = newCount
+
+  -- Restore new config's layout (after 1s settle for screens to stabilize)
+  local df = currentDataFile()
+  if df then
+    hs.timer.doAfter(1, function()
+      -- Bail if count changed during settle
+      if #hs.screen.allScreens() ~= newCount then return end
+
+      local fh = io.open(df, "r")
+      if fh then
+        local json = fh:read("*a")
+        fh:close()
+        local ok, savedEntries = pcall(hs.json.decode, json)
+        if ok and type(savedEntries) == "table" then
+          logEvent("transition-restore", string.format("restoring %s", newCfg.name))
+          print(string.format("[layout] Auto-restoring layout for %s (%d displays)",
+            newCfg.name, newCount))
+          detectMacOSPlacements(savedEntries)
+
+          local misses = M.restore()
+          if misses and #misses > 0 then
+            retryActive = true
+            logEvent("retry-start", string.format("%d missed windows", #misses))
+            retryMisses(misses, "transition-restore")
           end
         end
+      else
+        logEvent("transition-no-layout", string.format(
+          "no saved layout for %s, will create on first save", newCfg.name))
+      end
+    end)
+  end
 
-        local misses = M.restore()
-        if misses and #misses > 0 then
-          retryActive = true
-          logEvent("retry-start", string.format("%d missed windows", #misses))
-          retryMisses(misses, "auto-restore")
-        end
-      end)
-      startPeriodicSave()
-      -- Sync Lunar display names after a short delay for Lunar to detect screens
-      if lunarSyncTimer then lunarSyncTimer:stop() end
-      lunarSyncTimer = hs.timer.doAfter(LUNAR_SYNC_DELAY, syncLunarNames)
-    elseif count ~= TARGET_DISPLAY_COUNT and lastScreenCount == TARGET_DISPLAY_COUNT then
-      -- Transitioning FROM 5 displays
-      cancelRetry("displays disconnected")
-      clearProtection("displays disconnected")
-      stopPeriodicSave()
+  -- Start periodic saves for new config
+  startPeriodicSave()
+
+  -- Lunar sync only for configs that need it
+  if newCfg.lunarSync then
+    if lunarSyncTimer then lunarSyncTimer:stop() end
+    lunarSyncTimer = hs.timer.doAfter(LUNAR_SYNC_DELAY, syncLunarNames)
+  end
+end
+
+local function onScreenChange()
+  -- Cancel all pending timers on every callback
+  if debounceTimer then debounceTimer:stop() end
+  if stabilityTimer then stabilityTimer:stop() end
+
+  debounceTimer = hs.timer.doAfter(DEBOUNCE_DELAY, function()
+    local count = #hs.screen.allScreens()
+    logEvent("screens-debounced", string.format("%d → %d", lastScreenCount, count))
+
+    local cfg = configForCount(count)
+    if not cfg then
+      -- Transitional count (e.g., 4 during dock ramp-up) — wait for more changes
+      logEvent("screens-transitional", string.format("count=%d, no known config", count))
+      lastScreenCount = count
+      return
     end
+
+    if count == activeCount then
+      -- Already at this config — no transition needed
+      lastScreenCount = count
+      return
+    end
+
+    -- Known config, different from current — start stability check
+    logEvent("screens-stability-start", string.format("count=%d (%s), waiting %ds",
+      count, cfg.name, STABILITY_DELAY))
+
+    stabilityTimer = hs.timer.doAfter(STABILITY_DELAY, function()
+      local recheck = #hs.screen.allScreens()
+      if recheck ~= count then
+        logEvent("screens-stability-failed", string.format(
+          "expected %d, got %d — aborting transition", count, recheck))
+        return
+      end
+
+      -- Stable — execute transition
+      transitionToConfig(count, cfg)
+    end)
 
     lastScreenCount = count
   end)
@@ -991,17 +1111,19 @@ end
 local WAKE_SETTLE_DELAY = 1  -- seconds for displays/windows to stabilize after wake
 
 function M.onWake()
-  if #hs.screen.allScreens() ~= TARGET_DISPLAY_COUNT then
+  if not activeConfig then
     showRestoreHint()
     return
   end
 
   hs.timer.doAfter(WAKE_SETTLE_DELAY, function()
     -- Bail if displays changed during settle delay
-    if #hs.screen.allScreens() ~= TARGET_DISPLAY_COUNT then return end
+    if #hs.screen.allScreens() ~= activeCount then return end
 
     -- Load saved layout
-    local fh = io.open(dataFile, "r")
+    local df = currentDataFile()
+    if not df then return end
+    local fh = io.open(df, "r")
     if not fh then return end
     local json = fh:read("*a")
     fh:close()
@@ -1055,7 +1177,46 @@ function M.onWake()
 end
 
 -- ---------------------------------------------------------------------------
--- M.init() — start screen watcher and periodic save if already at 5
+-- migrateOldFiles — one-time migration from single layout files to per-config
+-- ---------------------------------------------------------------------------
+
+local function migrateOldFiles()
+  local oldData = dataDir .. "window-layout.json"
+  local oldManual = dataDir .. "window-layout-manual.json"
+  local newData = dataFileForCount(5)
+
+  -- Only migrate if old file exists and new file does NOT
+  local fh = io.open(newData, "r")
+  if fh then
+    fh:close()
+    return  -- already migrated
+  end
+
+  if copyFile(oldData, newData) then
+    logEvent("migrate", "window-layout.json → window-layout-5.json")
+  end
+  local newManual = manualFileForCount(5)
+  if copyFile(oldManual, newManual) then
+    logEvent("migrate", "window-layout-manual.json → window-layout-manual-5.json")
+  end
+
+  -- Migrate backup rings
+  for _, ring in ipairs({"1m", "10m"}) do
+    for i = 1, 10 do
+      local oldName = backupDir .. string.format("layout-%s-%02d.json", ring, i)
+      local newName = backupNameForCount(ring, i, 5)
+      local check = io.open(newName, "r")
+      if check then
+        check:close()
+      else
+        copyFile(oldName, newName)
+      end
+    end
+  end
+end
+
+-- ---------------------------------------------------------------------------
+-- M.init() — migrate, detect config, start screen watcher + periodic save
 -- ---------------------------------------------------------------------------
 
 function M.init(opts)
@@ -1063,15 +1224,22 @@ function M.init(opts)
   screenswitch = opts.screenswitch
   screenmemory = opts.screenmemory
 
+  migrateOldFiles()
+
   lastScreenCount = #hs.screen.allScreens()
+  local cfg = configForCount(lastScreenCount)
+  if cfg then
+    activeConfig = cfg
+    activeCount = lastScreenCount
+    print(string.format("[layout] Initial config: %s (%d screens)", cfg.name, lastScreenCount))
+    startPeriodicSave()
+  else
+    print(string.format("[layout] No known config for %d screens", lastScreenCount))
+  end
 
   screenWatcher = hs.screen.watcher.new(onScreenChange)
   screenWatcher:start()
   print("[layout] Screen watcher started")
-
-  if lastScreenCount == TARGET_DISPLAY_COUNT then
-    startPeriodicSave()
-  end
 end
 
 return M
