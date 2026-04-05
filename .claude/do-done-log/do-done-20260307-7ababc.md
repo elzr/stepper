@@ -1,7 +1,7 @@
 # Session: 20260307-7ababc
 
 ---
-*2026-03-07 15:13*
+*2026-03-07 15:13* <!-- 64af2d76 -->
 
 ## Eli:
 let's review what just happened right now, I was on my macbook + 1 big display configuration and I moved to macbook + 5 external displays and my expectation was that the windows that were on the big sincle external screen would move to the central screen but it's empty and the restore seems to be a mess, what happened?
@@ -25,9 +25,8 @@ Want me to implement this? The changes would be:
 2. **Restore**: match by position name → always finds the right physical screen regardless of origin coordinates  
 3. **Auto-restore**: actually call `M.restore()` (with a short delay) when transitioning to 5 displays, instead of just printing a hint
 
-
 ---
-*2026-03-07 15:15*
+*2026-03-07 15:15* <!-- 60fec003 -->
 
 ## Eli:
 ok, go ahead
@@ -46,13 +45,11 @@ All 24 windows now have position names. Here's a summary of the changes:
 
 Next time you dock into the 5-display setup, windows should auto-restore to their correct screens.
 
-
 ---
-*2026-03-07 15:19*
+*2026-03-07 15:19* <!-- 225390a8 -->
 
 ## Eli:
 commit & push
 
 ## Claude:
 Committed and pushed `6de955d`.
-

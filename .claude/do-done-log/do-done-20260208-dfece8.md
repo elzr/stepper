@@ -1,7 +1,7 @@
 # Session: 20260208-dfece8
 
 ---
-*2026-02-08 20:24*
+*2026-02-08 20:24* <!-- 62044114 -->
 
 ## Eli:
 Implement plan: Match macOS Tahoe continuous corners in border highlight
@@ -46,9 +46,8 @@ I have the wrong constants! Let me fix the constants and the path. The actual ju
 
 Let me also double-check by looking at a well-known implementation.
 
-
 ---
-*2026-02-08 20:30*
+*2026-02-08 20:30* <!-- 4675965a -->
 
 ## Eli:
 [Image: original 7680x4320, displayed at 2000x1125. Multiply coordinates by 3.84 to map to original image.]
@@ -71,4 +70,3 @@ Here's a summary of the changes:
 - `mousedrag.init()` call now passes the three `focus.*BorderCanvas` functions
 
 The key visual improvement: corners now use Apple's continuous curvature (3 bezier segments per corner) instead of circular arcs, matching macOS Tahoe window chrome. The curve starts at `1.53*r` from each corner and eases in through junction points at `0.63*r` and `0.075*r`, eliminating the abrupt curvature transition of circular arcs.
-

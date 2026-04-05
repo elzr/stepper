@@ -45,6 +45,26 @@ local function instant(fn)
   hs.window.animationDuration = original
 end
 
+-- Guard: prevent an operation from moving a window to a different screen.
+-- Captures frame before, checks after, and reverts instantly if screen changed.
+-- Uses instant() for the revert to eliminate visible flicker.
+local function guardScreen(op)
+  return function(...)
+    local win = hs.window.focusedWindow()
+    if not win then return end
+    local origScreen = win:screen()
+    local origFrame = win:frame()
+    op(...)
+    win = hs.window.focusedWindow()
+    if not win then return end
+    local newScreen = win:screen()
+    if newScreen and origScreen and newScreen ~= origScreen then
+      print("[stepper] screen-guard: blocked cross-screen move, reverting")
+      instant(function() win:setFrame(origFrame) end)
+    end
+  end
+end
+
 local function stepMove(dir)
   updateAnimationDuration()
   spoon.WinWin:stepMove(dir)
@@ -246,6 +266,24 @@ local function smartStepResize(dir)
   -- Skip wraparound when touching both opposite edges (max height/width)
   local bottomOnly = atBottom and not atTop
   local rightOnly = atRight and not atLeft
+
+  -- At max height/width — shrink from the opposite edge
+  if dir == "up" and atTop and atBottom then
+    -- Shrink from bottom, keep top pinned
+    stepResize("up")
+    local f = win:frame()
+    f.y = screen.y
+    instant(function() win:setFrame(f) end)
+    return
+  end
+  if dir == "left" and atLeft and atRight then
+    -- Shrink from right, keep left pinned
+    stepResize("left")
+    local f = win:frame()
+    f.x = screen.x
+    instant(function() win:setFrame(f) end)
+    return
+  end
 
   if dir == "down" and atBottom then
     -- Wraparound: bottom edge at screen bottom, shrink from top instead
@@ -785,15 +823,15 @@ local keyMap = {
 -- Define operations with modifiers
 local operations = {
   [{} ]                = {fn = function(dir) _G.shiftFirstMode = false; stepMove(dir) end},
-  [{"shift"}]          = {fn = function(dir)
+  [{"shift"}]          = {fn = guardScreen(function(dir)
     if _G.shiftFirstMode then
       topLeftAnchorResize(dir)
     else
       smartStepResize(dir)
     end
-  end},
+  end)},
   [{"ctrl"}]           = {fn = function(dir) _G.shiftFirstMode = false; moveToEdge(dir) end},
-  [{"ctrl", "shift"}]  = {fn = function(dir) _G.shiftFirstMode = false; resizeToEdge(dir) end},
+  [{"ctrl", "shift"}]  = {fn = guardScreen(function(dir) _G.shiftFirstMode = false; resizeToEdge(dir) end)},
   -- option is handled separately below for toggle shrink behavior
 }
 
