@@ -3,6 +3,13 @@ hs.loadSpoon("WinWin")
 -- Load modules
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 local projectRoot = scriptPath .. "../"
+
+-- Update bear-notes.jsonc week vars BEFORE loading bear-hud (synchronous).
+-- This ensures hotkeys bind to current week names without needing a second reload.
+local weekUpdateScript = projectRoot .. "features/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
+local weekOut, weekOk = hs.execute("/usr/bin/python3 " .. weekUpdateScript .. " 2>&1")
+local weekUpdateMsg = "[weekUpdate] " .. (weekOut or ""):gsub("\n$", "")
+
 local focus = dofile(scriptPath .. "focus.lua")
 local mousemove = dofile(scriptPath .. "mousemove.lua")
 local screenswitch = dofile(scriptPath .. "screenswitch.lua")
@@ -960,20 +967,26 @@ hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
 -- Manual layout restore: fn+ctrl+alt+shift+delete (reads pinned save, fallback to autosave)
 hs.hotkey.bind({"ctrl", "alt", "shift"}, "forwarddelete", layout.manualRestore)
 
--- Weekly bear-notes.jsonc updater (replaces launchd which can't access CloudStorage)
--- Runs on load, on wake, and daily at 7am. The python script is idempotent.
-local weekUpdateScript = projectRoot .. "features/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
-local function updateBearWeeks()
+-- Weekly bear-notes.jsonc updater for timer/wake (async, reloads if changed).
+-- The synchronous on-load update is at the top of this file.
+function updateBearWeeksAsync()
   hs.task.new("/usr/bin/python3", function(exitCode, stdout, stderr)
-    if exitCode == 0 then
-      print("[weekUpdate] " .. (stdout or ""):gsub("\n$", ""))
-    else
+    if exitCode ~= 0 then
       print("[weekUpdate] ERROR: " .. (stderr or ""):gsub("\n$", ""))
+      return
+    end
+    local out = (stdout or ""):gsub("\n$", "")
+    print("[weekUpdate] " .. out)
+    if out:find("CHANGED") then
+      hs.reload()
     end
   end, {weekUpdateScript}):start()
 end
-updateBearWeeks()  -- run on load
-hs.timer.doAt("07:00", "1d", updateBearWeeks)
+-- Monday midnight: the only day the week number changes.
+-- The on-load sync check and wake trigger handle other scenarios.
+hs.timer.doAt("00:01", "1d", function()
+  if os.date("*t").wday == 2 then updateBearWeeksAsync() end  -- 2 = Monday
+end)
 
 -- Save state before sleep, prompt restore on wake
 hs.caffeinate.watcher.new(function(event)
@@ -985,9 +998,11 @@ hs.caffeinate.watcher.new(function(event)
   elseif event == hs.caffeinate.watcher.screensDidWake then
     print("[stepper] Wake detected — checking displays")
     layout.onWake()
-    updateBearWeeks()
+    updateBearWeeksAsync()
   end
 end):start()
+
+print(weekUpdateMsg)
 
 -- Shift-first detection: press shift before fn to resize from the top-left anchor.
 -- This callback rides on bear-hud's raltWatcher because it's the only flagsChanged

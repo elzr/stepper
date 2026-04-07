@@ -3,16 +3,16 @@
     "title" : "mas2 | Evaluate: Map Libraries",
     "bundleID" : "net.kovidgoyal.kitty"
   },
-  "Q" : {
-    "title" : "_budget 2026",
+  "X" : {
+    "title" : "_meet Ale 21mar2026",
     "bundleID" : "net.shinyfrog.bear"
   },
   "Z" : {
-    "title" : "_hci feb2026",
+    "title" : "_meet tecnoMAS 6apr2026",
     "bundleID" : "net.shinyfrog.bear"
   },
-  "X" : {
-    "title" : "_meet Ale 21mar2026",
+  "Q" : {
+    "title" : "_budget 2026",
     "bundleID" : "net.shinyfrog.bear"
   }
 }
