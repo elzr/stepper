@@ -177,5 +177,56 @@ class TestEndToEnd(unittest.TestCase):
             os.unlink(tmp)
 
 
+# -- Hammerspoon integration (GC survival) ------------------------------------
+
+HS_CLI = "/Applications/Hammerspoon.app/Contents/Frameworks/hs/hs"
+
+
+def _hs_running():
+    """Return True if Hammerspoon is running."""
+    import subprocess
+    return subprocess.run(
+        ["pgrep", "-q", "Hammerspoon"], capture_output=True
+    ).returncode == 0
+
+
+def _hs_eval(lua_expr):
+    """Evaluate a Lua expression via Hammerspoon IPC and return stdout."""
+    import subprocess
+    r = subprocess.run(
+        [HS_CLI, "-c", lua_expr], capture_output=True, text=True, timeout=5
+    )
+    return r.stdout.strip()
+
+
+@unittest.skipUnless(
+    os.path.isfile(HS_CLI) and _hs_running(),
+    "Hammerspoon not available",
+)
+class TestHammerspoonIntegration(unittest.TestCase):
+    """Verify Lua-side timer and watcher survive garbage collection."""
+
+    def test_week_timer_survives_gc(self):
+        result = _hs_eval(
+            "collectgarbage('collect'); collectgarbage('collect'); "
+            "return type(_G._stepper and _G._stepper.weekTimer)"
+        )
+        self.assertEqual(result, "userdata", f"weekTimer type after GC: {result}")
+
+    def test_sleep_watcher_survives_gc(self):
+        result = _hs_eval(
+            "collectgarbage('collect'); collectgarbage('collect'); "
+            "return type(_G._stepper and _G._stepper.sleepWatcher)"
+        )
+        self.assertEqual(result, "userdata", f"sleepWatcher type after GC: {result}")
+
+    def test_startup_gc_selftest_logged(self):
+        console = _hs_eval("return hs.console.getConsole()")
+        self.assertIn(
+            "GC self-test: timer=alive watcher=alive", console,
+            "Startup GC self-test not found in console"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

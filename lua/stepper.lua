@@ -982,14 +982,20 @@ function updateBearWeeksAsync()
     end
   end, {weekUpdateScript}):start()
 end
+-- Persistent objects: stored on _G._stepper so they survive Lua GC.
+-- stepper.lua runs via dofile() — top-level locals go out of scope when it returns,
+-- making them eligible for GC. Globals rooted in _G are never collected.
+-- Also accessible via IPC for testing: hs -c "return type(_G._stepper.weekTimer)"
+_G._stepper = {}
+
 -- Monday midnight: the only day the week number changes.
 -- The on-load sync check and wake trigger handle other scenarios.
-hs.timer.doAt("00:01", "1d", function()
+_G._stepper.weekTimer = hs.timer.doAt("00:01", "1d", function()
   if os.date("*t").wday == 2 then updateBearWeeksAsync() end  -- 2 = Monday
 end)
 
--- Save state before sleep, prompt restore on wake
-hs.caffeinate.watcher.new(function(event)
+-- Save state before sleep, prompt restore on wake.
+_G._stepper.sleepWatcher = hs.caffeinate.watcher.new(function(event)
   if event == hs.caffeinate.watcher.systemWillSleep
   or event == hs.caffeinate.watcher.screensDidSleep then
     print("[stepper] Sleep/screen-off — saving Bear positions + layout")
@@ -1000,7 +1006,16 @@ hs.caffeinate.watcher.new(function(event)
     layout.onWake()
     updateBearWeeksAsync()
   end
-end):start()
+end)
+_G._stepper.sleepWatcher:start()
+
+-- GC self-test: prove timer and watcher survive collection.
+-- Runs on every reload — if this ever prints DEAD, the fix has regressed.
+collectgarbage("collect")
+collectgarbage("collect")
+print(string.format("[weekUpdate] GC self-test: timer=%s watcher=%s",
+  (type(_G._stepper.weekTimer) == "userdata") and "alive" or "DEAD",
+  (type(_G._stepper.sleepWatcher) == "userdata") and "alive" or "DEAD"))
 
 print(weekUpdateMsg)
 
