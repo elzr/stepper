@@ -17,6 +17,7 @@ local screenmemory = dofile(scriptPath .. "screenmemory.lua")
 bear_hud = dofile(scriptPath .. "bear-hud.lua")
 bear_paste = dofile(scriptPath .. "bear-paste.lua")
 layout = dofile(scriptPath .. "layout.lua")
+keymap = dofile(projectRoot .. "features/L009-keymap/keymap.lua")
 
 -- Clean up any orphaned focus highlights from previous session
 focus.clearHighlight()
@@ -957,6 +958,9 @@ bear_hud.init(projectRoot, focus)
 
 -- L008: intercept ⌘V in Bear, auto-shrink pasted images to 150px thumbnails
 bear_paste.init()
+
+-- Initialize keymap generator (L009-keymap)
+keymap.init(projectRoot)
 
 -- Initialize per-screen window position memory
 screenmemory.init()

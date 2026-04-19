@@ -1,0 +1,393 @@
+:root {
+  --bg: #0e0f12;
+  --fg: #e8e9eb;
+  --key-bg: #1c1d22;
+  --key-bg-hover: #25262d;
+  --key-border: #2c2d34;
+  --mod-bg: #1a2332;          /* tinted background for modifier keys */
+  --mod-border: #2a3a52;
+  --rcmd: #ff8a4c;
+  --hyper: #4ca8ff;
+  --other: #b78cff;
+  --warn: #ff5252;
+  --muted: #6b6e76;
+  --muted-2: #8b8e96;          /* slightly brighter for dual-row alt labels */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+  padding: 24px;
+  min-width: 1080px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+header {
+  display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+header h1 { font-size: 18px; font-weight: 600; }
+
+.legend {
+  display: flex; gap: 16px;
+  font-size: 12px; color: var(--muted);
+}
+
+.legend .layer.rcmd  { color: var(--rcmd); }
+.legend .layer.hyper { color: var(--hyper); }
+.legend .layer.other { color: var(--other); }
+
+.hyper-mark { color: var(--hyper); }
+
+.meta { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+/* ── Filters ────────────────────────────────────────────────────────────── */
+
+.filters {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filters button {
+  background: var(--key-bg);
+  color: var(--fg);
+  border: 1px solid var(--key-border);
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filters button:hover { background: var(--key-bg-hover); }
+.filters button.active { border-color: var(--fg); }
+
+.key-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--key-bg); border: 1px solid var(--key-border);
+  border-radius: 14px; padding: 4px 12px; font-size: 12px;
+}
+
+.key-pill[hidden] { display: none; }
+
+.key-pill button {
+  background: none; border: none; color: var(--fg);
+  cursor: pointer; padding: 0; font-size: 12px;
+}
+
+/* ── Keyboard ───────────────────────────────────────────────────────────── */
+
+.kb {
+  background: #16171c;
+  border: 1px solid var(--key-border);
+  border-radius: 8px;
+  padding: 8px;
+  max-width: 1040px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.row {
+  display: flex; gap: 4px;
+  min-height: 48px;
+}
+
+.row.func-row { min-height: 32px; }   /* fn row is shorter on MBP */
+
+.key {
+  position: relative;
+  flex: 1 1 0;
+  background: var(--key-bg);
+  border: 1px solid var(--key-border);
+  border-radius: 6px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 2px;
+  min-width: 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.key:hover { background: var(--key-bg-hover); border-color: #4a4d57; }
+
+.key.touchid {
+  flex: 0 0 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.key.wide { font-size: 11px; color: var(--muted); }
+.key.space { color: var(--muted); }
+
+/* Tinted modifiers (fn, ctrl, opt, cmd, shift, caps) */
+.key.tinted {
+  background: var(--mod-bg);
+  border-color: var(--mod-border);
+}
+.key.tinted:hover { background: #213049; }
+
+/* ── Render-style variants ──────────────────────────────────────────────── */
+
+/* All key styles reserve ~14px at the bottom for layer underlines. */
+
+/* Plain: a single centered label (default for letters and esc) */
+.key.style-plain {
+  padding: 4px 2px 14px 2px;
+}
+.key.style-plain .label { line-height: 1; font-size: 13px; }
+.row.func-row .key.style-plain .label { font-size: 11px; }
+
+/* Dual: tiny altLabel on top (centered), larger main label centered with underline clearance */
+.key.style-dual {
+  justify-content: flex-start;
+  align-items: center;
+  padding: 4px 4px 14px 4px;
+  gap: 4px;
+}
+.key.style-dual .alt {
+  font-size: 9px; color: var(--muted-2);
+  line-height: 1;
+}
+.key.style-dual .main {
+  font-size: 13px; line-height: 1;
+  margin-top: auto;
+}
+.key.style-dual.caps .alt  { font-size: 9px; color: var(--hyper); }
+.key.style-dual.caps .main { font-size: 12px; color: var(--fg); }
+
+/* Modifier: big symbol top-right, small label bottom-right (Apple-style).
+   Bottom-right padding accommodates the layer underlines too. */
+.key.style-mod {
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 4px 6px 14px 4px;
+}
+.key.style-mod .symbol {
+  align-self: flex-end;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--fg);
+}
+.key.style-mod .modlabel {
+  align-self: flex-end;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1;
+}
+/* fn has no symbol — center label */
+.key.style-plain.tinted .label { font-size: 11px; color: var(--fg); }
+
+/* Function-key: drained icon on top (smaller), F-label small at bottom.
+   DOM order: icon first, corner second → natural top-to-bottom flex layout. */
+.key.style-func {
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 2px 3px 2px;
+  gap: 1px;
+}
+.key.style-func .icon {
+  font-size: 11px;
+  line-height: 1;
+  filter: grayscale(100%) brightness(0.9);
+  opacity: 0.65;
+}
+.key.style-func .corner {
+  font-size: 8px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* Arrows: half-height, bottom-aligned */
+.key.arrow {
+  font-size: 10px;
+  color: var(--muted);
+  flex: 1 1 0;
+}
+.key.arrow.half-bottom {
+  align-self: flex-end;
+  height: 50%;
+  min-height: 0;
+  padding: 0;
+}
+.key.arrow.half {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.row.mod-row { align-items: stretch; }
+
+.arrow-stack {
+  flex: 1 1 0;
+  display: flex; flex-direction: column;
+  gap: 2px; min-width: 0;
+  align-self: stretch;
+}
+
+.key .hyper-mark {
+  position: absolute;
+  top: 3px; right: 5px;
+  font-size: 9px;
+  color: var(--hyper);
+}
+
+/* Underlines: stacked at bottom, in fixed slots */
+.key .under {
+  position: absolute;
+  left: 6px; right: 6px;
+  height: 2px;
+  border-radius: 1px;
+}
+/* Colors for underline spans (position set by slot-N) */
+.key .under.rcmd  { background: var(--rcmd); }
+.key .under.hyper { background: var(--hyper); }
+.key .under.other { background: var(--other); }
+
+/* Stacked underline slot positions (above the bottom border) */
+.key .under.slot-1 { bottom: 6px; }
+.key .under.slot-2 { bottom: 10px; }
+
+/* Primary layer = key's bottom border (drop-shadow feel). Always applied for 1+ layers. */
+.key.border-rcmd  { border-bottom: 2px solid var(--rcmd); }
+.key.border-hyper { border-bottom: 2px solid var(--hyper); }
+.key.border-other { border-bottom: 2px solid var(--other); }
+
+/* Padding-bottom scales with layer count to clear the stacked underlines.
+   These override the per-style defaults (style-plain/dual/mod). */
+.key.layers-1 { padding-bottom: 4px !important; }   /* just the border */
+.key.layers-2 { padding-bottom: 10px !important; }  /* border + slot-1 */
+.key.layers-3 { padding-bottom: 14px !important; }  /* border + slot-1 + slot-2 */
+
+.key .warn-dot {
+  position: absolute;
+  top: 3px; left: 4px;     /* opposite corner from hyper-mark */
+  width: 6px; height: 6px;
+  background: var(--warn);
+  border-radius: 50%;
+  cursor: help;
+}
+
+/* Drift warnings banner */
+.warnings {
+  background: rgba(255, 82, 82, 0.08);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  max-width: 1040px;
+  font-size: 12px;
+}
+.warnings h3 {
+  font-size: 12px; font-weight: 600;
+  color: var(--warn);
+  margin-bottom: 6px;
+}
+.warnings ul { list-style: none; padding-left: 0; }
+.warnings li { padding: 2px 0; }
+.warnings .key-badge {
+  display: inline-block;
+  font-family: "SF Mono", ui-monospace, monospace;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-right: 6px;
+  font-size: 11px;
+}
+.warnings .key-badge.rcmd  { color: var(--rcmd); }
+.warnings .key-badge.hyper { color: var(--hyper); }
+.warnings .key-badge.other { color: var(--other); }
+
+/* Bear note chip in the bindings table */
+a.bearchip {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--hyper);
+  background: rgba(76, 168, 255, 0.08);
+  border: 1px solid rgba(76, 168, 255, 0.25);
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-left: 4px;
+  text-decoration: none;
+  vertical-align: middle;
+}
+a.bearchip:hover { background: rgba(76, 168, 255, 0.18); }
+
+table.bindings .tool {
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+table.bindings code {
+  font-family: "SF Mono", ui-monospace, monospace;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+
+table.bindings .muted { color: var(--muted); font-style: italic; }
+
+table.bindings .key-cell u { text-decoration: underline; }
+table.bindings td a { color: var(--hyper); text-decoration: none; }
+table.bindings td a:hover { text-decoration: underline; }
+table.bindings td u { text-decoration: underline; text-decoration-color: var(--hyper); text-underline-offset: 2px; }
+
+/* Filtering visuals */
+.key.dim { opacity: 0.3; }
+.key.highlight { border-color: var(--fg); box-shadow: 0 0 0 1px var(--fg); }
+
+/* ── Bindings table ─────────────────────────────────────────────────────── */
+
+h2 {
+  margin: 24px 0 8px;
+  font-size: 14px; font-weight: 600;
+}
+
+table.bindings {
+  width: 100%; max-width: 1040px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+table.bindings th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--key-border);
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+table.bindings td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--key-border);
+  vertical-align: top;
+}
+
+table.bindings .key-cell {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-weight: 600;
+}
+
+table.bindings .layer-cell.rcmd  { color: var(--rcmd); }
+table.bindings .layer-cell.hyper { color: var(--hyper); }
+table.bindings .layer-cell.other { color: var(--other); }
+
+table.bindings .mod-cell { font-family: "SF Mono", ui-monospace, monospace; }
+table.bindings .mod-sym { font-weight: 600; margin-right: 2px; }
+table.bindings .mod-sym.rcmd  { color: var(--rcmd); }
+table.bindings .mod-sym.hyper { color: var(--hyper); }
+table.bindings .mod-sym.other { color: var(--other); }
+
+table.bindings tr.hidden { display: none; }

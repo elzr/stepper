@@ -126,6 +126,10 @@ A `"comment"` property works but pollutes the data structure — it gets parsed,
 
 Then run `~/bin/hs-reload.sh`.
 
+## Visual map
+
+==🔵[L009-keymap](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap)== renders this entire stack — plus rcmd's right-opt bindings — as a live HTML keyboard diagram with per-layer underlines. ◆ marks any key bound through the hyper modifier.
+
 ## Origin story
 
 Google Sheets has no direct keyboard shortcuts for inserting rows/columns in a specific direction. The built-in ctrl+shift+= inserts based on the current selection, which is inconsistent — sometimes it selects the full row/column, sometimes just a partial range, and the behavior changes depending on context. This inconsistency breaks muscle memory and forces you back to the menu every time.

@@ -1,0 +1,75 @@
+// L009-keymap editorial seed.
+//
+// Top-level: "rcmd" | "hyper" | "other"
+// Each is a map of keyOrChord -> entry.
+// Markdown is supported in `note`. [[wikilinks]] (in `bearNote` or inline in `note`)
+// resolve to bear:// URLs.
+//
+// Fields:
+//   mnemonic     : the mnemonic spelling, with ~tildes~ around the underlined letter
+//                  e.g. "c~A~lendar" — A is the mnemonic, rendered underlined.
+//   bearNote     : Bear wikilink to the related Bear note ([[title]])
+//   note         : free-form markdown annotation (rendered in the Notes column)
+//   expectedApp  : (rcmd only) drift warning — generator complains if rcmd plist
+//                  no longer binds this key to an app whose name contains expectedApp
+//   label        : (other only) primary label shown for this binding
+//   tool         : optional tag for which app/tool handles the shortcut
+//
+// Chord syntax for "other" entries: "F12", "cmd+\\", "hyper+1" — last token is the key,
+// preceding tokens are modifiers ("hyper" expands to ctrl+alt+shift+cmd).
+{
+  "rcmd": {
+    "a": { "mnemonic": "c~A~lendar", "bearNote": "[[_app Grila]]",
+           "note": "?? using [[_app Grila]] — would be nice to bind here" },
+    "b": { "mnemonic": "~B~ear",     "expectedApp": "Bear",     "bearNote": "[[_keys _Bear]]" },
+    "c": { "mnemonic": "~C~hrome",   "expectedApp": "Chrome",   "bearNote": "[[_app Chrome browser]]" },
+    "d": { "expectedApp": "Bitdefender VPN" },
+    "f": { "mnemonic": "~F~inder",   "expectedApp": "Finder" },
+    "g": { "mnemonic": "fi~G~ma",    "expectedApp": "Figma",    "bearNote": "[[_keys Figma]]" },
+    "h": { "mnemonic": "c~H~atGPT app", "expectedApp": "ChatGPT", "bearNote": "[[_ai ChatGPT]]" },
+    "i": { "mnemonic": "safar~I~",   "expectedApp": "Safari",   "bearNote": "[[_app Browser]]" },
+    "k": { "mnemonic": "~K~itty",    "expectedApp": "kitty",    "bearNote": "[[_app Kitty]]" },
+    "l": { "mnemonic": "c~L~aude app", "expectedApp": "Claude", "bearNote": "[[_ai Claude]]",
+           "note": "changed to match [Featurebase Raycast](https://topsight.internal/features/F020-featurebase/raycast/README.md) which doesn't accept ⌘A so I went with ⌘L" },
+    "m": { "mnemonic": "bloo~M~",    "expectedApp": "Bloom",    "bearNote": "[[_app Bloom]]" },
+    "p": { "mnemonic": "~P~hotos",   "expectedApp": "Photos",   "bearNote": "[[_apple Photos]]" },
+    "q": { "mnemonic": "curs~O~r",   "expectedApp": "Cursor",   "bearNote": "[[_ai Cursor]]",
+           "note": "next to VSCode's 1; **planning to drop** since I've stopped using Cursor" },
+    "r": { "mnemonic": "Activity Monito~R~", "expectedApp": "Activity Monitor" },
+    "s": { "mnemonic": "~S~potify",  "expectedApp": "Spotify",
+           "note": "Hiding doesn't seem to work" },
+    "t": { "mnemonic": "~T~elegram", "expectedApp": "Telegram", "bearNote": "[[_app Telegram]]" },
+    "u": { "mnemonic": "so~U~lver",  "expectedApp": "Soulver",  "bearNote": "[[_app Soulver 3]]" },
+    "v": { "mnemonic": "pre~V~iew",  "expectedApp": "Preview" },
+    "w": { "mnemonic": "~W~hatsapp", "expectedApp": "WhatsApp" },
+    "x": { "mnemonic": "pi~X~elmator", "expectedApp": "Pixelmator" },
+    "y": { "mnemonic": "s~Y~stem settings", "expectedApp": "System Settings" },
+    "z": { "mnemonic": "~Z~oom",     "expectedApp": "zoom",     "bearNote": "[[_app Zoom]]" },
+    "1": { "mnemonic": "VS~C~ode",   "expectedApp": "Visual Studio Code",
+           "bearNote": "[[_app VSCode]]", "note": "next to Cursor's q" }
+  },
+
+  "hyper": {
+    "n": { "mnemonic": "~N~OW",         "bearNote": "[[_mem NOW]]" },
+    "r": { "mnemonic": "~R~cmd",        "bearNote": "[[_app rcmd]]",
+           "note": "this very note explains the rcmd-side keymap" },
+    "d": { "mnemonic": "weekly ~D~ays" },
+    "w": { "mnemonic": "weekly ~W~ork" },
+    "t": { "mnemonic": "weekly ~T~houghts" },
+    "s": { "mnemonic": "top~S~ight",    "bearNote": "[[_topsight 2026]]" },
+    "m": { "mnemonic": "~M~oney",       "bearNote": "[[_money 2026]]" },
+    "i": { "mnemonic": "~I~ndex",       "bearNote": "[[_index 2026]]" },
+    "f": { "mnemonic": "~F~eaturebase",  "note": "Raycast deeplink to [Featurebase](https://topsight.internal/features/F020-featurebase/)" },
+    "p": { "mnemonic": "s~P~in",         "note": "Raycast deeplink to spin extension" }
+  },
+
+  "other": {
+    "F12":     { "label": "Monologue: start",        "tool": "Monologue" },
+    "cmd+\\":  { "label": "Monologue: cancel",       "tool": "Monologue" },
+    "hyper+1": { "label": "Bear: highlight 🟡yellow", "tool": "BetterTouchTool" },
+    "hyper+2": { "label": "Bear: highlight 🔴red",    "tool": "BetterTouchTool" },
+    "hyper+3": { "label": "Bear: highlight 🟢green",  "tool": "BetterTouchTool" },
+    "hyper+4": { "label": "Bear: highlight 🔵blue",   "tool": "BetterTouchTool" },
+    "hyper+5": { "label": "Bear: highlight 🟣purple", "tool": "BetterTouchTool" }
+  }
+}
