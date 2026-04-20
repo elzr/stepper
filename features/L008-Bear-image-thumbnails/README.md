@@ -2,15 +2,25 @@
 
 > Auto-shrink images pasted into [Bear](https://bear.app/) to 150px thumbnails; plus a selection-wide resize for cleaning up old notes (via [BetterTouchTool](https://folivora.ai/)).
 
-==🟢Status==: ==🟢shipped==. Hammerspoon paste-and-shrink working; BTT `⌥R` / `⇧⌥R` bugs fixed.
+==🟢Status==: ==🟢shipped==. ⌘V paste in Bear → image renders at 150px. Paste-app workflow (⌘⇧Space → Enter) also shrinks. Both the original false-trigger bugs (Repro 1: Enter on blockquote-image line; Repro 2: prepend `> ` to a just-pasted image) are dead.
 
-## The twist worth knowing
+## The essence vs. the complexity
 
-The implementation works — we just spent an hour thinking it didn't because our success check was wrong. See the [F027 case study](https://fleet.internal/features/F027-worldclass-code-debugging/case-2026-04-19-silent-wins-bear-ax-embeds.md) on "silent wins." Short version: Bear summarizes every embed as a single `￼` in the AX layer, so adding a width comment doesn't grow `AXValue` — we kept reporting failure on writes that were actually landing. Verify visually, not by length delta. Full details and other paths we tried in the [dev-guide](dev-guide.md).
+==🟣The essence is trivial==: append `<!-- {"width":150} -->` to the markdown right after Bear inserts an image embed. Bear re-renders the image at 150px.
+
+==🔴The complexity is all in "when to fire"==. Bear uses the same character (`￼`, U+FFFC) for image embeds AND for format glyphs (blockquote bars, bullets, horizontal rules, checkboxes — Bear draws them as tiny image tiles). From AX we can't tell them apart. So "a new `￼` appeared" matches every Enter that extends a blockquote, every `> ` typed at line start, every bullet creation. We need an *intent signal* — an explicit keystroke from the user — to disambiguate. See the [dev-guide](dev-guide.md) for the full journey, but the short version: the current design combines an app-level AX observer (detects the insertion) with a key-level eventtap (detects paste intent via ⌘V or ⌘⇧Space→Enter).
+
+## Surprises worth knowing
+
+- ==🟣Bear renders format glyphs as image tiles==, so they appear as `￼` in AXValue, indistinguishable from real image embeds. Nested-level bullets each have their own glyph variant (filled dot / open dot / diamond / open diamond / blockquote bar / nested bar / …). AX flattens every one of them to the same placeholder char.
+- ==🟣Silent AX writes==. `setAttributeValue("AXSelectedText", '<!-- ... -->')` succeeds but does NOT grow `AXValue` — the comment gets attached to the embed's markdown in Bear's SQLite, and AX still shows one `￼`. Verify visually (image shrinks) or via clipboard roundtrip (⌘A + ⌘C), not via length delta. Post-mortem: [F027 case study on "silent wins"](https://fleet.internal/features/F027-worldclass-code-debugging/case-2026-04-19-silent-wins-bear-ax-embeds.md).
+- ==🟣[Paste app](https://pasteapp.io/) does NOT synthesize ⌘V== when you pick a clip and hit Enter — verified by [paste-source-probe.lua](scripts/paste-source-probe.lua). So a ⌘V-only eventtap would break the Paste-app workflow; we added a ⌘⇧Space→Enter state machine to cover it.
 
 ## Contents
-- [The twist worth knowing](#the-twist-worth-knowing)
+- [The essence vs. the complexity](#the-essence-vs-the-complexity)
+- [Surprises worth knowing](#surprises-worth-knowing)
 - [Commands](#commands)
+- [Paste paths covered and not covered](#paste-paths-covered-and-not-covered)
 - [BTT JS bugs (fixed — two of them)](#btt-js-bugs-fixed--two-of-them)
 - [Bear "select-just-the-embed" anomaly](#bear-select-just-the-embed-anomaly)
 - [Design decisions](#design-decisions)
@@ -24,10 +34,21 @@ See [dev-guide.md](dev-guide.md) for the implementation deep-dive.
 | Shortcut | Where it lives | Scope | Size |
 |----------|----------------|-------|------|
 | `⌘V` (Bear only, auto) | Hammerspoon — [bear-paste.lua](../../lua/bear-paste.lua) | just-pasted image | 150px |
+| `⌘⇧Space → Enter` (Paste app → Bear) | Hammerspoon — [bear-paste.lua](../../lua/bear-paste.lua) | just-pasted image | 150px |
 | `⌥R` | BetterTouchTool — [btt-resize-thumbnails.js](btt-resize-thumbnails.js) | selection | 150px |
 | `⇧⌥R` | BetterTouchTool — [btt-resize-thumbnails.js](btt-resize-thumbnails.js) | selection | 300px |
 
-The `⌥R` pair is retained — different workflow ("I'm cleaning up an old note, make everything small"). `⌘V` works only for image pastes; plain-text pastes pass through unchanged.
+The `⌥R` pair is retained — different workflow ("I'm cleaning up an old note, make everything small"). The auto-shrink path fires only for image pastes; plain-text pastes pass through unchanged.
+
+## Paste paths covered and not covered
+
+| Path | Behavior |
+|------|----------|
+| ⌘V in Bear | ==🟢auto-shrinks== |
+| Paste app: ⌘⇧Space → Enter | ==🟢auto-shrinks== |
+| Paste app: ⌘⇧Space → Esc / ⌘⇧Space / mouse-click | ==🔵no-op== (browsing, cancelled, or mouse path — watch times out harmlessly) |
+| Drag-and-drop from Finder / web | ==🔴not covered== — no keystroke to latch onto. Use `⌥R` after. |
+| Edit→Paste menu | ==🔴not covered== — same reason. Use `⌘V` or `⌥R`. |
 
 ## BTT JS bugs (fixed — two of them)
 
@@ -73,8 +94,11 @@ When you select ==🟣only== an image in Bear (no surrounding text) and run `⌥
 ## Key files
 
 - [dev-guide.md](dev-guide.md) — how the implementation works, other paths we tried, gotchas, and the AX skill stack
-- [bear-paste.lua](../../lua/bear-paste.lua) — the Hammerspoon module (observer-based, ~100 lines)
+- [bear-paste.lua](../../lua/bear-paste.lua) — the Hammerspoon module (AX observer + paste-intent eventtap)
 - [btt-resize-thumbnails.js](btt-resize-thumbnails.js) — the patched JS for BetterTouchTool (drop-in replacement for the current action)
 - [test-btt-versions.js](test-btt-versions.js) — original vs fixed side-by-side; `node test-btt-versions.js`
 - [scripts/bear-ax-probe.lua](scripts/bear-ax-probe.lua) — diagnostic probe for exploring Bear's AX tree (load in HS console via `dofile(...)`)
+- [scripts/bear-paste-trace.lua](scripts/bear-paste-trace.lua) — log-only observer that records every AXSelectedTextChanged fire to NDJSON. Used to diagnose the format-glyph trap
+- [scripts/drive-trace-run.lua](scripts/drive-trace-run.lua) — synthetic driver that runs the reproduction scenarios into a test note, with AX-focus safety checks
+- [scripts/paste-source-probe.lua](scripts/paste-source-probe.lua) — logs ⌘V events with source PID to answer "does app X synthesize ⌘V?"
 - [F027 case study](https://fleet.internal/features/F027-worldclass-code-debugging/case-2026-04-19-silent-wins-bear-ax-embeds.md) — the debugging post-mortem on silent wins
