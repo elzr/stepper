@@ -18,6 +18,7 @@ bear_hud = dofile(scriptPath .. "bear-hud.lua")
 bear_paste = dofile(scriptPath .. "bear-paste.lua")
 layout = dofile(scriptPath .. "layout.lua")
 keymap = dofile(projectRoot .. "features/L009-keymap/keymap.lua")
+ofsr = dofile(scriptPath .. "move-to-resize-on-single-screen.lua")
 
 -- Clean up any orphaned focus highlights from previous session
 focus.clearHighlight()
@@ -79,6 +80,29 @@ local function stepMove(dir)
   spoon.WinWin:stepMove(dir)
 end
 
+-- L010: on single-screen, fuse move with absorb-into-edge ("shove and stretch").
+-- See features/L010-move-to-resize-on-single-screen/design.md
+local function dispatchStepMove(dir)
+  if #hs.screen.allScreens() == 1 then
+    updateAnimationDuration()
+    ofsr.shove(hs.window.focusedWindow(), dir)
+  else
+    stepMove(dir)
+  end
+end
+
+-- L010: ops that take explicit position/size control (snap-to-edge, maximize,
+-- shrink, etc.) reset the virtual frame so subsequent moves start from a
+-- clean slate. Reset is a no-op outside single-screen mode.
+local function withReset(fn)
+  return function(...)
+    fn(...)
+    if #hs.screen.allScreens() == 1 then
+      ofsr.reset(hs.window.focusedWindow())
+    end
+  end
+end
+
 local function stepResize(dir)
   updateAnimationDuration()
   spoon.WinWin:stepResize(dir)
@@ -86,8 +110,9 @@ end
 
 -- Minimum shrink sizes for specific apps (add more as needed)
 local minShrinkSize = {
-  kitty = {w = 900, h = 400},
+  kitty = {w = 500, h = 200},
 }
+ofsr.init({ minShrinkSize = minShrinkSize })
 
 -- Default compact size for PiP mode
 local defaultCompactSize = {w = 400, h = 300}
@@ -829,18 +854,52 @@ local keyMap = {
   pagedown = "down"
 }
 
+-- Enforce min size on shift+arrow shrink (manual resize). Without this,
+-- WinWin's stepResize and smartStepResize allow shrinking to 1px tall.
+local function clampSizeToFloor(win)
+  if not win then return end
+  local size = win:size()
+  local appName = (win:application() and win:application():name() or ""):lower()
+  local appMin = minShrinkSize[appName] or {}
+  local floorW = math.max(200, appMin.w or 0)
+  local floorH = math.max(200, appMin.h or 0)
+  if size.w < floorW or size.h < floorH then
+    instant(function()
+      win:setSize({w = math.max(floorW, size.w), h = math.max(floorH, size.h)})
+    end)
+  end
+end
+
+-- L010: shift+arrow resize preserves absorbed offset (B4) by mirroring the
+-- visible-frame delta onto the virtual frame. Lives here, not earlier, because
+-- it captures smartStepResize/topLeftAnchorResize as upvalues.
+local function shiftResize(dir)
+  local win = hs.window.focusedWindow()
+  if not win then
+    if _G.shiftFirstMode then topLeftAnchorResize(dir) else smartStepResize(dir) end
+    return
+  end
+  local before = win:frame()
+  if _G.shiftFirstMode then topLeftAnchorResize(dir) else smartStepResize(dir) end
+  win = hs.window.focusedWindow()
+  if win then clampSizeToFloor(win) end
+  if #hs.screen.allScreens() == 1 then
+    win = hs.window.focusedWindow()
+    if win then
+      local after = win:frame()
+      ofsr.bumpVirtual(win,
+        after.x - before.x, after.y - before.y,
+        after.w - before.w, after.h - before.h)
+    end
+  end
+end
+
 -- Define operations with modifiers
 local operations = {
-  [{} ]                = {fn = function(dir) _G.shiftFirstMode = false; stepMove(dir) end},
-  [{"shift"}]          = {fn = guardScreen(function(dir)
-    if _G.shiftFirstMode then
-      topLeftAnchorResize(dir)
-    else
-      smartStepResize(dir)
-    end
-  end)},
-  [{"ctrl"}]           = {fn = function(dir) _G.shiftFirstMode = false; moveToEdge(dir) end},
-  [{"ctrl", "shift"}]  = {fn = guardScreen(function(dir) _G.shiftFirstMode = false; resizeToEdge(dir) end)},
+  [{} ]                = {fn = function(dir) _G.shiftFirstMode = false; dispatchStepMove(dir) end},
+  [{"shift"}]          = {fn = guardScreen(shiftResize)},
+  [{"ctrl"}]           = {fn = function(dir) _G.shiftFirstMode = false; withReset(moveToEdge)(dir) end},
+  [{"ctrl", "shift"}]  = {fn = guardScreen(function(dir) _G.shiftFirstMode = false; withReset(resizeToEdge)(dir) end)},
   -- option is handled separately below for toggle shrink behavior
 }
 
@@ -853,23 +912,23 @@ for key, dir in pairs(keyMap) do
     end
 end
 
--- Special bindings for option (shrink/grow)
-bindWithRepeat({"option"}, "home", function() toggleShrink("left") end)
-bindWithRepeat({"option"}, "pageup", function() toggleShrink("up") end)
-bindWithRepeat({"option"}, "end", function() toggleShrinkOrMax("right") end)
-bindWithRepeat({"option"}, "pagedown", function() toggleShrinkOrMax("down") end)
+-- Special bindings for option (shrink/grow). withReset clears L010 virtual frame.
+bindWithRepeat({"option"}, "home", withReset(function() toggleShrink("left") end))
+bindWithRepeat({"option"}, "pageup", withReset(function() toggleShrink("up") end))
+bindWithRepeat({"option"}, "end", withReset(function() toggleShrinkOrMax("right") end))
+bindWithRepeat({"option"}, "pagedown", withReset(function() toggleShrinkOrMax("down") end))
 
--- Special bindings for cmd (focus direction on same screen)
+-- Special bindings for cmd (focus direction on same screen) — focus only, no reset
 bindWithRepeat({"cmd"}, "home", function() focus.focusDirection("left") end)
 bindWithRepeat({"cmd"}, "end", function() focus.focusDirection("right") end)
 bindWithRepeat({"cmd"}, "pageup", function() focus.focusDirection("up") end)
 bindWithRepeat({"cmd"}, "pagedown", function() focus.focusDirection("down") end)
 
--- Special bindings for shift+option (center/maximize/half-third)
-bindWithRepeat({"shift", "option"}, "home", function() cycleHalfThird("left") end)
-bindWithRepeat({"shift", "option"}, "end", function() cycleHalfThird("right") end)
-bindWithRepeat({"shift", "option"}, "pageup", toggleMaximize)
-bindWithRepeat({"shift", "option"}, "pagedown", toggleCenter)
+-- Special bindings for shift+option (center/maximize/half-third). withReset clears L010 virtual frame.
+bindWithRepeat({"shift", "option"}, "home", withReset(function() cycleHalfThird("left") end))
+bindWithRepeat({"shift", "option"}, "end", withReset(function() cycleHalfThird("right") end))
+bindWithRepeat({"shift", "option"}, "pageup", withReset(toggleMaximize))
+bindWithRepeat({"shift", "option"}, "pagedown", withReset(toggleCenter))
 
 -- Special bindings for option+cmd (focus across screens)
 bindWithRepeat({"option", "cmd"}, "home", function() focus.focusScreen("left") end)
@@ -924,21 +983,30 @@ local function moveToDisplay(position)
   local app = win:application()
   layout.triggerSave(string.format("move-to-display:%s '%s'", position, app and app:name() or "?"))
 end
-hs.hotkey.bind({"ctrl", "alt"}, "down", function() moveToDisplay("bottom") end)
-hs.hotkey.bind({"ctrl", "alt"}, "up", function() moveToDisplay("top") end)
-hs.hotkey.bind({"ctrl", "alt"}, "left", function() moveToDisplay("left") end)
-hs.hotkey.bind({"ctrl", "alt"}, "right", function() moveToDisplay("right") end)
-hs.hotkey.bind({"ctrl", "alt"}, "return", function() moveToDisplay("center") end)
+hs.hotkey.bind({"ctrl", "alt"}, "down", withReset(function() moveToDisplay("bottom") end))
+hs.hotkey.bind({"ctrl", "alt"}, "up", withReset(function() moveToDisplay("top") end))
+hs.hotkey.bind({"ctrl", "alt"}, "left", withReset(function() moveToDisplay("left") end))
+hs.hotkey.bind({"ctrl", "alt"}, "right", withReset(function() moveToDisplay("right") end))
+hs.hotkey.bind({"ctrl", "alt"}, "return", withReset(function() moveToDisplay("center") end))
 
 -- Unassigned functions still available: toggleFullScreen, toggleCompact
 
--- Show focus highlight on current window (fn+cmd+delete = forwarddelete)
+-- Show focus highlight on current window (fn+cmd+delete = forwarddelete).
+-- L010: also doubles as a virtual-frame resetter on single-screen mode — when
+-- the focused window has an L010 squeeze, this clears it (so the next move
+-- slides instead of stretching back) and flashes a red border instead.
+local L010_RESET_RED = {red = 0.9, green = 0.2, blue = 0.2, alpha = 0.95}
 hs.hotkey.bind({"cmd"}, "forwarddelete", function()
   local win = hs.window.focusedWindow()
-  if win then
-    local frame = win:frame()
-    local screen = win:screen():name()
-    local app = win:application():name()
+  if not win then return end
+  local frame = win:frame()
+  local screen = win:screen():name()
+  local app = win:application():name()
+  if ofsr.getVirtual(win) then
+    print(string.format("[ofsr-reset] %s at x=%d on %s (virtual cleared)", app, frame.x, screen))
+    ofsr.reset(win)
+    focus.flashFocusHighlight(win, nil, {color = L010_RESET_RED})
+  else
     local tracked = focus.getTrackingInfo()
     print(string.format("[confirmFocus] %s at x=%d on %s (tracked: %s)",
       app, frame.x, screen, tracked and tostring(tracked) or "none"))
