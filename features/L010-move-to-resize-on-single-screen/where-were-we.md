@@ -1,6 +1,18 @@
 # L010 — where were we
 
-> Snapshot for resuming after a break. Captures what's shipped, what's deferred, what's haunted, and how to pick up. Last updated: 2026-04-26.
+> Snapshot for resuming after a break. Captures what's shipped, what's deferred, what's haunted, and how to pick up. Last updated: 2026-04-30.
+
+## v0.4 — pared back to mechanical shove (2026-04-30)
+
+==🟣Direction change==: stretch-back was removed. The kinesthetic metaphor was nice in theory but in daily use, ==🔴moving back almost never wanted regrowth==. Shift+arrow already covers intentional resize-from-edge, so the "stretch back" half of the model paid persistence/divergence/restore complexity for an interaction that was usually unwanted.
+
+==🟢Current model==: the [shove](#current-state--whats-shipped) math from v0.1 stayed, applied one-shot per keypress with no stored state. Press past edge → off-screen overflow becomes shrink. Press back → it's a normal slide. Floor cap still per-app.
+
+==🔴Removed==: virtual-frame state, disk persistence ([data/move-to-resize-on-single-screen.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/move-to-resize-on-single-screen.json) deleted), divergence detection, `bumpVirtual` (B4), `resetWithNotice` (mousemove onDragStart hook), eager Bear restore (`APP_PRESERVE_ON_CLOSE`), title-rename migration, fresh-window heuristic, green stretch flash, the `withReset` wrapper across sibling ops in [stepper.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua), and the L010-reset path on fn+cmd+Del.
+
+==🔵Module size==: ~585 lines → ~175 lines.
+
+==🟣If we ever want stretch-back again==: the full v0.1–v0.3.5 implementation is preserved in git history at commit `7939d28` (L010 pause point). The design lineage (previous-vs-virtual parameters, virtual frame mental model) below is kept verbatim as historical record; the v0.1-v0.3.5 sections describe a system that ==🔴no longer matches the code==.
 
 ## Contents
 

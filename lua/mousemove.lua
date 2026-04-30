@@ -15,10 +15,6 @@ local createBorderCanvas = nil
 local updateBorderCanvas = nil
 local deleteBorderCanvas = nil
 
--- Optional hook fired once per drag at the moment the drag starts (idle → move/resize).
--- Used by L010 to drop its virtual frame proactively when fn-drag begins.
-local onDragStart = nil
-
 -- Persistent move border highlight
 local moveBorder = nil
 
@@ -189,7 +185,6 @@ local function createMouseMoveHandler()
                     moveState.window = win
                     win:raise()
                     showMoveBorder(win:frame(), win)
-                    if onDragStart then onDragStart(win) end
                     local frame = win:frame()
                     moveState.windowStartX = frame.x
                     moveState.windowStartY = frame.y
@@ -265,7 +260,6 @@ function M.init(opts)
     createBorderCanvas = opts.createBorderCanvas
     updateBorderCanvas = opts.updateBorderCanvas
     deleteBorderCanvas = opts.deleteBorderCanvas
-    onDragStart = opts.onDragStart
 
     -- Start the eventtaps
     startEventTaps()

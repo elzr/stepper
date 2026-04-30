@@ -1,10 +1,26 @@
 # L010 — move-to-resize-on-single-screen
 
-> When on a single screen, moving a window past a screen edge absorbs the off-screen portion as a shrink; moving back regrows it. Move and shrink, fused into one gesture.
+> When on a single screen, moving a window past a screen edge absorbs the off-screen portion as a shrink; moving back is a normal slide.
 
-**Status:** design — not yet implemented. This doc is the source for the upcoming implementation plan.
+**Status:** ==🟢shipped (v0.4 mechanical)==. The shove math is live; the stretch-back model below is kept as historical context. See [where-were-we.md](where-were-we.md) for the v0.4 paring-down summary and [lua/move-to-resize-on-single-screen.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/move-to-resize-on-single-screen.lua) for the live module.
 
-**Created:** 2026-04-26
+**Created:** 2026-04-26 · **Pared down:** 2026-04-30
+
+## v0.4 banner — read this before treating the rest as spec
+
+==🔴The sections below describe the v0.1–v0.3.5 model with stretch-back==. That model was shipped, used, and then deliberately removed because daily usage showed ==🔴stretching back was almost never wanted==. The live behavior today is:
+
+- **Push past edge** → off-screen overflow becomes shrink (one-shot, no memory)
+- **Push back** → normal slide; window stays at its shrunk size
+- **Floor cap** → still per-app (200×200 default; kitty 500×200)
+- **Visual feedback** → red edge flash on shrink; no stretch flash
+- **Persistence / divergence detection / virtual-frame state** → ==🔴removed==
+
+Sections still accurate: [Problem](#problem), [Kinesthetic metaphor: shove and stretch-back](#kinesthetic-metaphor-shove-and-stretch-back) (rename in mind: stretch-back is gone, the shove half is what survived), [Step size](#step-size), [Floor](#floor), [Activation](#activation).
+
+Sections that ==🔴no longer apply== to the live code: [Mental model: virtual frame](#mental-model-virtual-frame), [Reset rules](#reset-rules) (no virtual frame to reset), [State model](#state-model), [Persistence](#persistence), [Multi-screen transitions](#multi-screen-transitions) (no state to migrate), [Per-app override: preserve-on-close](#per-app-override-preserve-on-close), and the B4 row in [Behavior spec](#behavior-spec).
+
+The v0.1–v0.3.5 implementation is preserved at commit `7939d28` if we ever want to revive stretch-back.
 
 ## Contents
 

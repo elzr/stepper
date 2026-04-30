@@ -98,9 +98,11 @@ local function sidecarRoleOf(screen)
   return "main"
 end
 
--- L010: on single-screen OR sidecar, fuse move with absorb-into-edge
--- ("shove and stretch"). Sidecar treats each screen independently — windows
--- shove on the screen they're already on instead of jumping to the iPad.
+-- L010: on single-screen OR sidecar, fuse move with absorb-into-edge ("shove").
+-- Pushing a window past an edge squeezes the visible frame by the off-screen
+-- overflow; subsequent move-back is a normal slide (no stretch-back memory).
+-- Sidecar treats each screen independently — windows shove on the screen
+-- they're already on instead of jumping to the iPad.
 -- See features/L010-move-to-resize-on-single-screen/design.md
 local function dispatchStepMove(dir)
   local cfg = currentDisplayConfig()
@@ -109,19 +111,6 @@ local function dispatchStepMove(dir)
     ofsr.shove(hs.window.focusedWindow(), dir)
   else
     stepMove(dir)
-  end
-end
-
--- L010: ops that take explicit position/size control (snap-to-edge, maximize,
--- shrink, etc.) reset the virtual frame so subsequent moves start from a
--- clean slate. Reset is a no-op outside L010-active modes.
-local function withReset(fn)
-  return function(...)
-    fn(...)
-    local cfg = currentDisplayConfig()
-    if cfg == "single" or cfg == "sidecar" then
-      ofsr.reset(hs.window.focusedWindow())
-    end
   end
 end
 
@@ -139,15 +128,10 @@ local minShrinkSize = {
 -- Hoisted up here so ofsr.init can capture it as an upvalue via a deferred closure.
 local flashEdgeHighlight
 
--- L010 needs both: screen-edge flash for squeeze/stretch (red/green at the edge
--- being absorbed into / released from), and window-border flash for the
--- divergence-reset case (red border on the focused window when its virtual
--- frame is dropped because an external tool moved it).
+-- L010: red flash at the screen edge when a shove squeezes the window.
 ofsr.init({
   minShrinkSize = minShrinkSize,
   flashEdge = function(screen, dir, color) return flashEdgeHighlight(screen, dir, color) end,
-  flashWindow = focus.flashFocusHighlight,
-  dataFile = projectRoot .. "data/move-to-resize-on-single-screen.json",
 })
 
 -- Default compact size for PiP mode
@@ -904,36 +888,18 @@ local function clampSizeToFloor(win)
   end
 end
 
--- L010: shift+arrow resize preserves absorbed offset (B4) by mirroring the
--- visible-frame delta onto the virtual frame. Lives here, not earlier, because
--- it captures smartStepResize/topLeftAnchorResize as upvalues.
 local function shiftResize(dir)
-  local win = hs.window.focusedWindow()
-  if not win then
-    if _G.shiftFirstMode then topLeftAnchorResize(dir) else smartStepResize(dir) end
-    return
-  end
-  local before = win:frame()
   if _G.shiftFirstMode then topLeftAnchorResize(dir) else smartStepResize(dir) end
-  win = hs.window.focusedWindow()
+  local win = hs.window.focusedWindow()
   if win then clampSizeToFloor(win) end
-  if #hs.screen.allScreens() == 1 then
-    win = hs.window.focusedWindow()
-    if win then
-      local after = win:frame()
-      ofsr.bumpVirtual(win,
-        after.x - before.x, after.y - before.y,
-        after.w - before.w, after.h - before.h)
-    end
-  end
 end
 
 -- Define operations with modifiers
 local operations = {
   [{} ]                = {fn = function(dir) _G.shiftFirstMode = false; dispatchStepMove(dir) end},
   [{"shift"}]          = {fn = guardScreen(shiftResize)},
-  [{"ctrl"}]           = {fn = function(dir) _G.shiftFirstMode = false; withReset(moveToEdge)(dir) end},
-  [{"ctrl", "shift"}]  = {fn = guardScreen(function(dir) _G.shiftFirstMode = false; withReset(resizeToEdge)(dir) end)},
+  [{"ctrl"}]           = {fn = function(dir) _G.shiftFirstMode = false; moveToEdge(dir) end},
+  [{"ctrl", "shift"}]  = {fn = guardScreen(function(dir) _G.shiftFirstMode = false; resizeToEdge(dir) end)},
   -- option is handled separately below for toggle shrink behavior
 }
 
@@ -946,11 +912,11 @@ for key, dir in pairs(keyMap) do
     end
 end
 
--- Special bindings for option (shrink/grow). withReset clears L010 virtual frame.
-bindWithRepeat({"option"}, "home", withReset(function() toggleShrink("left") end))
-bindWithRepeat({"option"}, "pageup", withReset(function() toggleShrink("up") end))
-bindWithRepeat({"option"}, "end", withReset(function() toggleShrinkOrMax("right") end))
-bindWithRepeat({"option"}, "pagedown", withReset(function() toggleShrinkOrMax("down") end))
+-- Special bindings for option (shrink/grow).
+bindWithRepeat({"option"}, "home", function() toggleShrink("left") end)
+bindWithRepeat({"option"}, "pageup", function() toggleShrink("up") end)
+bindWithRepeat({"option"}, "end", function() toggleShrinkOrMax("right") end)
+bindWithRepeat({"option"}, "pagedown", function() toggleShrinkOrMax("down") end)
 
 -- Special bindings for cmd (focus direction on same screen) — focus only, no reset
 bindWithRepeat({"cmd"}, "home", function() focus.focusDirection("left") end)
@@ -958,11 +924,11 @@ bindWithRepeat({"cmd"}, "end", function() focus.focusDirection("right") end)
 bindWithRepeat({"cmd"}, "pageup", function() focus.focusDirection("up") end)
 bindWithRepeat({"cmd"}, "pagedown", function() focus.focusDirection("down") end)
 
--- Special bindings for shift+option (center/maximize/half-third). withReset clears L010 virtual frame.
-bindWithRepeat({"shift", "option"}, "home", withReset(function() cycleHalfThird("left") end))
-bindWithRepeat({"shift", "option"}, "end", withReset(function() cycleHalfThird("right") end))
-bindWithRepeat({"shift", "option"}, "pageup", withReset(toggleMaximize))
-bindWithRepeat({"shift", "option"}, "pagedown", withReset(toggleCenter))
+-- Special bindings for shift+option (center/maximize/half-third).
+bindWithRepeat({"shift", "option"}, "home", function() cycleHalfThird("left") end)
+bindWithRepeat({"shift", "option"}, "end", function() cycleHalfThird("right") end)
+bindWithRepeat({"shift", "option"}, "pageup", toggleMaximize)
+bindWithRepeat({"shift", "option"}, "pagedown", toggleCenter)
 
 -- Special bindings for option+cmd (focus across screens)
 bindWithRepeat({"option", "cmd"}, "home", function() focus.focusScreen("left") end)
@@ -1045,47 +1011,32 @@ local function moveToDisplay(position)
   local app = win:application()
   layout.triggerSave(string.format("move-to-display:%s '%s'", position, app and app:name() or "?"))
 end
-hs.hotkey.bind({"ctrl", "alt"}, "down", withReset(function() moveToDisplay("bottom") end))
-hs.hotkey.bind({"ctrl", "alt"}, "up", withReset(function() moveToDisplay("top") end))
-hs.hotkey.bind({"ctrl", "alt"}, "left", withReset(function() moveToDisplay("left") end))
-hs.hotkey.bind({"ctrl", "alt"}, "right", withReset(function() moveToDisplay("right") end))
-hs.hotkey.bind({"ctrl", "alt"}, "return", withReset(function() moveToDisplay("center") end))
+hs.hotkey.bind({"ctrl", "alt"}, "down", function() moveToDisplay("bottom") end)
+hs.hotkey.bind({"ctrl", "alt"}, "up", function() moveToDisplay("top") end)
+hs.hotkey.bind({"ctrl", "alt"}, "left", function() moveToDisplay("left") end)
+hs.hotkey.bind({"ctrl", "alt"}, "right", function() moveToDisplay("right") end)
+hs.hotkey.bind({"ctrl", "alt"}, "return", function() moveToDisplay("center") end)
 
 -- Unassigned functions still available: toggleFullScreen, toggleCompact
 
 -- Show focus highlight on current window (fn+cmd+delete = forwarddelete).
--- L010: also doubles as a virtual-frame resetter on single-screen mode — when
--- the focused window has an L010 squeeze, this clears it (so the next move
--- slides instead of stretching back) and flashes a red border instead.
-local L010_RESET_RED = {red = 0.9, green = 0.2, blue = 0.2, alpha = 0.95}
 hs.hotkey.bind({"cmd"}, "forwarddelete", function()
   local win = hs.window.focusedWindow()
   if not win then return end
   local frame = win:frame()
   local screen = win:screen():name()
   local app = win:application():name()
-  if ofsr.getVirtual(win) then
-    print(string.format("[ofsr-reset] %s at x=%d on %s (virtual cleared)", app, frame.x, screen))
-    ofsr.reset(win)
-    focus.flashFocusHighlight(win, nil, {color = L010_RESET_RED})
-  else
-    local tracked = focus.getTrackingInfo()
-    print(string.format("[confirmFocus] %s at x=%d on %s (tracked: %s)",
-      app, frame.x, screen, tracked and tostring(tracked) or "none"))
-    focus.flashFocusHighlight(win, nil)
-  end
+  local tracked = focus.getTrackingInfo()
+  print(string.format("[confirmFocus] %s at x=%d on %s (tracked: %s)",
+    app, frame.x, screen, tracked and tostring(tracked) or "none"))
+  focus.flashFocusHighlight(win, nil)
 end)
 
 -- Initialize mouse move module (inject shared border canvas API from focus).
--- onDragStart fires once per fn-drag so L010 can drop its virtual frame
--- proactively (with a red border flash) before the drag invalidates it.
 mousemove.init({
   createBorderCanvas = focus.createBorderCanvas,
   updateBorderCanvas = focus.updateBorderCanvas,
   deleteBorderCanvas = focus.deleteBorderCanvas,
-  onDragStart = function(win)
-    if #hs.screen.allScreens() == 1 then ofsr.resetWithNotice(win) end
-  end,
 })
 
 -- Initialize Bear HUD (note hotkeys + caret position persistence)
