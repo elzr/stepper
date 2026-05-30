@@ -12,6 +12,7 @@ Implementation deep-dive for [L008-Bear-image-thumbnails](https://stepper.intern
 - [The format-glyph trap](#the-format-glyph-trap)
 - [The intent gate — hybrid observer + eventtap](#the-intent-gate--hybrid-observer--eventtap)
 - [How to verify a change is working](#how-to-verify-a-change-is-working)
+- [Diagnostics & observability](#diagnostics--observability) — ==🟢logs + `health()` recipe for the flakiness==
 - [Dead ends we explored](#dead-ends-we-explored)
 - [Gotchas & edge cases](#gotchas--edge-cases)
 - [Skill stack we're building with AX](#skill-stack-were-building-with-ax)
@@ -117,6 +118,60 @@ Three tiers, in order of increasing trust:
 
 ==🔴What NOT to do==: don't check `AXValue` length for growth, and don't search `AXValue` for "width":150". Both are blind to embed-attached metadata.
 
+## Diagnostics & observability
+
+==🟣The flakiness has a signature==: works, then silently stops for long stretches, then works again after an HS reload. A reload only re-binds the observer and re-creates the eventtap — it changes ==🔵no gate logic==. So "a reload fixes it" points at one of two ==🔴silent deaths== in the binding layer, not at the gates:
+
+1. ==🔴Stale AX observer==. Bound to Bear's PID at creation; it rebinds only via the `hs.application.watcher` `launched` event. If Bear restarts and that event is missed (or `addWatcher` fails), the observer silently never fires again.
+2. ==🔴Dead intent eventtap==. macOS silently disables event-taps (slow callback, sleep/wake, a transient Secure Input lock). A dead tap means ⌘V is never stamped → Gate 2 rejects every paste.
+
+==🟣Crucially, both emit ZERO output from a no-op log==, because the observer/tap callback never runs at all. That's why the instrumentation in [bear-paste.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/bear-paste.lua) is in two layers.
+
+### Layer 1 — no-op logging (why a fire was rejected)
+
+Every gate in `onObserverFire` logs why it bailed. At the default `info` level only the low-frequency, interesting lines show:
+
+| Log line | Meaning |
+|---|---|
+| `paste→shrink APPLIED (via ⌘V)` | ==🟢success== |
+| `reject: delta=+N (need +1)` | more/fewer than one ￼ appeared at once |
+| `reject: ￼+1 but no image on clipboard` | a format glyph (blockquote/bullet/rule), not an image |
+| `reject: ￼+1 with image, but NO recent paste intent` | drag/menu paste — ==🔴or the intent tap is dead== |
+
+The per-keystroke noise (`delta=0`, baseline snapshots, role mismatches) logs at `debug`, hidden until `hs -c 'bear_paste.setLogLevel("debug")'`.
+
+### Layer 2 — liveness signals (is the machinery even alive)
+
+- ==🟢Intent logs==: every ⌘V / ⌘⇧Space / Enter / Esc the tap sees logs an `intent: …` line. Their presence proves the eventtap is alive; their ==🔴absence during a paste is the dead-tap tell==.
+- ==🟢Event-driven reconciler==: `ensureHealthy()` (in [bear-paste.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/bear-paste.lua)) replaced the old 60s polling watchdog. It runs from ==🔵two independent event sources, never a timer==: the app-watcher's `activated` (Bear comes to front — fires right before any paste, and is the only source that can revive a fully-dead tap) and a per-keystroke heartbeat in `onKeyDown` (heals a stale observer even if app-watcher events stop). It both ==🟢logs and self-heals==: `reconcile(reason): observer stale/stopped → rebind` / `intent tap disabled → recreate`. Healthy no-ops log at `debug`.
+- ==🟢On-demand health==: `hs -c 'return hs.inspect(bear_paste.health())'` reports `stale`, `tapEnabled`, `observerRunning`, `lastFireAgo`, the bound vs live PIDs, and `logOpen` / `logPath`. ==🔵Force a check by hand with `hs -c 'return bear_paste.reconcile()'`== — runs the same repair the watchers trigger, then returns health.
+
+### Where the logs live — durable vs ephemeral
+
+==🔴Two sinks, and the difference is load-bearing.==
+
+- ==🔴`hs.logger` → Hammerspoon console== (what `~/bin/hs-console.sh` reads): in-memory, **wiped on every reload**, size-capped. Good for live watching, ==🔴useless for forensics after the fact== — the reload that revives the feature also erases why it died.
+- ==🟢Durable NDJSON → [data/bear-paste.log.ndjson](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L008-Bear-image-thumbnails/data)==: every info-level event (`bound`, `intent`, `applied`, `reject`, `reconcile`, `watcher`, `session`) is teed here and ==🟢survives reloads/restarts==. Size-capped with one-generation rotation (`bear-paste.log.1.ndjson`); each reload writes a `session: log opened` boundary so you can see restarts. The per-keystroke debug firehose stays console-only. Same schema as the April [trace-*.ndjson](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L008-Bear-image-thumbnails/data) tracer files, so they grep alike. ==🔵Gitignored== (it churns); the old `trace-*` artifacts stay tracked.
+
+==🟣This split exists because the original instrumentation logged ONLY to the ephemeral console while being described as a persistent safety net== — a trust failure documented in [F028/2026-05-30-ephemeral-safety-net.md](https://mas2.internal/features/F028-trustworthy-editing-and-reading/case-studies/2026-05-30-ephemeral-safety-net.md). After a dead stretch, the durable file is the authoritative record.
+
+### When it breaks again — the recipe
+
+1. `hs -c 'return hs.inspect(bear_paste.health())'`:
+   - ==🔴`stale = true`== → observer bound to a dead PID (death #1); the `launched` rebind was missed.
+   - ==🔴`tapEnabled = false`== → intent tap died (death #2).
+   - ==🔵`lastFireAgo` large while you're actively editing Bear== → observer not delivering.
+2. `grep` the ==🟢durable log== [data/bear-paste.log.ndjson](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L008-Bear-image-thumbnails/data) (survives the reload that revives the feature — the console does not). Find the `reconcile` rebind/recreate line that timestamps the self-heal, and check whether the last `intent` `cmdV` event precedes the dead stretch (present → tap was alive at paste time). `~/bin/hs-console.sh 50 | grep bear-paste` still works for *live* watching.
+3. `~/bin/hs-reload.sh` rebinds fresh; ==🟢if a reload is ever still needed, the cause was a silent death the reconciler couldn't catch== (see the wedge caveat below).
+
+==🟢The reconciler now self-heals==, so the two silent deaths recover within an event instead of waiting for a manual reload: a stale observer is rebound on your next keystroke in Bear or next focus of Bear; a disabled tap is recreated when you next activate Bear. It still logs which heal it ran, so we keep learning which death happens in the wild.
+
+==🔴The one un-catchable mode is a "silent wedge"==: the intent tap reports `:isEnabled() == true` but events stop flowing (the same "event tap dies silently" failure seen with the hyperkey tap). It emits ==🔵no event==, so no event-driven source can detect it — only an absence-of-events heuristic (i.e. a timer) could, which we've deliberately not added. If logs ever show a paste with no preceding `intent: ⌘V`, that's the wedge, and a reload remains the fix.
+
+### Why there's no `tapDisabledByTimeout` to hook (and why recompiling won't help)
+
+==🟣Hammerspoon already auto-re-enables a disabled tap, one layer below Lua.== Confirmed in [libeventtap.m](https://github.com/Hammerspoon/hammerspoon/blob/master/extensions/eventtap/libeventtap.m): on `kCGEventTapDisabledByTimeout` / `kCGEventTapDisabledByUserInput` its C callback calls `CGEventTapEnable(tap, true)`, logs a breadcrumb, and ==🔵does not pass the event to your Lua callback==. That's why `hs.eventtap.event.types` has no `tapDisabledByTimeout` — you could never receive it. So the "clean event-driven re-enable" we'd want isn't missing; it's built in and invisible. ==🔴Recompiling Hammerspoon to expose the constant would gain nothing==: the timeout disable is already handled, and the modes that actually bite (secure-input persistence, the silent wedge, observer stale-PID) aren't fixed by re-enabling on that event anyway. The installed app is the official notarized build (v1.1.1, signed `Chris Jones (VQCYSNZB89)`), ==🔵not a custom recompile==.
+
 ## Dead ends we explored
 
 ==🟣Important distinction== before diving in: the dead ends below all used `hs.eventtap` as a ==**write mechanism**== — intercepting ⌘V and trying to trigger the comment insertion from the tap. The current design uses `hs.eventtap` as a ==**signal-only**== (non-intercepting, returns false, stamps a timestamp). Those are different architectures — the signal-only tap doesn't have the "silent success" instrumentation trap these write-mode taps ran into.
@@ -151,7 +206,7 @@ Attached the observer to the currently-focused AXTextArea at startup. Silently b
 - ==🔵Bear window switching==: the module tracks `lastCount` per-textarea (keyed by element reference). Switching to a different note resets the baseline so we don't report a spurious large delta across notes.
 - ==🔵`inserting` flag==: the AX write itself triggers AXSelectedTextChanged (the caret moves past the inserted comment). We guard against self-induced fires with a one-shot flag.
 - ==🔴Undo is 2× ⌘z==: one to remove the comment, one to remove the paste. Arguably a feature (you can un-shrink without losing the image), but document it for users.
-- ==🔴Bear must be running at HS init==. If Bear launches later, the observer won't attach. Future improvement: re-attach on `hs.application.watcher.launched`.
+- ==🟢Bear launching after HS init is handled==. An `hs.application.watcher` re-binds the observer + intent tap on Bear's `launched` event (and releases them on `terminated`). ==🔴Caveat==: that single rebind is the suspected point of failure behind the flakiness — if the `launched` event is missed, the observer is left bound to a dead PID with no signal. The [watchdog](#diagnostics--observability) now timestamps exactly that.
 - ==🔵Paste-same-image-twice==: ⌘V twice with the same clipboard content ==🟢both fire==. Each ⌘V press stamps a fresh `recentCmdVAt`; the observer consumes it on each fire.
 - ==🔵Drag-and-drop and Edit→Paste menu are NOT handled==. No keystroke signal. Use `⌥R` after dropping.
 - ==🔵If you press ⌘⇧Space but cancel with mouse-click elsewhere==, the watch sits pending for up to 15s. If a real paste happens in another Bear note during that window and you hit Enter… unlikely sequence, but the watch could mis-claim it. Mitigated by: watch clears on Esc or a second ⌘⇧Space, and TTL expires in 15s.
