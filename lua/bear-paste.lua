@@ -90,7 +90,8 @@ local logger = hs.logger.new("bear-paste", "info")
 -- why" promise (the diagnostics were evaporating). Every info-level event is also
 -- appended here as NDJSON so it survives reloads/restarts. Post-mortem on the
 -- ephemeral-logging oversight: F028 case-study 2026-05-30-ephemeral-safety-net.
-local LOG_DIR = "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L008-Bear-image-thumbnails/data"
+local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
+local LOG_DIR = scriptPath .. "../features/L008-Bear-image-thumbnails/data"
 local LOG_PATH = LOG_DIR .. "/bear-paste.log.ndjson"
 local LOG_PATH_PREV = LOG_DIR .. "/bear-paste.log.1.ndjson"
 local LOG_CAP_BYTES = 512 * 1024     -- rotate one generation past this so the file can't grow unbounded

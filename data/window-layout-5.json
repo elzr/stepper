@@ -1,20 +1,66 @@
 [
   {
-    "app" : "kitty",
-    "frame" : {
-      "y" : -1590,
-      "w" : 938,
-      "x" : 1317,
-      "h" : 1268
-    },
-    "title" : "fleet | fresh",
-    "screenPosition" : "center",
+    "app" : "‎WhatsApp",
     "frameRel" : {
-      "y" : 0.25352112676056338,
-      "w" : 0.24427083333333333,
-      "x" : 0.34296874999999999,
-      "h" : 0.59530516431924885
+      "y" : 0.079844961240310083,
+      "w" : 0.46692607003891051,
+      "x" : 0.46108949416342415,
+      "h" : 0.8666666666666667
     },
+    "frame" : {
+      "y" : 142,
+      "w" : 960,
+      "x" : 948,
+      "h" : 1118
+    },
+    "screenPosition" : "bottom",
+    "title" : "‎WhatsApp",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.7650778210116731,
+      "x" : -0.00048638132295719845,
+      "h" : 0.93333333333333335
+    },
+    "frame" : {
+      "y" : 39,
+      "w" : 1573,
+      "x" : -1,
+      "h" : 1204
+    },
+    "screenPosition" : "bottom",
+    "title" : "Click Commerce - Wikipedia - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "app" : "Telegram",
+    "frameRel" : {
+      "y" : 0.19812206572769953,
+      "w" : 0.22786458333333334,
+      "x" : 0.73750000000000004,
+      "h" : 0.73802816901408452
+    },
+    "frame" : {
+      "y" : -1708,
+      "w" : 875,
+      "x" : 2832,
+      "h" : 1572
+    },
+    "screenPosition" : "center",
+    "title" : "‎⁨Madre⁩ – (2)",
     "screenFrame" : {
       "y" : -2130,
       "w" : 3840,
@@ -24,20 +70,342 @@
   },
   {
     "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1976,
-      "w" : 1919,
-      "x" : 125,
-      "h" : 1905
-    },
-    "title" : "Custom New Tab URL - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "center",
     "frameRel" : {
-      "y" : 0.072300469483568081,
-      "w" : 0.49973958333333335,
-      "x" : 0.032552083333333336,
-      "h" : 0.89436619718309862
+      "y" : 0.59580052493438318,
+      "w" : 0.94259259259259254,
+      "x" : -0.12731481481481483,
+      "h" : 0.33333333333333331
     },
+    "frame" : {
+      "y" : -940,
+      "w" : 2036,
+      "x" : 3565,
+      "h" : 1270
+    },
+    "screenPosition" : "right",
+    "title" : "Reddit - The heart of the internet - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Code",
+    "frameRel" : {
+      "y" : 0.19844961240310077,
+      "w" : 0.58365758754863817,
+      "x" : 0.22568093385214008,
+      "h" : 0.62015503875968991
+    },
+    "frame" : {
+      "y" : 295,
+      "w" : 1200,
+      "x" : 464,
+      "h" : 800
+    },
+    "screenPosition" : "bottom",
+    "title" : "findings.md",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "app" : "Code",
+    "frameRel" : {
+      "y" : 0.041085271317829457,
+      "w" : 0.58365758754863817,
+      "x" : 0.13667315175097275,
+      "h" : 0.92015503875968996
+    },
+    "frame" : {
+      "y" : 92,
+      "w" : 1200,
+      "x" : 281,
+      "h" : 1187
+    },
+    "screenPosition" : "bottom",
+    "title" : "survey-v3.html",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.13255813953488371,
+      "w" : 0.40321011673151752,
+      "x" : 0.34192607003891051,
+      "h" : 0.83798449612403103
+    },
+    "frame" : {
+      "y" : 210,
+      "w" : 829,
+      "x" : 703,
+      "h" : 1081
+    },
+    "screenPosition" : "bottom",
+    "title" : "L002-PrOFILE-questions",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.0046948356807511738,
+      "w" : 0.16666666666666666,
+      "x" : 0.0026041666666666665,
+      "h" : 0.42253521126760563
+    },
+    "frame" : {
+      "y" : -2120,
+      "w" : 640,
+      "x" : 10,
+      "h" : 900
+    },
+    "screenPosition" : "center",
+    "title" : "sara",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.55406824146981626,
+      "w" : 0.5444444444444444,
+      "x" : 0.43703703703703706,
+      "h" : 0.1963254593175853
+    },
+    "frame" : {
+      "y" : -1099,
+      "w" : 1176,
+      "x" : 4784,
+      "h" : 748
+    },
+    "screenPosition" : "right",
+    "title" : "Dropbox",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.0026246719160104987,
+      "w" : 0.18518518518518517,
+      "x" : 0.0046296296296296294,
+      "h" : 0.21758530183727035
+    },
+    "frame" : {
+      "y" : -3200,
+      "w" : 400,
+      "x" : 3850,
+      "h" : 829
+    },
+    "screenPosition" : "right",
+    "title" : "log Info",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.30104986876640422,
+      "w" : 0.18518518518518517,
+      "x" : 0.57777777777777772,
+      "h" : 0.21758530183727035
+    },
+    "frame" : {
+      "y" : -2063,
+      "w" : 400,
+      "x" : 5088,
+      "h" : 829
+    },
+    "screenPosition" : "right",
+    "title" : "main Info",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.2530183727034121,
+      "w" : 0.18518518518518517,
+      "x" : 0.78749999999999998,
+      "h" : 0.21758530183727035
+    },
+    "frame" : {
+      "y" : -2246,
+      "w" : 400,
+      "x" : 5541,
+      "h" : 829
+    },
+    "screenPosition" : "right",
+    "title" : "2026 Info",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Finder",
+    "frameRel" : {
+      "y" : 0.48792650918635172,
+      "w" : 0.18518518518518517,
+      "x" : 0,
+      "h" : 0.21758530183727035
+    },
+    "frame" : {
+      "y" : -1351,
+      "w" : 400,
+      "x" : 3840,
+      "h" : 829
+    },
+    "screenPosition" : "right",
+    "title" : "projects Info",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.18262910798122065,
+      "w" : 0.43229166666666669,
+      "x" : 0.0390625,
+      "h" : 0.56948356807511735
+    },
+    "frame" : {
+      "y" : -3901,
+      "w" : 1660,
+      "x" : 150,
+      "h" : 1213
+    },
+    "screenPosition" : "top",
+    "title" : "Untitled spreadsheet - Google Sheets - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -4290,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.80734908136482941,
+      "w" : 0.95185185185185184,
+      "x" : -0.020833333333333332,
+      "h" : 0.33858267716535434
+    },
+    "frame" : {
+      "y" : -134,
+      "w" : 2056,
+      "x" : -2205,
+      "h" : 1290
+    },
+    "screenPosition" : "left",
+    "title" : "lina ornelas - Google Search - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : -2160,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.076995305164319253,
+      "w" : 0.43307291666666664,
+      "x" : 0.061197916666666664,
+      "h" : 0.8666666666666667
+    },
+    "frame" : {
+      "y" : -1966,
+      "w" : 1663,
+      "x" : 235,
+      "h" : 1846
+    },
+    "screenPosition" : "center",
+    "title" : "Plataforma MAS-Legal - ely.parra@gmail.com - Gmail - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.49973958333333335,
+      "x" : 0.43359375,
+      "h" : 0.96666666666666667
+    },
+    "frame" : {
+      "y" : -2130,
+      "w" : 1919,
+      "x" : 1665,
+      "h" : 2059
+    },
+    "screenPosition" : "center",
+    "title" : "(1) Oshan Jarow on X: \"When comparing psychedelics and meditation, I often hear: psychedelics give you flashes of what meditation teaches you to stabilize. I find this incredibly strange. If you are comparing one psychedelic experience to daily meditation, sure, obviously. But the ‘stabilization’ is\" \/ X - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.46640625000000002,
+      "x" : 0.022135416666666668,
+      "h" : 0.8666666666666667
+    },
+    "frame" : {
+      "y" : -2130,
+      "w" : 1791,
+      "x" : 85,
+      "h" : 1846
+    },
+    "screenPosition" : "center",
+    "title" : "Graaskamp financials - Google Sheets - Google Chrome - Eli (Eli - main)",
     "screenFrame" : {
       "y" : -2130,
       "w" : 3840,
@@ -47,20 +415,20 @@
   },
   {
     "app" : "Activity Monitor",
-    "frame" : {
-      "y" : -1202,
-      "w" : 805,
-      "x" : -1303,
-      "h" : 556
+    "frameRel" : {
+      "y" : 0.72204724409448817,
+      "w" : 0.52268518518518514,
+      "x" : -0.00046296296296296298,
+      "h" : 0.27795275590551183
     },
+    "frame" : {
+      "y" : -459,
+      "w" : 1129,
+      "x" : -2161,
+      "h" : 1059
+    },
+    "screenPosition" : "left",
     "title" : "Activity Monitor – All Processes",
-    "screenPosition" : "left",
-    "frameRel" : {
-      "y" : 0.52703412073490818,
-      "w" : 0.37268518518518517,
-      "x" : 0.39675925925925926,
-      "h" : 0.14593175853018373
-    },
     "screenFrame" : {
       "y" : -3210,
       "w" : 2160,
@@ -69,44 +437,90 @@
     }
   },
   {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1083,
-      "w" : 1628,
-      "x" : -1869,
-      "h" : 1420
-    },
-    "title" : "Monaspace - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "left",
+    "app" : "Bear",
     "frameRel" : {
-      "y" : 0.55826771653543306,
-      "w" : 0.75370370370370365,
-      "x" : 0.13472222222222222,
-      "h" : 0.37270341207349084
+      "y" : 0.1563380281690141,
+      "w" : 0.25104166666666666,
+      "x" : 0.68437499999999996,
+      "h" : 0.77042253521126758
     },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : -2160,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "kitty",
     "frame" : {
-      "y" : -2071,
-      "w" : 1107,
-      "x" : 2310,
-      "h" : 1980
+      "y" : -1797,
+      "w" : 964,
+      "x" : 2628,
+      "h" : 1641
     },
-    "title" : "F039-Dropbox-hands | Commit & Push: Five Projects",
     "screenPosition" : "center",
+    "title" : "_budget 17jun2026",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Bear",
     "frameRel" : {
-      "y" : 0.027699530516431925,
-      "w" : 0.28828124999999999,
-      "x" : 0.6015625,
-      "h" : 0.92957746478873238
+      "y" : 0.062910798122065723,
+      "w" : 0.28437499999999999,
+      "x" : 0.5229166666666667,
+      "h" : 0.93708920187793432
     },
+    "frame" : {
+      "y" : -1996,
+      "w" : 1092,
+      "x" : 2008,
+      "h" : 1996
+    },
+    "screenPosition" : "center",
+    "title" : "w25thoughts 15-21jun2026",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.049295774647887321,
+      "w" : 0.28437499999999999,
+      "x" : 0.51536458333333335,
+      "h" : 0.93708920187793432
+    },
+    "frame" : {
+      "y" : -2025,
+      "w" : 1092,
+      "x" : 1979,
+      "h" : 1996
+    },
+    "screenPosition" : "center",
+    "title" : "_tdc BBVA Oro 5298 d8688",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.035680751173708919,
+      "w" : 0.28437499999999999,
+      "x" : 0.40781250000000002,
+      "h" : 0.93708920187793432
+    },
+    "frame" : {
+      "y" : -2054,
+      "w" : 1092,
+      "x" : 1566,
+      "h" : 1996
+    },
+    "screenPosition" : "center",
+    "title" : "_tdc Banamex Oro 6599 d6298 🇺🇸",
     "screenFrame" : {
       "y" : -2130,
       "w" : 3840,
@@ -116,43 +530,158 @@
   },
   {
     "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 1850,
-      "x" : 0,
-      "h" : 1075
-    },
-    "title" : "Tile Paper - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "bottom",
     "frameRel" : {
-      "y" : 0,
-      "w" : 0.89980544747081714,
-      "x" : 0,
-      "h" : 0.83333333333333337
+      "y" : 0.66666666666666663,
+      "w" : 1.0106481481481482,
+      "x" : -0.010648148148148148,
+      "h" : 0.30787401574803147
     },
+    "frame" : {
+      "y" : -670,
+      "w" : 2183,
+      "x" : 3817,
+      "h" : 1173
+    },
+    "screenPosition" : "right",
+    "title" : "💰2026 finances - Google Sheets - Google Chrome - Eli (Eli - main)",
     "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.022065727699530517,
+      "w" : 0.28437499999999999,
+      "x" : 0.36692708333333335,
+      "h" : 0.93708920187793432
+    },
+    "frame" : {
+      "y" : -2083,
+      "w" : 1092,
+      "x" : 1409,
+      "h" : 1996
+    },
+    "screenPosition" : "center",
+    "title" : "_budget 14jun2026",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
       "x" : 0,
-      "h" : 1290
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.23098591549295774,
+      "w" : 0.36666666666666664,
+      "x" : 0.050520833333333334,
+      "h" : 0.69999999999999996
+    },
+    "frame" : {
+      "y" : -1638,
+      "w" : 1408,
+      "x" : 194,
+      "h" : 1491
+    },
+    "screenPosition" : "center",
+    "title" : "START - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.22065727699530516,
+      "w" : 0.36666666666666664,
+      "x" : 0.044791666666666667,
+      "h" : 0.69999999999999996
+    },
+    "frame" : {
+      "y" : -1660,
+      "w" : 1408,
+      "x" : 172,
+      "h" : 1491
+    },
+    "screenPosition" : "center",
+    "title" : "Want your images back? That'll be $5 | Hacker News - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
     }
   },
   {
     "app" : "kitty",
-    "frame" : {
-      "y" : -2427,
-      "w" : 920,
-      "x" : -1082,
-      "h" : 755
-    },
-    "title" : "~\/.claude\/screenshots",
-    "screenPosition" : "left",
     "frameRel" : {
-      "y" : 0.20551181102362204,
-      "w" : 0.42592592592592593,
-      "x" : 0.49907407407407406,
-      "h" : 0.19816272965879264
+      "y" : 0.059154929577464786,
+      "w" : 0.29348958333333336,
+      "x" : 0.65989583333333335,
+      "h" : 0.9431924882629108
     },
+    "frame" : {
+      "y" : -2004,
+      "w" : 1127,
+      "x" : 2534,
+      "h" : 2009
+    },
+    "screenPosition" : "center",
+    "title" : "may-jun-2026-major-sync-breakage | Decide: Folder Materialization Timing",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.11032863849765258,
+      "w" : 0.36666666666666664,
+      "x" : 0.07239583333333334,
+      "h" : 0.80000000000000004
+    },
+    "frame" : {
+      "y" : -1895,
+      "w" : 1408,
+      "x" : 278,
+      "h" : 1704
+    },
+    "screenPosition" : "center",
+    "title" : "Inbox (13) - ely.parra@gmail.com - Gmail - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.033070866141732283,
+      "w" : 0.83333333333333337,
+      "x" : 0,
+      "h" : 0.44278215223097112
+    },
+    "frame" : {
+      "y" : -3084,
+      "w" : 1800,
+      "x" : -2160,
+      "h" : 1687
+    },
+    "screenPosition" : "left",
+    "title" : "may-jun-2026-major-sync-breakage - Google Chrome - Eli (Eli - main)",
     "screenFrame" : {
       "y" : -3210,
       "w" : 2160,
@@ -162,66 +691,66 @@
   },
   {
     "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 1027,
-      "x" : 994,
-      "h" : 1290
-    },
-    "title" : "Untitled spreadsheet - Google Sheets - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "bottom",
     "frameRel" : {
-      "y" : 0,
-      "w" : 0.4995136186770428,
-      "x" : 0.48346303501945526,
-      "h" : 1
+      "y" : 0.10000000000000001,
+      "w" : 0.29999999999999999,
+      "x" : 0.066666666666666666,
+      "h" : 0.76666666666666672
     },
+    "frame" : {
+      "y" : -1917,
+      "w" : 1152,
+      "x" : 256,
+      "h" : 1633
+    },
+    "screenPosition" : "center",
+    "title" : "After Automation | Every - Google Chrome - Eli (Eli - main)",
     "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
+      "y" : -2130,
+      "w" : 3840,
       "x" : 0,
-      "h" : 1290
+      "h" : 2130
     }
   },
   {
     "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 1214,
-      "x" : 633,
-      "h" : 946
-    },
-    "title" : "tilepaper - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "bottom",
     "frameRel" : {
-      "y" : 0,
-      "w" : 0.59046692607003892,
-      "x" : 0.30787937743190663,
+      "y" : 0.17699530516431924,
+      "w" : 0.5,
+      "x" : 0.33906249999999999,
       "h" : 0.73333333333333328
     },
+    "frame" : {
+      "y" : -1753,
+      "w" : 1920,
+      "x" : 1302,
+      "h" : 1562
+    },
+    "screenPosition" : "center",
+    "title" : "2026 by day - Eli - Google Sheets - Google Chrome - Eli (Eli - main)",
     "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
+      "y" : -2130,
+      "w" : 3840,
       "x" : 0,
-      "h" : 1290
+      "h" : 2130
     }
   },
   {
-    "app" : "Bloom",
-    "frame" : {
-      "y" : -910,
-      "w" : 1081,
-      "x" : 2526,
-      "h" : 856
-    },
-    "title" : "art",
-    "screenPosition" : "center",
+    "app" : "Google Chrome",
     "frameRel" : {
-      "y" : 0.57276995305164324,
-      "w" : 0.28151041666666665,
-      "x" : 0.65781250000000002,
-      "h" : 0.40187793427230045
+      "y" : 0.13333333333333333,
+      "w" : 0.46640625000000002,
+      "x" : 0.17265625000000001,
+      "h" : 0.8666666666666667
     },
+    "frame" : {
+      "y" : -1846,
+      "w" : 1791,
+      "x" : 663,
+      "h" : 1846
+    },
+    "screenPosition" : "center",
+    "title" : "There are Many Configurations of Business That Work - Commoncog - Google Chrome - Eli (Eli - main)",
     "screenFrame" : {
       "y" : -2130,
       "w" : 3840,
@@ -231,20 +760,112 @@
   },
   {
     "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.42887139107611549,
+      "w" : 0.41435185185185186,
+      "x" : 0.28564814814814815,
+      "h" : 0.31889763779527558
+    },
     "frame" : {
-      "y" : -2754,
+      "y" : -1576,
+      "w" : 895,
+      "x" : 4457,
+      "h" : 1215
+    },
+    "screenPosition" : "right",
+    "title" : "w24thoughts 8-14jun2026",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.17191601049868765,
+      "w" : 0.51481481481481484,
+      "x" : 0.22407407407407406,
+      "h" : 0.20131233595800524
+    },
+    "frame" : {
+      "y" : -2555,
+      "w" : 1112,
+      "x" : 4324,
+      "h" : 767
+    },
+    "screenPosition" : "right",
+    "title" : "_budget 11jun2026",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.085446009389671368,
+      "w" : 0.19973958333333333,
+      "x" : 0.07421875,
+      "h" : 0.56009389671361498
+    },
+    "frame" : {
+      "y" : -1948,
       "w" : 767,
-      "x" : -1874,
+      "x" : 285,
       "h" : 1193
     },
+    "screenPosition" : "center",
     "title" : "_art Thinking paper",
-    "screenPosition" : "left",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
+    }
+  },
+  {
+    "app" : "kitty",
     "frameRel" : {
-      "y" : 0.11968503937007874,
-      "w" : 0.35509259259259257,
-      "x" : 0.13240740740740742,
-      "h" : 0.3131233595800525
+      "y" : 0.51889763779527565,
+      "w" : 0.52175925925925926,
+      "x" : 0.13796296296296295,
+      "h" : 0.23700787401574802
     },
+    "frame" : {
+      "y" : -1233,
+      "w" : 1127,
+      "x" : 4138,
+      "h" : 903
+    },
+    "screenPosition" : "right",
+    "title" : "stepper | Debug: Auto-Update Failure",
+    "screenFrame" : {
+      "y" : -3210,
+      "w" : 2160,
+      "x" : 3840,
+      "h" : 3810
+    }
+  },
+  {
+    "app" : "Bear",
+    "frameRel" : {
+      "y" : 0.25853018372703412,
+      "w" : 0.41435185185185186,
+      "x" : 0.099074074074074078,
+      "h" : 0.47480314960629921
+    },
+    "frame" : {
+      "y" : -2225,
+      "w" : 895,
+      "x" : -1946,
+      "h" : 1809
+    },
+    "screenPosition" : "left",
+    "title" : "w25days 15-21jun2026",
     "screenFrame" : {
       "y" : -3210,
       "w" : 2160,
@@ -253,187 +874,49 @@
     }
   },
   {
-    "app" : "kitty",
-    "frame" : {
-      "y" : -3210,
-      "w" : 1192,
-      "x" : 4134,
-      "h" : 3556
-    },
-    "title" : "fonts | Plan: Sheet Redesign Migration",
-    "screenPosition" : "right",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.55185185185185182,
-      "x" : 0.1361111111111111,
-      "h" : 0.93333333333333335
-    },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : 3840,
-      "h" : 3810
-    }
-  },
-  {
     "app" : "Bear",
-    "frame" : {
-      "y" : -3100,
-      "w" : 895,
-      "x" : 5105,
-      "h" : 1215
-    },
-    "title" : "w24thoughts 8-14jun2026",
-    "screenPosition" : "right",
-    "frameRel" : {
-      "y" : 0.028871391076115485,
-      "w" : 0.41435185185185186,
-      "x" : 0.58564814814814814,
-      "h" : 0.31889763779527558
-    },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : 3840,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -1278,
-      "w" : 1279,
-      "x" : 4183,
-      "h" : 1581
-    },
-    "title" : "_mem NOW",
-    "screenPosition" : "right",
-    "frameRel" : {
-      "y" : 0.50708661417322831,
-      "w" : 0.59212962962962967,
-      "x" : 0.1587962962962963,
-      "h" : 0.41496062992125982
-    },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : 3840,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -2028,
-      "w" : 1008,
-      "x" : -1008,
-      "h" : 1936
-    },
-    "title" : "w24days 8-14jun2026",
-    "screenPosition" : "left",
     "frameRel" : {
       "y" : 0.31023622047244093,
       "w" : 0.46666666666666667,
-      "x" : 0.53333333333333333,
+      "x" : 0.46666666666666667,
       "h" : 0.50813648293963254
     },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : -2160,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "Bear",
     "frame" : {
-      "y" : -1980,
-      "w" : 895,
-      "x" : 3881,
-      "h" : 2190
+      "y" : -2028,
+      "w" : 1008,
+      "x" : -1152,
+      "h" : 1936
     },
-    "title" : "_index 2026",
-    "screenPosition" : "right",
-    "frameRel" : {
-      "y" : 0.32283464566929132,
-      "w" : 0.41435185185185186,
-      "x" : 0.018981481481481481,
-      "h" : 0.57480314960629919
-    },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : 3840,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -2485,
-      "w" : 807,
-      "x" : 3908,
-      "h" : 778
-    },
-    "title" : "w24work 8-14jun2026",
-    "screenPosition" : "right",
-    "frameRel" : {
-      "y" : 0.19028871391076116,
-      "w" : 0.37361111111111112,
-      "x" : 0.031481481481481478,
-      "h" : 0.20419947506561681
-    },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : 3840,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -2540,
-      "w" : 895,
-      "x" : 4961,
-      "h" : 1428
-    },
-    "title" : "_tp Inspiration",
-    "screenPosition" : "right",
-    "frameRel" : {
-      "y" : 0.17585301837270342,
-      "w" : 0.41435185185185186,
-      "x" : 0.51898148148148149,
-      "h" : 0.37480314960629924
-    },
-    "screenFrame" : {
-      "y" : -3210,
-      "w" : 2160,
-      "x" : 3840,
-      "h" : 3810
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -554,
-      "w" : 895,
-      "x" : -1514,
-      "h" : 1428
-    },
-    "title" : "w25days 15-21jun2026",
     "screenPosition" : "left",
-    "frameRel" : {
-      "y" : 0.69711286089238844,
-      "w" : 0.41435185185185186,
-      "x" : 0.29907407407407405,
-      "h" : 0.37480314960629924
-    },
+    "title" : "w24days 8-14jun2026",
     "screenFrame" : {
       "y" : -3210,
       "w" : 2160,
       "x" : -2160,
       "h" : 3810
+    }
+  },
+  {
+    "app" : "Google Chrome",
+    "frameRel" : {
+      "y" : 0.083568075117370896,
+      "w" : 0.46640625000000002,
+      "x" : 0.052604166666666667,
+      "h" : 0.76103286384976521
+    },
+    "frame" : {
+      "y" : -1952,
+      "w" : 1791,
+      "x" : 202,
+      "h" : 1621
+    },
+    "screenPosition" : "center",
+    "title" : "\/features\/F039-Dropbox-hands\/mas-search-app-survey.md - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : -2130,
+      "w" : 3840,
+      "x" : 0,
+      "h" : 2130
     }
   }
 ]

@@ -1,65 +1,19 @@
 [
   {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1741,
-      "w" : 1660,
-      "x" : -374,
-      "h" : 1213
-    },
-    "title" : "Tile Paper - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "center",
     "frameRel" : {
-      "y" : 0.18262910798122065,
-      "w" : 0.43229166666666669,
-      "x" : 0.17239583333333333,
-      "h" : 0.56948356807511735
+      "y" : 0,
+      "w" : 0.5004863813229572,
+      "x" : 0.43239299610894943,
+      "h" : 0.78914728682170543
     },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
     "app" : "kitty",
-    "frame" : {
-      "y" : -2025,
-      "w" : 990,
-      "x" : 1704,
-      "h" : 1940
-    },
-    "title" : "tilepaper | Add: Cell Editor QoL Features",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.049295774647887321,
-      "w" : 0.2578125,
-      "x" : 0.71354166666666663,
-      "h" : 0.91079812206572774
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "BetterTouchTool",
-    "frame" : {
-      "y" : 161,
-      "w" : 1267,
-      "x" : 573,
-      "h" : 1045
-    },
-    "title" : "BetterTouchTool Configuration",
+    "title" : "sara | Fix: Raycast Extension Re-pathing",
     "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0.094573643410852712,
-      "w" : 0.61624513618677046,
-      "x" : 0.27869649805447472,
-      "h" : 0.81007751937984496
+    "frame" : {
+      "y" : 39,
+      "w" : 1029,
+      "x" : 889,
+      "h" : 1018
     },
     "screenFrame" : {
       "y" : 39,
@@ -69,319 +23,43 @@
     }
   },
   {
+    "frameRel" : {
+      "y" : 0.024031007751937984,
+      "w" : 0.52285992217898836,
+      "x" : 0.086575875486381321,
+      "h" : 0.88217054263565886
+    },
+    "app" : "kitty",
+    "title" : "stepper | Debug: 4K Display Output",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 70,
+      "w" : 1075,
+      "x" : 178,
+      "h" : 1138
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.022480620155038759,
+      "w" : 0.63521400778210113,
+      "x" : 0.27042801556420232,
+      "h" : 0.92093023255813955
+    },
     "app" : "Bear",
-    "frame" : {
-      "y" : -2115,
-      "w" : 895,
-      "x" : 1059,
-      "h" : 2067
-    },
-    "title" : "_mem NOW",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.0070422535211267607,
-      "w" : 0.23307291666666666,
-      "x" : 0.54557291666666663,
-      "h" : 0.97042253521126765
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -2130,
-      "w" : 999,
-      "x" : -441,
-      "h" : 903
-    },
-    "title" : "Bear",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.26015624999999998,
-      "x" : 0.15494791666666666,
-      "h" : 0.42394366197183098
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Finder",
-    "frame" : {
-      "y" : 309,
-      "w" : 851,
-      "x" : 857,
-      "h" : 679
-    },
-    "title" : "Applications",
-    "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0.20930232558139536,
-      "w" : 0.41391050583657585,
-      "x" : 0.41682879377431908,
-      "h" : 0.52635658914728678
-    },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Claude",
-    "frame" : {
-      "y" : -1611,
-      "w" : 1269,
-      "x" : -483,
-      "h" : 1271
-    },
-    "title" : "Claude",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.24366197183098592,
-      "w" : 0.33046874999999998,
-      "x" : 0.14401041666666667,
-      "h" : 0.5967136150234742
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1246,
-      "w" : 1276,
-      "x" : 453,
-      "h" : 1071
-    },
-    "title" : "start.internal - Network error - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.41502347417840374,
-      "w" : 0.33229166666666665,
-      "x" : 0.38776041666666666,
-      "h" : 0.5028169014084507
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 39,
-      "w" : 895,
-      "x" : 913,
-      "h" : 1290
-    },
-    "title" : "_tp Thoughts",
-    "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.43531128404669261,
-      "x" : 0.44406614785992216,
-      "h" : 1
-    },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 39,
-      "w" : 895,
-      "x" : 518,
-      "h" : 1290
-    },
-    "title" : "_tp Inspiration",
-    "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.43531128404669261,
-      "x" : 0.25194552529182879,
-      "h" : 1
-    },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1528,
-      "w" : 1788,
-      "x" : -118,
-      "h" : 1213
-    },
-    "title" : "\/tilepaper - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.28262910798122065,
-      "w" : 0.46562500000000001,
-      "x" : 0.23906250000000001,
-      "h" : 0.56948356807511735
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1763,
-      "w" : 1660,
-      "x" : -908,
-      "h" : 1213
-    },
-    "title" : "Tile Paper - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.17230046948356809,
-      "w" : 0.43229166666666669,
-      "x" : 0.033333333333333333,
-      "h" : 0.56948356807511735
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1148
-    },
-    "title" : "DevTools - art.internal\/thinking-paper\/tilepaper\/index-demo.html - Eli (Eli - main)",
-    "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 1,
-      "x" : 0,
-      "h" : 0.889922480620155
-    },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : -1578,
-      "w" : 1404,
-      "x" : -548,
-      "h" : 1568
-    },
-    "title" : "RESEARCH 21:12:57 - do-done - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.25915492957746478,
-      "w" : 0.36562499999999998,
-      "x" : 0.12708333333333333,
-      "h" : 0.73615023474178409
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : 152,
-      "w" : 1399,
-      "x" : 561,
-      "h" : 1136
-    },
-    "title" : "Untitled spreadsheet - Google Sheets - Google Chrome - Eli (Eli - main)",
-    "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0.087596899224806207,
-      "w" : 0.68044747081712065,
-      "x" : 0.2728599221789883,
-      "h" : 0.88062015503875968
-    },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -2130,
-      "w" : 895,
-      "x" : 816,
-      "h" : 1278
-    },
     "title" : "w24thoughts 8-14jun2026",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.23307291666666666,
-      "x" : 0.48229166666666667,
-      "h" : 0.59999999999999998
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 39,
-      "w" : 895,
-      "x" : 64,
-      "h" : 1278
-    },
-    "title" : "_tp evolution as of sep2022",
     "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.43531128404669261,
-      "x" : 0.031128404669260701,
-      "h" : 0.99069767441860468
+    "frame" : {
+      "y" : 68,
+      "w" : 1306,
+      "x" : 556,
+      "h" : 1188
     },
     "screenFrame" : {
       "y" : 39,
@@ -391,20 +69,66 @@
     }
   },
   {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 197,
-      "w" : 888,
-      "x" : 800,
-      "h" : 1118
+    "frameRel" : {
+      "y" : 0.044961240310077519,
+      "w" : 0.56809338521400776,
+      "x" : 0.41293774319066145,
+      "h" : 0.92093023255813955
     },
+    "app" : "Bear",
+    "title" : "_budget 11jun2026",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 97,
+      "w" : 1168,
+      "x" : 849,
+      "h" : 1188
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.055813953488372092,
+      "w" : 0.56809338521400776,
+      "x" : 0.00048638132295719845,
+      "h" : 0.8542635658914729
+    },
+    "app" : "Bear",
+    "title" : "_budget 14jun2026",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 111,
+      "w" : 1168,
+      "x" : 1,
+      "h" : 1102
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.43190661478599224,
+      "x" : 0.1872568093385214,
+      "h" : 0.92248062015503873
+    },
+    "app" : "Bear",
     "title" : "w24days 8-14jun2026",
     "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0.12248062015503876,
-      "w" : 0.43190661478599224,
-      "x" : 0.38910505836575876,
-      "h" : 0.8666666666666667
+    "frame" : {
+      "y" : 39,
+      "w" : 888,
+      "x" : 385,
+      "h" : 1190
     },
     "screenFrame" : {
       "y" : 39,
@@ -414,67 +138,44 @@
     }
   },
   {
-    "app" : "Bear",
-    "frame" : {
-      "y" : -2093,
-      "w" : 1177,
-      "x" : 1627,
-      "h" : 1321
-    },
-    "title" : "_index 2026",
-    "screenPosition" : "center",
     "frameRel" : {
-      "y" : 0.017370892018779342,
-      "w" : 0.30651041666666667,
-      "x" : 0.69348958333333333,
-      "h" : 0.62018779342723007
+      "y" : 0,
+      "w" : 0.45817120622568092,
+      "x" : 0.48394941634241245,
+      "h" : 0.96666666666666667
     },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
     "app" : "Bear",
-    "frame" : {
-      "y" : -1250,
-      "w" : 1024,
-      "x" : 1524,
-      "h" : 1108
-    },
-    "title" : "w24work 8-14jun2026",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.41314553990610331,
-      "w" : 0.26666666666666666,
-      "x" : 0.66666666666666663,
-      "h" : 0.52018779342723009
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 190,
-      "w" : 777,
-      "x" : 1058,
-      "h" : 688
-    },
-    "title" : "_art Thinking paper",
+    "title" : "_meet Armando 15jun2026",
     "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 39,
+      "w" : 942,
+      "x" : 995,
+      "h" : 1247
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
     "frameRel" : {
       "y" : 0.11705426356589148,
       "w" : 0.37791828793774318,
       "x" : 0.5145914396887159,
       "h" : 0.53333333333333333
     },
+    "app" : "Bear",
+    "title" : "_art Thinking paper",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 190,
+      "w" : 777,
+      "x" : 1058,
+      "h" : 688
+    },
     "screenFrame" : {
       "y" : 39,
       "w" : 2056,
@@ -483,66 +184,66 @@
     }
   },
   {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 39,
-      "w" : 895,
-      "x" : 593,
-      "h" : 1290
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.45817120622568092,
+      "x" : 0.0068093385214007783,
+      "h" : 1
     },
+    "app" : "Bear",
     "title" : "w25days 15-21jun2026",
     "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 39,
+      "w" : 942,
+      "x" : 14,
+      "h" : 1290
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.065116279069767441,
+      "w" : 0.42558365758754862,
+      "x" : 0.07101167315175097,
+      "h" : 0.83333333333333337
+    },
+    "app" : "Telegram",
+    "title" : "‎⁨Los que se quedaron⁩",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 123,
+      "w" : 875,
+      "x" : 146,
+      "h" : 1075
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
     "frameRel" : {
       "y" : 0,
-      "w" : 0.43531128404669261,
-      "x" : 0.28842412451361865,
+      "w" : 1,
+      "x" : 0,
       "h" : 1
     },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "kitty",
-    "frame" : {
-      "y" : -2116,
-      "w" : 1107,
-      "x" : 1634,
-      "h" : 1767
-    },
-    "title" : "~\/.claude\/screenshots",
-    "screenPosition" : "center",
-    "frameRel" : {
-      "y" : 0.0065727699530516428,
-      "w" : 0.28828124999999999,
-      "x" : 0.6953125,
-      "h" : 0.8295774647887324
-    },
-    "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
-    }
-  },
-  {
-    "app" : "Code",
-    "frame" : {
-      "y" : 115,
-      "w" : 1200,
-      "x" : 428,
-      "h" : 1187
-    },
-    "title" : "index.html",
+    "app" : "Google Chrome",
+    "title" : "Partidos del Mundial que se transmitirán por tv abierta | Lista- Grupo Milenio - Google Chrome - Eli (Eli - main)",
     "screenPosition" : "bottom",
-    "frameRel" : {
-      "y" : 0.058914728682170542,
-      "w" : 0.58365758754863817,
-      "x" : 0.20817120622568094,
-      "h" : 0.92015503875968996
+    "frame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
     },
     "screenFrame" : {
       "y" : 39,
@@ -552,66 +253,66 @@
     }
   },
   {
-    "app" : "Bloom",
-    "frame" : {
-      "y" : -2130,
-      "w" : 1081,
-      "x" : 443,
-      "h" : 856
-    },
-    "title" : "art",
-    "screenPosition" : "center",
     "frameRel" : {
       "y" : 0,
-      "w" : 0.28151041666666665,
-      "x" : 0.38515624999999998,
-      "h" : 0.40187793427230045
+      "w" : 0.59046692607003892,
+      "x" : -0,
+      "h" : 0.84961240310077524
+    },
+    "app" : "Google Chrome",
+    "title" : "Tile Paper - Google Chrome - Eli (Eli - main)",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 39,
+      "w" : 1214,
+      "x" : 0,
+      "h" : 1096
     },
     "screenFrame" : {
-      "y" : -2130,
-      "w" : 3840,
-      "x" : -1036,
-      "h" : 2130
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
     }
   },
   {
-    "app" : "Photos",
-    "frame" : {
-      "y" : 39,
-      "w" : 1029,
-      "x" : 1027,
-      "h" : 1290
-    },
-    "title" : "Library – 1 – 2 May 2026",
-    "screenPosition" : "bottom",
     "frameRel" : {
       "y" : 0,
-      "w" : 0.5004863813229572,
-      "x" : 0.4995136186770428,
-      "h" : 1
+      "w" : 0.82395833333333335,
+      "x" : 0.036458333333333336,
+      "h" : 0.9447619047619048
     },
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bloom",
+    "app" : "Google Chrome",
+    "title" : "💰2026 finances - Google Sheets - Google Chrome - Eli (Eli - main)",
+    "screenPosition" : "center",
     "frame" : {
-      "y" : 442,
-      "w" : 1081,
-      "x" : 127,
-      "h" : 856
+      "y" : -1050,
+      "w" : 1582,
+      "x" : 70,
+      "h" : 992
     },
-    "title" : "napkin",
-    "screenPosition" : "bottom",
+    "screenFrame" : {
+      "y" : -1050,
+      "w" : 1920,
+      "x" : 0,
+      "h" : 1050
+    }
+  },
+  {
     "frameRel" : {
-      "y" : 0.31240310077519379,
-      "w" : 0.52577821011673154,
-      "x" : 0.061770428015564205,
-      "h" : 0.66356589147286826
+      "y" : 0.078294573643410859,
+      "w" : 0.57198443579766534,
+      "x" : 0.092412451361867709,
+      "h" : 0.86744186046511629
+    },
+    "app" : "Finder",
+    "title" : "Dropbox",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 140,
+      "w" : 1176,
+      "x" : 190,
+      "h" : 1119
     },
     "screenFrame" : {
       "y" : 39,
@@ -621,20 +322,181 @@
     }
   },
   {
+    "frameRel" : {
+      "y" : 0.0077519379844961239,
+      "w" : 0.19455252918287938,
+      "x" : 0.0048638132295719845,
+      "h" : 0.61627906976744184
+    },
+    "app" : "Finder",
+    "title" : "Dropbox Info",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 49,
+      "w" : 400,
+      "x" : 10,
+      "h" : 795
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.028682170542635659,
+      "w" : 0.41391050583657585,
+      "x" : 0.048638132295719845,
+      "h" : 0.52635658914728678
+    },
+    "app" : "Finder",
+    "title" : "sara",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 76,
+      "w" : 851,
+      "x" : 100,
+      "h" : 679
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.72470817120622566,
+      "x" : -0,
+      "h" : 0.97674418604651159
+    },
+    "app" : "Google Chrome",
+    "title" : "\/features\/F039-Dropbox-hands\/may-jun-2026-major-sync-breakage\/LCD-diaspora-tweaks.md - Google Chrome - Eli (Eli - main)",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 39,
+      "w" : 1490,
+      "x" : 0,
+      "h" : 1260
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.41197916666666667,
+      "x" : 0.52864583333333337,
+      "h" : 0.96666666666666667
+    },
     "app" : "Soulver",
+    "title" : "Padres",
+    "screenPosition" : "center",
     "frame" : {
-      "y" : 250,
-      "w" : 915,
-      "x" : 825,
-      "h" : 1079
+      "y" : -1050,
+      "w" : 791,
+      "x" : 1015,
+      "h" : 1015
     },
-    "title" : "demo for Kedmey",
-    "screenPosition" : "bottom",
+    "screenFrame" : {
+      "y" : -1050,
+      "w" : 1920,
+      "x" : 0,
+      "h" : 1050
+    }
+  },
+  {
     "frameRel" : {
-      "y" : 0.16356589147286821,
-      "w" : 0.44503891050583655,
-      "x" : 0.40126459143968873,
-      "h" : 0.83643410852713174
+      "y" : 0,
+      "w" : 0.69999999999999996,
+      "x" : 0.13333333333333333,
+      "h" : 0.90000000000000002
+    },
+    "app" : "Google Chrome",
+    "title" : "Experiments - Google Chrome - Eli (Eli - main)",
+    "screenPosition" : "center",
+    "frame" : {
+      "y" : -1050,
+      "w" : 1344,
+      "x" : 256,
+      "h" : 945
+    },
+    "screenFrame" : {
+      "y" : -1050,
+      "w" : 1920,
+      "x" : 0,
+      "h" : 1050
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.45087548638132297,
+      "x" : 0.018482490272373541,
+      "h" : 0.75968992248062017
+    },
+    "app" : "Google Chrome",
+    "title" : "\/features\/F039-Dropbox-hands\/mas-search-app-survey.md - Google Chrome - Eli (Eli - main)",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 39,
+      "w" : 927,
+      "x" : 38,
+      "h" : 980
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.24263565891472869,
+      "w" : 0.3516536964980545,
+      "x" : 0.6089494163424124,
+      "h" : 0.69147286821705423
+    },
+    "app" : "System Settings",
+    "title" : "Displays",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 352,
+      "w" : 723,
+      "x" : 1252,
+      "h" : 892
+    },
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.16744186046511628,
+      "w" : 0.54912451361867709,
+      "x" : 0.37354085603112841,
+      "h" : 0.82093023255813957
+    },
+    "app" : "Activity Monitor",
+    "title" : "Activity Monitor – All Processes",
+    "screenPosition" : "bottom",
+    "frame" : {
+      "y" : 255,
+      "w" : 1129,
+      "x" : 768,
+      "h" : 1059
     },
     "screenFrame" : {
       "y" : 39,

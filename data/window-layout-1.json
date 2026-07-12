@@ -1,20 +1,20 @@
 [
   {
-    "app" : "‎WhatsApp",
-    "frame" : {
-      "y" : 39,
-      "w" : 1029,
-      "x" : 1027,
-      "h" : 1032
-    },
-    "title" : "‎WhatsApp",
     "frameRel" : {
-      "y" : 0,
-      "w" : 0.5004863813229572,
-      "x" : 0.4995136186770428,
-      "h" : 0.80000000000000004
+      "y" : 0.17131782945736435,
+      "w" : 0.40953307392996108,
+      "x" : 0.066634241245136186,
+      "h" : 0.75271317829457363
     },
+    "frame" : {
+      "y" : 260,
+      "w" : 842,
+      "x" : 137,
+      "h" : 971
+    },
+    "app" : "Bear",
     "screenPosition" : "bottom",
+    "title" : "w28thoughts 6-12jul2026",
     "screenFrame" : {
       "y" : 39,
       "w" : 2056,
@@ -23,389 +23,21 @@
     }
   },
   {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 1731,
-      "x" : 0,
-      "h" : 1207
-    },
-    "title" : "Claude Fable 5 review: what the new Mythos model gets right (and very wrong) - ely.parra@gmail.com - Gmail - Google Chrome - Eli (Eli - main)",
     "frameRel" : {
       "y" : 0,
-      "w" : 0.84192607003891051,
-      "x" : 0,
-      "h" : 0.93565891472868212
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Claude",
-    "frame" : {
-      "y" : 159,
-      "w" : 1200,
-      "x" : 193,
-      "h" : 1170
-    },
-    "title" : "Claude",
-    "frameRel" : {
-      "y" : 0.093023255813953487,
-      "w" : 0.58365758754863817,
-      "x" : 0.093871595330739299,
-      "h" : 0.90697674418604646
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 1652,
-      "x" : 87,
-      "h" : 1204
-    },
-    "title" : "Instituto Nacional de Pediatría - MAS Dashboard 2.0 - Google Chrome - Eli (Eli - main)",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.80350194552529186,
-      "x" : 0.042315175097276267,
-      "h" : 0.93333333333333335
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    },
-    "title" : "2026 by day - Eli - Google Sheets - Google Chrome - Eli (Eli - main)",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 1,
-      "x" : 0,
+      "w" : 0.46692607003891051,
+      "x" : 0.5160505836575876,
       "h" : 1
     },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Google Chrome",
     "frame" : {
       "y" : 39,
-      "w" : 1475,
-      "x" : 38,
+      "w" : 960,
+      "x" : 1061,
       "h" : 1290
     },
-    "title" : "MAS Dashboard 2.0 - Google Chrome - Eli (Eli - main)",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.71741245136186771,
-      "x" : 0.018482490272373541,
-      "h" : 1
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Google Chrome",
-    "frame" : {
-      "y" : 39,
-      "w" : 1475,
-      "x" : 446,
-      "h" : 1290
-    },
-    "title" : "2026 by day - Eli - Google Sheets - Google Chrome - Eli (Eli - main)",
-    "frameRel" : {
-      "y" : 0,
-      "w" : 0.71741245136186771,
-      "x" : 0.21692607003891051,
-      "h" : 1
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 154,
-      "w" : 750,
-      "x" : 799,
-      "h" : 989
-    },
-    "title" : "w22thoughts 25-31may2026",
-    "frameRel" : {
-      "y" : 0.089147286821705432,
-      "w" : 0.36478599221789881,
-      "x" : 0.38861867704280156,
-      "h" : 0.76666666666666672
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 169,
-      "w" : 888,
-      "x" : 72,
-      "h" : 1118
-    },
-    "title" : "w22days 25-31may2026",
-    "frameRel" : {
-      "y" : 0.10077519379844961,
-      "w" : 0.43190661478599224,
-      "x" : 0.035019455252918288,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 168,
-      "w" : 888,
-      "x" : 1076,
-      "h" : 1118
-    },
-    "title" : "_index 2026",
-    "frameRel" : {
-      "y" : 0.10000000000000001,
-      "w" : 0.43190661478599224,
-      "x" : 0.52334630350194555,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 168,
-      "w" : 888,
-      "x" : 1042,
-      "h" : 1118
-    },
-    "title" : "IDs",
-    "frameRel" : {
-      "y" : 0.10000000000000001,
-      "w" : 0.43190661478599224,
-      "x" : 0.50680933852140075,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 183,
-      "w" : 888,
-      "x" : 246,
-      "h" : 1118
-    },
-    "title" : "_money 2021",
-    "frameRel" : {
-      "y" : 0.11162790697674418,
-      "w" : 0.43190661478599224,
-      "x" : 0.11964980544747082,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 207,
-      "w" : 888,
-      "x" : 106,
-      "h" : 1118
-    },
-    "title" : "_budget 9jun2026",
-    "frameRel" : {
-      "y" : 0.13023255813953488,
-      "w" : 0.43190661478599224,
-      "x" : 0.051556420233463032,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 255,
-      "w" : 888,
-      "x" : 730,
-      "h" : 1118
-    },
-    "title" : "w24work 8-14jun2026",
-    "frameRel" : {
-      "y" : 0.16744186046511628,
-      "w" : 0.43190661478599224,
-      "x" : 0.35505836575875488,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 197,
-      "w" : 888,
-      "x" : 1007,
-      "h" : 1118
-    },
-    "title" : "w24days 8-14jun2026",
-    "frameRel" : {
-      "y" : 0.12248062015503876,
-      "w" : 0.43190661478599224,
-      "x" : 0.48978599221789881,
-      "h" : 0.8666666666666667
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bear",
-    "frame" : {
-      "y" : 126,
-      "w" : 815,
-      "x" : 1025,
-      "h" : 1115
-    },
-    "title" : "w24thoughts 8-14jun2026",
-    "frameRel" : {
-      "y" : 0.067441860465116285,
-      "w" : 0.39640077821011671,
-      "x" : 0.49854085603112841,
-      "h" : 0.86434108527131781
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Telegram",
-    "frame" : {
-      "y" : 81,
-      "w" : 955,
-      "x" : 698,
-      "h" : 1248
-    },
-    "title" : "‎⁨Paulina Chofi⁩",
-    "frameRel" : {
-      "y" : 0.03255813953488372,
-      "w" : 0.46449416342412453,
-      "x" : 0.33949416342412453,
-      "h" : 0.96744186046511627
-    },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
     "app" : "kitty",
-    "frame" : {
-      "y" : 109,
-      "w" : 912,
-      "x" : 1087,
-      "h" : 1158
-    },
-    "title" : "F030-Safari-tab-backups-linklogs | Build: LinkLog Tab AppleScript",
-    "frameRel" : {
-      "y" : 0.054263565891472867,
-      "w" : 0.44357976653696496,
-      "x" : 0.52869649805447472,
-      "h" : 0.89767441860465114
-    },
     "screenPosition" : "bottom",
+    "title" : "topsight | Recover: Exile Changes",
     "screenFrame" : {
       "y" : 39,
       "w" : 2056,
@@ -414,21 +46,21 @@
     }
   },
   {
-    "app" : "Safari",
-    "frame" : {
-      "y" : 311,
-      "w" : 1215,
-      "x" : 704,
-      "h" : 931
-    },
-    "title" : "Start Page",
     "frameRel" : {
-      "y" : 0.21085271317829457,
-      "w" : 0.59095330739299612,
-      "x" : 0.34241245136186771,
-      "h" : 0.72170542635658919
+      "y" : 0.013178294573643411,
+      "w" : 0.40953307392996108,
+      "x" : 0.16682879377431906,
+      "h" : 0.88604651162790693
     },
+    "frame" : {
+      "y" : 56,
+      "w" : 842,
+      "x" : 343,
+      "h" : 1143
+    },
+    "app" : "Bear",
     "screenPosition" : "bottom",
+    "title" : "w28days 6-12jul2026",
     "screenFrame" : {
       "y" : 39,
       "w" : 2056,
@@ -437,44 +69,159 @@
     }
   },
   {
-    "app" : "Bloom",
-    "frame" : {
-      "y" : 450,
-      "w" : 1081,
-      "x" : 226,
-      "h" : 856
+    "frameRel" : {
+      "y" : 0,
+      "w" : 0.66050583657587547,
+      "x" : 0.022859922178988325,
+      "h" : 0.96666666666666667
     },
-    "title" : "2026",
+    "frame" : {
+      "y" : 39,
+      "w" : 1358,
+      "x" : 47,
+      "h" : 1247
+    },
+    "app" : "Google Chrome",
+    "screenPosition" : "bottom",
+    "title" : "\/features\/F039-Dropbox-hands\/may-jun-2026-major-sync-breakage\/back-to-normal.md - Google Chrome - Eli (Eli - main)",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.028682170542635659,
+      "w" : 0.65466926070038911,
+      "x" : 0.27431906614785995,
+      "h" : 0.66046511627906979
+    },
+    "frame" : {
+      "y" : 76,
+      "w" : 1346,
+      "x" : 564,
+      "h" : 852
+    },
+    "app" : "TextEdit",
+    "screenPosition" : "bottom",
+    "title" : "strays-sweep-2026-07-12.txt",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.10155038759689923,
+      "w" : 0.40321011673151752,
+      "x" : 0.04328793774319066,
+      "h" : 0.64341085271317833
+    },
+    "frame" : {
+      "y" : 170,
+      "w" : 829,
+      "x" : 89,
+      "h" : 830
+    },
+    "app" : "Finder",
+    "screenPosition" : "bottom",
+    "title" : "topsight",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.22868217054263565,
+      "w" : 0.43287937743190663,
+      "x" : 0.46546692607003892,
+      "h" : 0.70465116279069773
+    },
+    "frame" : {
+      "y" : 334,
+      "w" : 890,
+      "x" : 957,
+      "h" : 909
+    },
+    "app" : "Finder",
+    "screenPosition" : "bottom",
+    "title" : "hotelposadasanjose",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.01627906976744186,
+      "w" : 0.57344357976653693,
+      "x" : 0.27577821011673154,
+      "h" : 0.71007751937984498
+    },
+    "frame" : {
+      "y" : 60,
+      "w" : 1179,
+      "x" : 567,
+      "h" : 916
+    },
+    "app" : "Finder",
+    "screenPosition" : "bottom",
+    "title" : "sara",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
+    "frameRel" : {
+      "y" : 0.21860465116279071,
+      "w" : 0.5004863813229572,
+      "x" : 0.38667315175097278,
+      "h" : 0.69922480620155036
+    },
+    "frame" : {
+      "y" : 321,
+      "w" : 1029,
+      "x" : 795,
+      "h" : 902
+    },
+    "app" : "kitty",
+    "screenPosition" : "bottom",
+    "title" : "~",
+    "screenFrame" : {
+      "y" : 39,
+      "w" : 2056,
+      "x" : 0,
+      "h" : 1290
+    }
+  },
+  {
     "frameRel" : {
       "y" : 0.31860465116279069,
       "w" : 0.52577821011673154,
-      "x" : 0.10992217898832685,
+      "x" : 0.10846303501945526,
       "h" : 0.66356589147286826
     },
-    "screenPosition" : "bottom",
-    "screenFrame" : {
-      "y" : 39,
-      "w" : 2056,
-      "x" : 0,
-      "h" : 1290
-    }
-  },
-  {
-    "app" : "Bloom",
     "frame" : {
-      "y" : 442,
+      "y" : 450,
       "w" : 1081,
-      "x" : 127,
+      "x" : 223,
       "h" : 856
     },
-    "title" : "2026",
-    "frameRel" : {
-      "y" : 0.31240310077519379,
-      "w" : 0.52577821011673154,
-      "x" : 0.061770428015564205,
-      "h" : 0.66356589147286826
-    },
+    "app" : "Bloom",
     "screenPosition" : "bottom",
+    "title" : "work",
     "screenFrame" : {
       "y" : 39,
       "w" : 2056,
@@ -483,21 +230,21 @@
     }
   },
   {
-    "app" : "Bloom",
-    "frame" : {
-      "y" : 480,
-      "w" : 1125,
-      "x" : 115,
-      "h" : 773
-    },
-    "title" : "Downloads",
     "frameRel" : {
-      "y" : 0.34186046511627904,
-      "w" : 0.5471789883268483,
-      "x" : 0.055933852140077824,
-      "h" : 0.59922480620155039
+      "y" : 0,
+      "w" : 0.46692607003891051,
+      "x" : 0.45525291828793774,
+      "h" : 1
     },
+    "frame" : {
+      "y" : 39,
+      "w" : 960,
+      "x" : 936,
+      "h" : 1290
+    },
+    "app" : "‎WhatsApp",
     "screenPosition" : "bottom",
+    "title" : "‎WhatsApp",
     "screenFrame" : {
       "y" : 39,
       "w" : 2056,
