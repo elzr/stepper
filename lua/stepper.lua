@@ -866,8 +866,29 @@ flashEdgeHighlight = function(screen, dir, colorOverride)
   end)
 end
 
+-- AXEnhancedUserInterface self-heal (the "app-driven snap bug").
+-- Assistive-tech clients (VoiceOver, Voice Control, Raycast, tools forcing
+-- Chrome's AX tree) set this app-level attribute and leave it on. While true,
+-- AX moves/resizes animate, and a setFrame that interrupts the in-flight
+-- animation gets its position component swallowed — so multi-step ops like
+-- shrink-then-resnap detach edge-snapped windows in poisoned apps
+-- (Chrome/Bear/Soulver) while clean apps (kitty/Finder/...) work fine.
+-- Clearing it before every operation immunizes stepper against re-poisoning.
+-- See case-studies/2026-07-17-app-driven-snap-detach-was-axenhanceduserinterface.md
+local function clearEnhancedUI()
+  local win = hs.window.focusedWindow()
+  if not win then return end
+  local app = win:application()
+  if not app then return end
+  local ax = hs.axuielement.applicationElement(app)
+  if ax and ax:attributeValue("AXEnhancedUserInterface") == true then
+    ax:setAttributeValue("AXEnhancedUserInterface", false)
+  end
+end
+
 local function bindWithRepeat(mods, key, fn)
-    hs.hotkey.bind(mods, key, fn, nil, fn)
+    local healed = function() clearEnhancedUI() fn() end
+    hs.hotkey.bind(mods, key, healed, nil, healed)
 end
 
 -- Define mappings of keys to dirs
