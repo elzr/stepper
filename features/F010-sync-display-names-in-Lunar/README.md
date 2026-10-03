@@ -2,7 +2,7 @@
 
 > Keep [Lunar](https://lunar.fyi/)'s display names **and its DDC wiring** in line with where each monitor physically sits, so the "←Left" slider always dims the left monitor. Driven from Hammerspoon by [layout.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layout.lua), executed by [lunar-sync-names.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/lunar-sync-names.py).
 
-**Status:** active. **Created:** 2026-03-02. **Reworked:** 2026-10-03 (two portrait LGs replaced by two identical Samsung LS37D70xE).
+**Status:** active. **Created:** 2026-03-02. **Reworked:** 2026-10-03 (two portrait LGs replaced by two Samsung LS37D70xE that share a numeric serial).
 
 ## Contents
 
@@ -18,12 +18,12 @@
 
 ## Problem
 
-The quad-32 setup is the built-in display + 2× LG HDR 4K (top/center, distinct serials) + ==🔵2× Samsung LS37D70xE in portrait (left/right)==. The Samsungs are ==🔴identical to macOS==: same EDID UUID, same numeric serial (`811096392`). The only difference is the EDID's alphanumeric serial (`HNTL300013` vs `HNTL300014`), which CoreGraphics doesn't expose. macOS tells them apart only by port, via per-port display UUIDs and IDs that it reshuffles across reboots and reconnects.
+The quad-32 setup is the built-in display + 2× LG HDR 4K (top/center, distinct serials) + ==🔵2× Samsung LS37D70xE in portrait (left/right)==. A monitor's EDID carries two serials: a **numeric** one, which macOS (and Lunar) use to tell displays apart, and a **text** one. Both Samsungs report ==🔴the same numeric serial (`811096392`)== — a fixed value, not a per-unit number — so they're indistinguishable in everything macOS uses to identify a display. Their unique serials (`HNTL300013`, `HNTL300014`) are only in the text field, which macOS keeps in IOKit but doesn't use for identification. macOS therefore tells them apart only by port, via per-port display UUIDs and IDs that it reshuffles across reboots and reconnects. The LGs report distinct numeric serials (`728780`, `11249`), so they don't have this problem.
 
 Lunar gets this wrong in three distinct ways:
 
 1. ==🔴Names on the wrong UUIDs== — the original F010 problem. Lunar keys names by UUID; when macOS reassigns UUIDs, the position names land on the wrong monitors.
-2. ==🔴Stale display objects after a reconnect blip== — a monitor drops and returns (screen count 5 → 4 → 5) and macOS swaps the display IDs of the identical pair. The running Lunar keeps its old UUID ↔ ID pairing, so its sliders act on the other monitor. `lunar refresh-displays` does **not** fix this; only a restart does.
+2. ==🔴Stale display objects after a reconnect blip== — a monitor drops and returns (screen count 5 → 4 → 5) and macOS swaps the display IDs of the two Samsungs. The running Lunar keeps its old UUID ↔ ID pairing, so its sliders act on the other monitor. `lunar refresh-displays` does **not** fix this; only a restart does.
 3. ==🔴Crossed DDC at launch== — Lunar wires each display to a DDC port at launch using the display IDs it **saved last session**, then refreshes the IDs. If macOS swapped the pair's IDs while Lunar wasn't running (every reboot is a coin flip), the sliders come up crossed even though Lunar's live IDs look right. Reproduced on 2026-10-03 by swapping the two saved `id`s: the next launch came up crossed, and the one after (with re-saved IDs) was correct.
 
 Symptoms in Lunar's window: a Samsung slider labeled "⊙Middle Center", a display showing "No controls available" (no DDC port matched), the real Middle Center LG with no slider at all.
@@ -94,6 +94,7 @@ Ground truth for which physical monitor is at which display: see `monitor_serial
 
 - [lunar-sync-names.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/lunar-sync-names.py) — the checks and the restart. Takes `{uuid: {name, id}}`. Exit 0 = Lunar restarted, 1 = nothing done (in sync, or displays asleep), 2 = error.
 - [layout.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layout.lua) — `syncLunarNames()`, `scheduleLunarSync()`, and the triggers in the screen watcher, `M.init` and `M.onWake`. Output goes to the Hammerspoon console as `[layout.lunar] …`.
+- [display-serials.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/display-serials.py) — read-only probe: each monitor's numeric serial (with its raw EDID bytes, e.g. Samsung's `"HYX0"`) and text serial, flagging monitors macOS can only tell apart by port. `--watch` logs every change, for plug-in tests.
 
 ## Manual Trigger
 
@@ -117,4 +118,4 @@ Over time, as macOS reassigns UUIDs, Lunar accumulates multiple entries for what
 
 ## Case studies
 
-- ==🟢[2026-10-03-lunar-sliders-crossed-identical-samsungs.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/case-studies/2026-10-03-lunar-sliders-crossed-identical-samsungs.md)== — F010 dead for seven months after a code-prefix rename left `layout.lua` pointing at the old folder; then identical Samsungs, Lunar's launch-time wiring from saved IDs, and a post-upgrade Rosetta gap.
+- ==🟢[2026-10-03-lunar-sliders-crossed-identical-samsungs.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/case-studies/2026-10-03-lunar-sliders-crossed-identical-samsungs.md)== — F010 dead for seven months after a code-prefix rename left `layout.lua` pointing at the old folder; then two Samsungs sharing a numeric serial, Lunar's launch-time wiring from saved IDs, and a post-upgrade Rosetta gap.

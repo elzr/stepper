@@ -11,11 +11,12 @@ that UUID (hs.screen:id()).
 Lunar is restarted when any of these hold:
   - a stored name differs from the expected one
   - the running Lunar pairs a UUID with a different display ID than macOS does.
-    Identical monitors can swap IDs on a reconnect blip; Lunar keeps its old
-    display objects (`lunar refresh-displays` doesn't fix that).
+    Monitors sharing a numeric EDID serial (macOS can only tell them apart by
+    port) can swap IDs on a reconnect blip; Lunar keeps its old display objects
+    (`lunar refresh-displays` doesn't fix that).
   - a slider's DDC reaches a different monitor than the one at its position.
     Lunar wires DDC at launch from the display IDs it saved last session, so a
-    launch after macOS swapped the IDs of identical monitors comes up crossed
+    launch after macOS swapped the IDs of such monitors comes up crossed
     even though its live IDs look right.
 
 Before relaunching, names and IDs are written into Lunar's prefs while it is quit,
@@ -109,8 +110,9 @@ def monitor_serials(expected):
     """{uuid: EDID alphanumeric serial of the physical monitor macOS shows at that display}.
 
     CoreDisplay gives each display's framebuffer (IODisplayLocation, private API);
-    ioreg gives the serial of the monitor attached to that framebuffer. Identical
-    monitors only differ by this serial. Returns {} if CoreDisplay is unavailable.
+    ioreg gives the text serial of the monitor attached to that framebuffer, which
+    is unique per unit even when the numeric serial isn't. Returns {} if
+    CoreDisplay is unavailable.
     """
     try:
         cf = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")

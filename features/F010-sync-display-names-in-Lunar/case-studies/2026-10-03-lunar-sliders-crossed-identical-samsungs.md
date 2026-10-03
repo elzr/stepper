@@ -1,10 +1,10 @@
-# Case: Lunar's sliders on the wrong monitors — a silent rename, identical Samsungs, and launch-time wiring (2026-10-03)
+# Case: Lunar's sliders on the wrong monitors — a silent rename, same-serial Samsungs, and launch-time wiring (2026-10-03)
 
 **Project:** [stepper](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper) × [F010-sync-display-names-in-Lunar](https://stepper.internal/features/F010-sync-display-names-in-Lunar/) × [F020-featurebase](https://topsight.internal/features/F020-featurebase/) × [F027-worldclass-code-debugging](https://fleet.internal/features/F027-worldclass-code-debugging/)
 
 **The symptom:** After swapping the two portrait LGs for two Samsung LS37D70xE, [Lunar](https://lunar.fyi/)'s window was nonsense: the Right monitor's slider was labeled "⊙Middle Center", one entry said "No controls available", "LS37D70xE (2)" was really the Left, and the real Middle Center had no slider at all. The window-switch hotkeys worked fine.
 
-==🟣The truth: four stacked causes. (1) [F010](https://stepper.internal/features/F010-sync-display-names-in-Lunar/), the automation built to fix exactly this, had been dead since 2026-03-13, when a folder rename gave it its code and didn't update the one path that loads it. (2) The two Samsungs are identical to macOS except for a serial string CoreGraphics doesn't expose, so macOS reshuffles their display IDs. (3) Lunar wires each slider to a DDC port at launch from the IDs it *saved last session*, and never re-checks. (4) After the macOS 27 upgrade, Rosetta was missing, so even the repaired F010 couldn't launch its Python.==
+==🟣The truth: four stacked causes. (1) [F010](https://stepper.internal/features/F010-sync-display-names-in-Lunar/), the automation built to fix exactly this, had been dead since 2026-03-13, when a folder rename gave it its code and didn't update the one path that loads it. (2) The two Samsungs report the same numeric serial, the field macOS identifies displays by; their unique serials sit in a text field macOS doesn't use for that. So macOS can tell them apart only by port, and reshuffles their display IDs. (3) Lunar wires each slider to a DDC port at launch from the IDs it *saved last session*, and never re-checks. (4) After the macOS 27 upgrade, Rosetta was missing, so even the repaired F010 couldn't launch its Python.==
 
 ## Contents
 
@@ -16,6 +16,7 @@
 - [Wrong turns](#wrong-turns)
 - [The fix](#the-fix)
 - [Why Lunar doesn't catch this](#why-lunar-doesnt-catch-this)
+- [Addendum: the retired LGs](#addendum-the-retired-lgs)
 - [Meta-lessons](#meta-lessons)
 - [Tags](#tags)
 
@@ -57,7 +58,7 @@ What macOS sees for the two Samsungs:
 | EDID UUID | `4C2D0079-…-0104B5522F78` | same |
 | **Alphanumeric serial** | ==🟢`HNTL300014`== | ==🟢`HNTL300013`== |
 
-Samsung writes the same numeric serial into every unit; the unique ID is only in the EDID's alphanumeric serial string, which CoreGraphics doesn't expose. So macOS tells the pair apart by **port** alone, and its UUIDs and display IDs for them shuffle (both got new UUIDs at the macOS 27 reboot; the LGs, with unique serials, kept theirs).
+Both units carry the same numeric serial. That's not chance — two random 32-bit serials match about once in four billion — so it's a fixed value rather than a per-unit number. The unique ID is only in the EDID's text serial, which macOS stores in IOKit but doesn't use to identify displays. So macOS tells the pair apart by **port** alone, and its UUIDs and display IDs for them shuffle (both got new UUIDs at the macOS 27 reboot; the LGs, with distinct numeric serials, kept theirs).
 
 The chain that recovers the truth, all read-only:
 
@@ -73,7 +74,7 @@ If (2) and (3) disagree, the slider is crossed. This one comparison is the invar
 2. ==🔴Stale objects after a reconnect blip== — at 20:28 one monitor dropped and returned (5 → 4 → 5). macOS swapped the Samsungs' display IDs; the running Lunar kept its old UUID ↔ ID pairing. `lunar refresh-displays` rebuilt the DDC services and kept the stale pairing.
 3. ==🔴Launch-time wiring from saved IDs== — even a fresh Lunar came up crossed. Six clean launches in a row made it look like a coin flip; the one crossed launch was the first after a stale session. ==🟢Reproduced deliberately==: with Lunar quit, swap the two Samsungs' saved `id` in its prefs → launch → crossed; launch again (Lunar has now re-saved real IDs) → correct. A launch after macOS swapped IDs therefore comes up crossed **with correct live IDs**, invisible to any ID check.
 
-Lunar's "Match DDC port based on the IOKit position" setting (`dcpMatchingIODisplayLocation`) was enabled along the way. ==🔵With it on, the HDMI LG was wired correctly on every launch== (before, it had been handed a Samsung's port — though the reboot also moved it to another port, so the credit isn't certain) ==🔴but the Samsung pair still followed the saved IDs==.
+Lunar's "Match DDC port based on the IOKit position" setting (`dcpMatchingIODisplayLocation`) was enabled along the way. ==🔵With it on, the Middle LG was wired correctly on every launch== (before, it had been handed a Samsung's port — though the reboot also moved it to another port, so the credit isn't certain) ==🔴but the Samsung pair still followed the saved IDs==.
 
 ## The boot-time miss: Rosetta
 
@@ -85,7 +86,7 @@ The cause: `/usr/local/bin/python3` is Intel Homebrew, an ==🔴x86_64 binary== 
 
 - ==🔴DDC fingerprinting as proof.== "Middle Center's port reports input `0x0F` and VCP version 0, like the Samsung" was presented as proof, but the two LGs are different models and could differ the same way. ==🟢The EDID read-back settled it==: Middle Center → `HNTL300013`.
 - ==🔴"A restart fixes it."== It fixed Lunar's live IDs, not its DDC wiring — that took the saved-ID mechanism.
-- ==🔴"The IOKit-position setting is the fix."== Necessary for the HDMI LG, not sufficient for the Samsungs.
+- ==🔴"The IOKit-position setting is the fix."== Necessary for the Middle LG, not sufficient for the Samsungs.
 - ==🔴Empty unified-log queries.== In the zsh-based Bash tool, `log` is a shell builtin; `log show … 2>/dev/null` silently returns nothing. Several "Lunar logs nothing" readings were void until `/usr/bin/log` was used.
 - ==🔵Refuted cleanly:== GC of `hs.task`, an `arm-io@<addr>` path-format mismatch, Lunar's version (6.11.0 for every launch), and the `defaults import` → relaunch timing.
 - ==🔴Verification hung==: a check run after the displays slept (00:52:51) blocked on an EDID read of a sleeping monitor — which became the sleep guard.
@@ -102,7 +103,27 @@ All in [F010](https://stepper.internal/features/F010-sync-display-names-in-Lunar
 
 ## Why Lunar doesn't catch this
 
-Lunar does have to solve the hard half: there's no public API linking a display to its DDC port on Apple Silicon, so it matches by EDID heuristics or IOKit position. What it skips is the cheap half — ==🔵re-checking after launch==. It wires from saved IDs, never compares the result with what's on each port, and `refresh-displays` doesn't reconcile stale objects. Same-model monitors are common; this bites when the model also writes a **constant numeric serial** (as these Samsungs do), which is why most multi-monitor Lunar users never see it. The saved-ID reproduction above would make a precise upstream bug report.
+Lunar does have to solve the hard half: there's no public API linking a display to its DDC port on Apple Silicon, so it matches by EDID heuristics or IOKit position. What it skips is the cheap half — ==🔵re-checking after launch==. It wires from saved IDs, never compares the result with what's on each port, and `refresh-displays` doesn't reconcile stale objects. This bites whenever two monitors share a numeric serial, as these Samsungs do. How many models ship that way is unknown; with Samsung among them, it may well be common. The saved-ID reproduction above would make a precise upstream bug report.
+
+## Addendum: the retired LGs
+
+F010 was built in March for the old all-LG layout, so the two retired portrait LGs were plugged back in (11:00–11:15) to see whether they had the Samsungs' problem. Both OWC hubs were unplugged; the LGs went straight into the Mac via a UGREEN and a CHOETECH cable. Stepper's layout machinery was held in memory, and all 23 windows were restored from a snapshot afterwards (0 unmatched). Readings from [display-serials.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/display-serials.py):
+
+| | Model | Numeric serial (bytes) | Text serial | Made |
+|---|---|---|---|---|
+| Retired LG A | 30470 | 11185 (`b1 2b 00 00`) | 002NTWG0B185 | 2020 wk 2 |
+| Retired LG B | 30470 | ==🔴`01 01 01 01`== | ==🔴none== | ==🔴"2015 wk 1"== |
+| Middle LG (current) | 30470 | 11249 (`f1 2b 00 00`) | 002NTTQ0B249 | 2020 wk 2 |
+| Top LG (current) | 30544 | 728780 (`cc 1e 0b 00`) | 101NTEPME780 | 2021 wk 1 |
+
+- ==🟢No LG serial collision.== Three LGs share a model, but every numeric serial differs.
+- ==🔴LG B has no identity at all.== Its EDID is byte-for-byte LG A's except placeholder serial and date (checksum valid). Swapping the two cables proved it's the monitor's own: each cable carried A's real serial once, and B came through blank on both.
+- **Hubs ruled out:** the Top LG passes through a hub with its own serial intact, and the two Samsungs, on different hubs, both read "HYX0".
+- **Observed identity stability:** LGs with real serials kept their macOS UUIDs across the macOS 27 reboot and the hub unplug/replug; the Samsungs got new UUIDs both times. Display IDs, by contrast, were renumbered for **all four** monitors after the replug.
+
+**What the March session recorded.** The [2026-03-02 do-done log](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/.claude/do-done-log/do-done-20260302-77942c.md) shows the original complaint was today's: *"adjusting the brightness and the names that I so carefully set… get random allocations."* The diagnosis — "4 identical LG HDR 4K monitors get their UUIDs scrambled" — was asserted, never measured. Its one hard fact was the Top LG (a unique serial) showing a default name under a new macOS UUID. F010's first version fixed names only, so it could never have fixed crossed brightness wiring. ==🔵One serial probe in March would have pointed the fix at the wiring seven months earlier.==
+
+**What that says about the March problem** (inferred — system logs from then are gone, and macOS's display database stores no serials): it was not the Samsungs' collision. Two things fit the evidence: ==🟣Lunar's launch-time wiring from saved display IDs==, which can cross *any* monitors because IDs are renumbered for everyone (with Lunar's then-default matching, even a unique-serial LG was mis-wired on 2026-10-02), and ==🟣LG B's missing identity==, which leaves macOS only its port to go on — like the Samsungs, minus the text serial. F010's DDC check verifies the wiring directly, so it covers either cause.
 
 ## Meta-lessons
 
@@ -128,7 +149,7 @@ An empty log query (zsh builtin) and a missing callback (Rosetta) both read as "
 
 ## Tags
 
-- lunar, ddc, dcp, iavservice, edid, alphanumeric-serial, coredisplay, iodisplaylocation, identical-monitors, samsung-ls37d70xe, hammerspoon, rosetta, macos-27, featurebase-rename
+- lunar, ddc, dcp, iavservice, edid, alphanumeric-serial, coredisplay, iodisplaylocation, shared-numeric-serial, samsung-ls37d70xe, hammerspoon, rosetta, macos-27, featurebase-rename
 - dangling-path — a code-prefix rename broke a relative path in Lua; old name is a substring of the new one
 - launch-time wiring — Lunar wires DDC from saved display IDs; forced by swapping saved IDs
 - ground truth — CoreDisplay `IODisplayLocation` → `ioreg` `AlphanumericSerialNumber` vs `Lunar @ --remote edid`

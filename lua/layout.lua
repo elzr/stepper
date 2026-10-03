@@ -1072,7 +1072,7 @@ local function onScreenChange()
 
     if count == activeCount then
       -- Already at this config — no transition needed. But a reconnect blip
-      -- (5 → 4 → 5) can swap display IDs between identical monitors, so re-check Lunar
+      -- (5 → 4 → 5) can swap display IDs between monitors that share a serial, so re-check Lunar
       lastScreenCount = count
       if activeConfig and activeConfig.lunarSync then scheduleLunarSync() end
       return
