@@ -17,7 +17,7 @@ local M = {}
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 local dataDir = scriptPath .. "../data/"
 local backupDir = dataDir .. "layout-backups/"
-local lunarSyncScript = scriptPath .. "../features/sync-display-names-in-Lunar/lunar-sync-names.py"
+local lunarSyncScript = scriptPath .. "../features/F010-sync-display-names-in-Lunar/lunar-sync-names.py"
 
 -- Known display configurations, keyed by screen count
 local KNOWN_CONFIGS = {
@@ -364,53 +364,48 @@ local function syncLunarNames()
   end
 
   local map = screenswitch.buildScreenMap()
-  local uuidToName = {}
+  local expected = {}
 
+  -- id: macOS's current display ID — the script checks Lunar's live pairing and DDC
+  -- wiring against it, and writes it into Lunar's saved records before a relaunch
   for position, screen in pairs(map) do
     local uuid = screen:getUUID()
     local name = positionNames[position]
     if uuid and name then
-      uuidToName[uuid] = name
+      expected[uuid] = { name = name, id = screen:id() }
     end
   end
 
-  if not next(uuidToName) then
+  if not next(expected) then
     print("[layout.lunar] No screens mapped, skipping sync")
     return
   end
 
-  local jsonArg = hs.json.encode(uuidToName)
-  -- Escape single quotes in JSON for shell
-  jsonArg = jsonArg:gsub("'", "'\\''")
-
-  -- Quit Lunar, update plist, relaunch (only if names changed)
-  local cmd = string.format(
-    "python3 '%s' '%s'\n" ..
-    "rc=$?\n" ..
-    "if [ $rc -eq 0 ]; then\n" ..
-    "  osascript -e 'tell application \"Lunar\" to quit' 2>/dev/null\n" ..
-    "  sleep 2\n" ..
-    "  open -a Lunar\n" ..
-    "  echo 'RESTARTED'\n" ..
-    "fi\n" ..
-    "exit $rc",
-    lunarSyncScript, jsonArg
-  )
-
-  hs.task.new("/bin/bash", function(exitCode, stdout, stderr)
+  -- The script quits Lunar, writes names + ids, and relaunches it — only when names
+  -- differ, Lunar's display mapping is stale, or its DDC sliders are crossed
+  local task = hs.task.new("/usr/local/bin/python3", function(exitCode, stdout, stderr)
     if stdout and #stdout > 0 then
       for line in stdout:gmatch("[^\n]+") do
         print("[layout.lunar] " .. line)
       end
     end
+    -- Exit 1 (nothing done) already printed why: in sync, or displays asleep
     if exitCode == 0 then
-      print("[layout.lunar] Lunar display names synced and relaunched")
-    elseif exitCode == 1 then
-      print("[layout.lunar] Names already correct")
-    else
+      print("[layout.lunar] Lunar synced and relaunched")
+    elseif exitCode ~= 1 then
       print("[layout.lunar] Error: " .. tostring(stderr))
     end
-  end, {"-c", cmd}):start()
+  end, {lunarSyncScript, hs.json.encode(expected)})
+  -- Homebrew python here is x86_64: without Rosetta (e.g. right after a macOS
+  -- upgrade) it can't launch, and the callback never fires
+  if not task:start() then
+    print("[layout.lunar] Error: couldn't launch /usr/local/bin/python3 (Rosetta missing?)")
+  end
+end
+
+local function scheduleLunarSync()
+  if lunarSyncTimer then lunarSyncTimer:stop() end
+  lunarSyncTimer = hs.timer.doAfter(LUNAR_SYNC_DELAY, syncLunarNames)
 end
 
 function M.syncLunarNames()
@@ -1055,10 +1050,7 @@ local function transitionToConfig(newCount, newCfg)
   startPeriodicSave()
 
   -- Lunar sync only for configs that need it
-  if newCfg.lunarSync then
-    if lunarSyncTimer then lunarSyncTimer:stop() end
-    lunarSyncTimer = hs.timer.doAfter(LUNAR_SYNC_DELAY, syncLunarNames)
-  end
+  if newCfg.lunarSync then scheduleLunarSync() end
 end
 
 local function onScreenChange()
@@ -1079,8 +1071,10 @@ local function onScreenChange()
     end
 
     if count == activeCount then
-      -- Already at this config — no transition needed
+      -- Already at this config — no transition needed. But a reconnect blip
+      -- (5 → 4 → 5) can swap display IDs between identical monitors, so re-check Lunar
       lastScreenCount = count
+      if activeConfig and activeConfig.lunarSync then scheduleLunarSync() end
       return
     end
 
@@ -1115,6 +1109,9 @@ function M.onWake()
     showRestoreHint()
     return
   end
+
+  -- The Lunar check skips while displays sleep, so catch up now
+  if activeConfig.lunarSync then scheduleLunarSync() end
 
   hs.timer.doAfter(WAKE_SETTLE_DELAY, function()
     -- Bail if displays changed during settle delay
@@ -1233,6 +1230,8 @@ function M.init(opts)
     activeCount = lastScreenCount
     print(string.format("[layout] Initial config: %s (%d screens)", cfg.name, lastScreenCount))
     startPeriodicSave()
+    -- At login Lunar wires DDC from last session's display IDs, which macOS may have reshuffled
+    if cfg.lunarSync then scheduleLunarSync() end
   else
     print(string.format("[layout] No known config for %d screens", lastScreenCount))
   end
