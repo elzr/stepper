@@ -1,18 +1,18 @@
 {
-  "X" : {
-    "title" : "_meet Ale 21mar2026",
-    "bundleID" : "net.shinyfrog.bear"
-  },
   "A" : {
     "title" : "_cdmx Armando 2026",
+    "bundleID" : "net.shinyfrog.bear"
+  },
+  "Q" : {
+    "title" : "_cdmx Encuentro Nacional 2026 MAS",
     "bundleID" : "net.shinyfrog.bear"
   },
   "Z" : {
     "title" : "_meet Armando 15jun2026",
     "bundleID" : "net.shinyfrog.bear"
   },
-  "Q" : {
-    "title" : "_cdmx Encuentro Nacional 2026 MAS",
+  "X" : {
+    "title" : "_budget 24jul2026",
     "bundleID" : "net.shinyfrog.bear"
   }
 }

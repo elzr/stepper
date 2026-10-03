@@ -6,3 +6,4 @@ window-layout-manual.json
 layout-backups/
 screen-memory.json
 move-to-resize.json
+window-layout-[0-9]*.json
