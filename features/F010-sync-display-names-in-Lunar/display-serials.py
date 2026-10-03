@@ -4,6 +4,7 @@
 Usage:
     display-serials.py            # one snapshot
     display-serials.py --watch    # a new snapshot whenever the set of monitors changes
+    display-serials.py --json     # one snapshot as JSON rows (for lua/displayguard.lua)
 
 An EDID carries two serials: a 4-byte numeric one, which macOS uses to tell
 displays apart, and an optional text one. When monitors share the numeric serial
@@ -15,6 +16,7 @@ Read-only: ioreg for the monitor on each framebuffer, CoreGraphics + CoreDisplay
 """
 
 import ctypes
+import json
 import plistlib
 import re
 import subprocess
@@ -43,7 +45,7 @@ def monitors():
     return found
 
 def macos_displays():
-    """{port: (display id, x, y, rotation)} for each online macOS display on an external framebuffer."""
+    """{port: (display id, x, y, rotation, asleep)} for each online macOS display on an external framebuffer."""
     cg = ctypes.CDLL("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
     cf = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
     cd = ctypes.CDLL("/System/Library/Frameworks/CoreDisplay.framework/CoreDisplay")
@@ -52,6 +54,8 @@ def macos_displays():
     cg.CGDisplayBounds.argtypes = [ctypes.c_uint32]
     cg.CGDisplayRotation.restype = ctypes.c_double
     cg.CGDisplayRotation.argtypes = [ctypes.c_uint32]
+    cg.CGDisplayIsAsleep.restype = ctypes.c_uint32
+    cg.CGDisplayIsAsleep.argtypes = [ctypes.c_uint32]
     cf.CFStringCreateWithCString.restype = ctypes.c_void_p
     cf.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
     cf.CFDictionaryGetValue.restype = ctypes.c_void_p
@@ -78,7 +82,8 @@ def macos_displays():
         port = re.search(r"/(dispext\d+)@", buf.value.decode() if ok else "")
         if port:
             b = cg.CGDisplayBounds(did)
-            found[port.group(1)] = (did, int(b.x), int(b.y), int(cg.CGDisplayRotation(did)))
+            found[port.group(1)] = (did, int(b.x), int(b.y), int(cg.CGDisplayRotation(did)),
+                                    bool(cg.CGDisplayIsAsleep(did)))
     cf.CFRelease(key)
     return found
 
@@ -93,7 +98,7 @@ def snapshot(found):
     lines = []
     for port in sorted(found):
         a = found[port]
-        did, x, y, rot = where.get(port, ("?", "?", "?", "?"))
+        did, x, y, rot, _ = where.get(port, ("?", "?", "?", "?", False))
         lines.append(f"{port}: display {did} at ({x},{y}) rot {rot} — {a.get('ManufacturerID')} "
                      f"{a.get('ProductName')} model {a.get('ProductID')}, made {a.get('YearOfManufacture')} "
                      f"week {a.get('WeekOfManufacture')}, via {a['Transport']}")
@@ -112,7 +117,23 @@ def identity(found):
     return sorted((p, a.get("ProductID"), a.get("SerialNumber"), a.get("AlphanumericSerialNumber"))
                   for p, a in found.items())
 
+def rows(found):
+    """One JSON-ready dict per framebuffer with a monitor: identity plus macOS's display for it."""
+    where = macos_displays()
+    out = []
+    for port in sorted(found):
+        a = found[port]
+        did, x, y, rot, asleep = where.get(port, (None, None, None, None, False))
+        out.append({"port": port, "displayID": did, "x": x, "y": y, "rotation": rot, "asleep": asleep,
+                    "serial": a.get("AlphanumericSerialNumber"), "numericSerial": a.get("SerialNumber"),
+                    "manufacturer": a.get("ManufacturerID"), "product": a.get("ProductName"),
+                    "productID": a.get("ProductID"), "transport": a.get("Transport")})
+    return out
+
 def main():
+    if "--json" in sys.argv:
+        print(json.dumps(rows(monitors())))
+        return
     if "--watch" not in sys.argv:
         print(snapshot(monitors()))
         return

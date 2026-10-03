@@ -14,9 +14,12 @@ stepper/
 │   ├── mousemove.lua     # fn+mouse move/resize windows
 │   ├── screenswitch.lua  # Move window to specific display by position
 │   ├── screenmemory.lua  # Per-screen window position memory (session + persistent)
+│   ├── layout.lua        # Window layout save/restore per display config; drives F010 + the guard
+│   ├── displayguard.lua  # Puts the Samsung pair back in portrait after a hub re-enumeration
 │   └── bear-hud.lua      # Bear note HUD with caret/scroll persistence
 ├── data/
 │   ├── bear-notes.jsonc   # Note hotkey configuration
+│   ├── display-guard.json # Per-config target rotation/mode/origin per monitor text serial
 │   └── bear-hud-positions.json  # Runtime caret/scroll positions (not tracked)
 ├── docs/                 # Architecture notes and decision records
 ├── CLAUDE.md             # This file

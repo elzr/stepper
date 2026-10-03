@@ -11,6 +11,11 @@
 -- Each config gets its own layout file, manual save, and backup ring.
 -- Screens are identified by spatial position name (via screenswitch.buildScreenMap),
 -- with origin/resolution fallback for backwards compatibility.
+--
+-- Also drives two per-config keepers around screen changes and wakes:
+-- F010 (lunar-sync-names.py) keeps Lunar's names and DDC wiring on the right
+-- monitors, and displayguard.lua puts the Samsung pair back in portrait when a
+-- hub re-enumeration made macOS forget their arrangement.
 
 local M = {}
 
@@ -18,10 +23,13 @@ local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 local dataDir = scriptPath .. "../data/"
 local backupDir = dataDir .. "layout-backups/"
 local lunarSyncScript = scriptPath .. "../features/F010-sync-display-names-in-Lunar/lunar-sync-names.py"
+local displayguard = dofile(scriptPath .. "displayguard.lua")
 
--- Known display configurations, keyed by screen count
+-- Known display configurations, keyed by screen count.
+-- guard: the two Samsungs are EDID twins whose arrangement macOS loses after a hub
+-- re-enumeration — displayguard.lua puts them back (see data/display-guard.json)
 local KNOWN_CONFIGS = {
-  [5] = { name = "quad-32",   lunarSync = true  },
+  [5] = { name = "quad-32",   lunarSync = true,  guard = true },
   [3] = { name = "37-and-43", lunarSync = false },
   [2] = { name = "only-43",   lunarSync = false },
   [1] = { name = "native",    lunarSync = false },
@@ -75,6 +83,21 @@ local lastScreenCount = 0
 
 local SAVE_TRIGGER_DELAY = 3        -- seconds after last triggered operation
 local LOG_RETENTION = 600            -- 10 minutes of log entries
+
+-- One-shot timers and tasks are referenced here until they fire: an unreferenced
+-- hs.timer or hs.task can be garbage-collected before it runs (stepper.lua forces a
+-- full collection right after init), and the step then silently never happens.
+local pending = {}
+
+local function later(seconds, fn)
+  local t
+  t = hs.timer.doAfter(seconds, function()
+    pending[t] = nil
+    fn()
+  end)
+  pending[t] = true
+  return t
+end
 
 -- Ring buffer indices per config: [screenCount] = current slot
 local ring1mIndex = {}
@@ -363,6 +386,13 @@ local function syncLunarNames()
     return
   end
 
+  -- The arrangement guard rotates through Lunar: let it finish before Lunar is restarted
+  if displayguard.isBusy() then
+    print("[layout.lunar] display guard busy, retrying in 5s")
+    lunarSyncTimer = hs.timer.doAfter(5, syncLunarNames)
+    return
+  end
+
   local map = screenswitch.buildScreenMap()
   local expected = {}
 
@@ -383,7 +413,9 @@ local function syncLunarNames()
 
   -- The script quits Lunar, writes names + ids, and relaunches it — only when names
   -- differ, Lunar's display mapping is stale, or its DDC sliders are crossed
-  local task = hs.task.new("/usr/local/bin/python3", function(exitCode, stdout, stderr)
+  local task
+  task = hs.task.new("/usr/local/bin/python3", function(exitCode, stdout, stderr)
+    pending[task] = nil
     if stdout and #stdout > 0 then
       for line in stdout:gmatch("[^\n]+") do
         print("[layout.lunar] " .. line)
@@ -396,9 +428,11 @@ local function syncLunarNames()
       print("[layout.lunar] Error: " .. tostring(stderr))
     end
   end, {lunarSyncScript, hs.json.encode(expected)})
+  pending[task] = true
   -- Homebrew python here is x86_64: without Rosetta (e.g. right after a macOS
   -- upgrade) it can't launch, and the callback never fires
   if not task:start() then
+    pending[task] = nil
     print("[layout.lunar] Error: couldn't launch /usr/local/bin/python3 (Rosetta missing?)")
   end
 end
@@ -749,7 +783,7 @@ local function retryMisses(misses, label, attempt)
     logEvent("retry-done", string.format(
       "all missed windows found after %d attempts", attempt - 1))
     -- Heal: save the now-correct layout
-    hs.timer.doAfter(1, function() M.save() end)
+    later(1, function() M.save() end)
     return
   end
 
@@ -994,6 +1028,107 @@ end
 -- transitionToConfig — switch active config, restore layout
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- restoreIfDrifted — compare the live layout with the saved one and restore
+-- when windows ended up on other displays (after a wake, or after the
+-- arrangement guard moved screens under them)
+-- ---------------------------------------------------------------------------
+
+local function restoreIfDrifted(label)
+  -- Bail if displays changed in the meantime
+  if #hs.screen.allScreens() ~= activeCount then return end
+
+  -- Load saved layout
+  local df = currentDataFile()
+  if not df then return end
+  local fh = io.open(df, "r")
+  if not fh then return end
+  local json = fh:read("*a")
+  fh:close()
+  local ok, savedEntries = pcall(hs.json.decode, json)
+  if not ok or type(savedEntries) ~= "table" then return end
+
+  -- Build live window positions
+  local idToPos = buildScreenIdToPosition()
+  local livePositions = {}
+  for _, win in ipairs(hs.window.orderedWindows()) do
+    local app = win:application()
+    if app then
+      local pos = idToPos[win:screen():id()]
+      livePositions[protectionKey(app:name(), win:title())] = pos
+    end
+  end
+
+  -- Compare: count windows that moved to a different display
+  local driftCount = 0
+  local driftDetails = {}
+  for _, entry in ipairs(savedEntries) do
+    local key = protectionKey(entry.app, entry.title)
+    local livePos = livePositions[key]
+    if livePos and entry.screenPosition and livePos ~= entry.screenPosition then
+      driftCount = driftCount + 1
+      table.insert(driftDetails, string.format(
+        "%s '%s' on %s (saved: %s)", entry.app, entry.title, livePos, entry.screenPosition))
+    end
+  end
+
+  if driftCount == 0 then
+    logEvent(label .. "-check", "no drift detected")
+    return
+  end
+
+  -- Windows drifted — restore
+  for _, detail in ipairs(driftDetails) do
+    logEvent(label .. "-drift", detail)
+  end
+  logEvent(label .. "-restore", string.format("%d windows drifted, restoring", driftCount))
+  print(string.format("[layout] %s: %d windows drifted — auto-restoring", label, driftCount))
+
+  detectMacOSPlacements(savedEntries)
+  local misses = M.restore()
+  if misses and #misses > 0 then
+    retryActive = true
+    logEvent("retry-start", string.format("%d missed windows", #misses))
+    retryMisses(misses, label .. "-restore")
+  end
+end
+
+-- ---------------------------------------------------------------------------
+-- runGuard — displayguard.lua re-applies the Samsungs' portrait arrangement
+-- when a hub re-enumeration made macOS forget it (configs with guard = true)
+-- ---------------------------------------------------------------------------
+
+local GUARD_RESTORE_DELAY = 2  -- seconds for windows to settle after the screens moved
+
+local function runGuard(reason, opts)
+  if not (activeConfig and activeConfig.guard) then return end
+  opts = opts or {}
+  opts.onFixed = function()
+    -- The fix moved screens under the windows: put them back, then let Lunar
+    -- re-learn which monitor is Left and which is Right
+    later(GUARD_RESTORE_DELAY, function() restoreIfDrifted("guard") end)
+    if activeConfig and activeConfig.lunarSync then scheduleLunarSync() end
+  end
+  displayguard.check(activeConfig.name, reason, opts)
+end
+
+-- Console helpers: layout.guardCheck({dryRun = true}) reports without acting
+function M.guardCheck(opts)
+  if not activeConfig then
+    print("[layout.guard] no active config")
+    return
+  end
+  runGuard("manual", opts or {})
+end
+
+function M.guardStatus()
+  return displayguard.status()
+end
+
+-- ---------------------------------------------------------------------------
+-- transitionToConfig — switch the active config when the screen count changes
+-- ---------------------------------------------------------------------------
+
 local function transitionToConfig(newCount, newCfg)
   local prevCfg = activeConfig
   local prevCount = activeCount
@@ -1017,7 +1152,7 @@ local function transitionToConfig(newCount, newCfg)
   -- Restore new config's layout (after 1s settle for screens to stabilize)
   local df = currentDataFile()
   if df then
-    hs.timer.doAfter(1, function()
+    later(1, function()
       -- Bail if count changed during settle
       if #hs.screen.allScreens() ~= newCount then return end
 
@@ -1051,6 +1186,8 @@ local function transitionToConfig(newCount, newCfg)
 
   -- Lunar sync only for configs that need it
   if newCfg.lunarSync then scheduleLunarSync() end
+  -- A hub re-enumeration may have brought the Samsungs back landscape
+  if newCfg.guard then runGuard("transition") end
 end
 
 local function onScreenChange()
@@ -1075,6 +1212,7 @@ local function onScreenChange()
       -- (5 → 4 → 5) can swap display IDs between monitors that share a serial, so re-check Lunar
       lastScreenCount = count
       if activeConfig and activeConfig.lunarSync then scheduleLunarSync() end
+      runGuard("screens")
       return
     end
 
@@ -1112,65 +1250,10 @@ function M.onWake()
 
   -- The Lunar check skips while displays sleep, so catch up now
   if activeConfig.lunarSync then scheduleLunarSync() end
+  -- Wakes have never reshuffled the Samsungs' identities so far, but the check is cheap
+  runGuard("wake")
 
-  hs.timer.doAfter(WAKE_SETTLE_DELAY, function()
-    -- Bail if displays changed during settle delay
-    if #hs.screen.allScreens() ~= activeCount then return end
-
-    -- Load saved layout
-    local df = currentDataFile()
-    if not df then return end
-    local fh = io.open(df, "r")
-    if not fh then return end
-    local json = fh:read("*a")
-    fh:close()
-    local ok, savedEntries = pcall(hs.json.decode, json)
-    if not ok or type(savedEntries) ~= "table" then return end
-
-    -- Build live window positions
-    local idToPos = buildScreenIdToPosition()
-    local livePositions = {}
-    for _, win in ipairs(hs.window.orderedWindows()) do
-      local app = win:application()
-      if app then
-        local pos = idToPos[win:screen():id()]
-        livePositions[protectionKey(app:name(), win:title())] = pos
-      end
-    end
-
-    -- Compare: count windows that moved to a different display
-    local driftCount = 0
-    local driftDetails = {}
-    for _, entry in ipairs(savedEntries) do
-      local key = protectionKey(entry.app, entry.title)
-      local livePos = livePositions[key]
-      if livePos and entry.screenPosition and livePos ~= entry.screenPosition then
-        driftCount = driftCount + 1
-        table.insert(driftDetails, string.format(
-          "%s '%s' on %s (saved: %s)", entry.app, entry.title, livePos, entry.screenPosition))
-      end
-    end
-
-    if driftCount == 0 then
-      logEvent("wake-check", "no drift detected")
-      return
-    end
-
-    -- Windows drifted — restore
-    for _, detail in ipairs(driftDetails) do
-      logEvent("wake-drift", detail)
-    end
-    logEvent("wake-restore", string.format("%d windows drifted, restoring", driftCount))
-    print(string.format("[layout] Wake: %d windows drifted — auto-restoring", driftCount))
-
-    detectMacOSPlacements(savedEntries)
-    local misses = M.restore()
-    if misses and #misses > 0 then
-      retryActive = true
-      logEvent("retry-start", string.format("%d missed windows", #misses))
-      retryMisses(misses, "wake-restore")
-    end
-  end)
+  later(WAKE_SETTLE_DELAY, function() restoreIfDrifted("wake") end)
 end
 
 -- ---------------------------------------------------------------------------
@@ -1232,6 +1315,8 @@ function M.init(opts)
     startPeriodicSave()
     -- At login Lunar wires DDC from last session's display IDs, which macOS may have reshuffled
     if cfg.lunarSync then scheduleLunarSync() end
+    -- A reboot is one of the events that can hand the Samsungs a new UUID pair
+    runGuard("init")
   else
     print(string.format("[layout] No known config for %d screens", lastScreenCount))
   end

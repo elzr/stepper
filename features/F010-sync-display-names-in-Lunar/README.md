@@ -9,6 +9,7 @@
 - [Problem](#problem)
 - [Solution](#solution)
 - [Position → Name Mapping](#position--name-mapping)
+- [Arrangement guard](#arrangement-guard)
 - [Lunar setting this relies on](#lunar-setting-this-relies-on)
 - [Diagnostics](#diagnostics)
 - [Files](#files)
@@ -73,6 +74,18 @@ The script runs under Homebrew's `python3`, which on this Mac is x86_64 — it n
 
 Screens whose center X falls within the built-in display's X range are "center column" (sorted by Y); others are sides (sorted by X).
 
+## Arrangement guard
+
+Added 2026-10-03 after the Samsungs came back landscape at 1920x1080 HiDPI. WindowServer logs the pair as ==🔴"Detected twin display"== and keys each twin's UUID by a *path key* — (hub, DisplayPort stream slot) — that is handed out again whenever a hub re-enumerates: a reboot, re-cabling, or the hubs losing power (that day: a house breaker reset). Display sleep and wake never changed it (five wakes checked). macOS keeps one arrangement per exact UUID set, so a pair of keys it has never seen together comes up at defaults. Each monitor has two possible UUIDs (left `ED4D9D3B`/`FD24B45E`, right `FDE46DA5`/`86D1A557`); three of the four pairs now have a saved portrait arrangement, the fourth will come up at defaults once.
+
+[displayguard.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/displayguard.lua), driven by [layout.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layout.lua) on init, every debounced screen change at 5 screens, config transitions and wakes:
+
+1. ==🟢Identify each Samsung by text serial== — `display-serials.py --json` (ioreg + CoreDisplay), never by UUID or position.
+2. Compare its rotation with the mounting in [display-guard.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/display-guard.json): left `HNTL300014` → 270, right `HNTL300013` → 90. Rotation is the only invariant; while both are right, the current mode and origin are *learned* into the file, so rearranging in System Settings becomes the new target.
+3. When a rotation is wrong: rotate through Lunar (`Lunar @ --remote displays <uuid> rotation N` — ==🔴`hs.screen:rotate()` and displayplacer's `degree:` are no-ops on Apple Silicon==, both go through the IOFramebuffer path DCP displays lack), wait for it to land, then `hs.screen:setMode` + `setOrigin` from the file, verify, retry once. Lunar syncs wait while the guard is busy; after a fix layout.lua restores drifted windows and re-syncs Lunar's names.
+
+Skips while a guarded display is asleep, backs off 60 s between episodes, and a watchdog abandons a stuck fix after 2 minutes. Console: `layout.guardCheck({dryRun = true})` reports what it would do, `layout.guardStatus()` shows the last result; output is `[layout.guard] …`.
+
 ## Lunar setting this relies on
 
 `dcpMatchingIODisplayLocation = true` — ==🔵Advanced settings → "Match DDC port based on the IOKit position"==, Lunar's option for "commands are going to the wrong monitor". Enabled 2026-10-02. ==🔴Not sufficient on its own==: Lunar still wires DDC from its saved display IDs (problem 3), hence the checks above.
@@ -90,11 +103,27 @@ L="/Applications/Lunar.app/Contents/MacOS/Lunar"
 
 Ground truth for which physical monitor is at which display: see `monitor_serials()` in [lunar-sync-names.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/lunar-sync-names.py). Lunar logs to the unified log under subsystem `fyi.lunar.Lunar` — in zsh call `/usr/bin/log`, since a bare `log` is a zsh builtin that silently prints nothing useful.
 
+### Restoring the portrait arrangement
+
+When the Samsungs come up landscape at 1920x1080 HiDPI (a hub reset handed them a UUID pair macOS had never saved — see [macos-display-configs.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/macos-display-configs.py)), ==🔴neither `hs.screen:rotate()` nor `displayplacer … degree:` rotates on Apple Silicon== (both silently fail). What worked on 2026-10-03: rotate through Lunar, then set mode and arrangement with displayplacer. Sides by text serial: ==🟢left `HNTL300014` (rot 270), right `HNTL300013` (rot 90)==; map serial → UUID with [display-serials.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/display-serials.py) first.
+
+```bash
+L="/Applications/Lunar.app/Contents/MacOS/Lunar"
+"$L" @ --remote displays <left-uuid> rotation 270
+"$L" @ --remote displays <right-uuid> rotation 90
+displayplacer "id:<left-uuid> res:2160x3840 hz:60 color_depth:8 scaling:off origin:(-2160,-2891) degree:270" \
+              "id:<right-uuid> res:2160x3840 hz:60 color_depth:8 scaling:off origin:(3840,-3003) degree:90"   # plus the other three screens as `displayplacer list` prints them
+```
+
+`res:` is given in the rotated orientation; `scaling:off` is the native 1x mode. macOS then saves the arrangement for that UUID pair.
+
 ## Files
 
 - [lunar-sync-names.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/lunar-sync-names.py) — the checks and the restart. Takes `{uuid: {name, id}}`. Exit 0 = Lunar restarted, 1 = nothing done (in sync, or displays asleep), 2 = error.
 - [layout.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layout.lua) — `syncLunarNames()`, `scheduleLunarSync()`, and the triggers in the screen watcher, `M.init` and `M.onWake`. Output goes to the Hammerspoon console as `[layout.lunar] …`.
-- [display-serials.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/display-serials.py) — read-only probe: each monitor's numeric serial (with its raw EDID bytes, e.g. Samsung's `"HYX0"`) and text serial, flagging monitors macOS can only tell apart by port. `--watch` logs every change, for plug-in tests.
+- [display-serials.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/display-serials.py) — read-only probe: each monitor's numeric serial (with its raw EDID bytes, e.g. Samsung's `"HYX0"`) and text serial, flagging monitors macOS can only tell apart by port. `--watch` logs every change, for plug-in tests; `--json` is the row form the guard consumes (display id, serial, asleep).
+- [displayguard.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/displayguard.lua) + [display-guard.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/display-guard.json) — the [arrangement guard](#arrangement-guard).
+- [macos-display-configs.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/macos-display-configs.py) — read-only probe: every arrangement macOS has saved (rotation, mode, origin per UUID), from the system `windowserver.displays` plist. ==🔴macOS keys arrangements by the exact UUID set==, so a hub reset that hands the Samsungs a never-seen UUID pair brings them up at defaults (landscape, 1080p HiDPI) — the 2026-10-03 12:26 incident. Pass UUID prefixes to filter.
 
 ## Manual Trigger
 

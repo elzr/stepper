@@ -93,6 +93,10 @@ Jump to adjacent screen, focusing the window closest to where you came from.
 - **Manual save**: ctrl+option+delete — pinned, survives autosave overwrites
 - **Manual restore**: ctrl+option+shift+delete — restores pinned save, falls back to autosave
 
+### Display arrangement guard
+
+In the quad-32 config the two Samsung LS37D70xE are identical to macOS (same EDID serial), so after a hub re-enumeration — a reboot, re-cabling, the hubs losing power — macOS can forget their arrangement and bring them up ==🔴landscape at 1920x1080 next to the built-in display==. [displayguard.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/displayguard.lua) recognizes each monitor by its text serial and ==🟢puts it back in portrait at its last known-good mode and position==, then the layout restore moves the windows back. Targets live in [display-guard.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/display-guard.json) and are re-learned whenever both monitors are rotated correctly, so rearranging in System Settings is respected. Details and console helpers: [F010](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/README.md#arrangement-guard).
+
 ---
 
 ## Bear Note HUD

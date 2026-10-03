@@ -1,0 +1,16 @@
+{
+  "quad-32": {
+    "HNTL300014": {
+      "side": "left",
+      "rotation": 270,
+      "mode": { "w": 2160, "h": 3840, "scale": 1, "freq": 60, "depth": 8 },
+      "origin": { "x": -2160, "y": -2891 }
+    },
+    "HNTL300013": {
+      "side": "right",
+      "rotation": 90,
+      "mode": { "w": 2160, "h": 3840, "scale": 1, "freq": 60, "depth": 8 },
+      "origin": { "x": 3840, "y": -3003 }
+    }
+  }
+}
