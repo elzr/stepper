@@ -2,6 +2,7 @@
 
 ---
 *2026-03-23 11:26* <!-- bd865e3f-9980-4061-950d-2cb7a4c7550d -->
+*9 in, 27 out · 26.1k cached · Worked for 2m 8s*
 
 ## Eli:
 just did a wake up after the Mac went to sleep apparently, went to the bathroom very quick, no unplugging, and I'm finding that the w12 thoughts Bear notes window is in the top display and I don't think I've ever put it there, so what the fuck? was this only macOS doing? why didn'y our manual restore engage?
@@ -23,8 +24,10 @@ Here's what happened:
 
 **The gap to fix:** The system has no protection against macOS silently shuffling windows between displays during wake when screen count stays the same (5→5). Should `onWake()` auto-restore instead of just hinting? Or should it at least compare the current layout against the saved one and restore if positions differ?
 
+
 ---
 *2026-03-23 11:31* <!-- 2c5dc80e-0d7d-465b-bbde-808b57adae0e -->
+*9 in, 27 out · 99.5k cached · Worked for 2m 23s*
 
 ## Eli:
 oh ok, yes, let's have onWake auto-restore after a compare check bc macos has been super fragile lately even with minor sleeps... and I actually think this was just a sleep display situation not a sleep sleep
@@ -33,3 +36,4 @@ oh ok, yes, let's have onWake auto-restore after a compare check bc macos has be
 Clean reload. Now, for your immediate issue — w12thoughts is currently on top but should be on right. Your manual save has it on right. You can press **fn+ctrl+alt+shift+delete** to restore from the manual save and put it back.
 
 Going forward: on every `screensDidWake` event, the system will now wait 3 seconds, then compare every window's current display against the saved layout. If any windows drifted to a different display, it auto-restores with position protection enabled (so autosave won't overwrite the correct positions with the drifted ones for 5 minutes).
+
