@@ -23,7 +23,7 @@
 
 local M = {}
 
-local PYTHON = "/usr/local/bin/python3"
+local PYTHON = "/opt/homebrew/bin/python3"   -- native; the Intel /usr/local one goes away with F040
 local LUNAR  = "/Applications/Lunar.app/Contents/MacOS/Lunar"
 
 local scriptPath  = debug.getinfo(1, "S").source:match("@(.*/)")
@@ -179,9 +179,9 @@ local function probe(callback)
       callback(nil, "probe output not JSON: " .. oneLine(stdout):sub(1, 200))
     end
   end)
-  -- Homebrew python here is x86_64: without Rosetta it can't launch and the callback never fires
+  -- A python that can't launch never calls back, so report it here
   if not launched then
-    callback(nil, "couldn't launch " .. PYTHON .. " (Rosetta missing?)")
+    callback(nil, "couldn't launch " .. PYTHON)
   end
 end
 
@@ -241,6 +241,21 @@ local function finishEpisode(summary, fixed, opts)
   lastEpisodeEnd = hs.timer.secondsSinceEpoch()
   setStatus(summary)
   if fixed and opts.onFixed then opts.onFixed(summary) end
+end
+
+-- Lunar's rotation is the value it last set, not the display's state (it reads 0 while
+-- macOS shows 90/270), and setting a Lunar property to its stored value is a no-op: on
+-- 2026-10-03 a hub swap put each Samsung on a UUID whose stored rotation was exactly the
+-- target, the guard asked twice, Lunar answered "rotation: N" and nothing rotated. So
+-- read what Lunar believes first; when it already equals the target, pass the display's
+-- current rotation through Lunar to make the real request a change.
+local function lunarBelievedRotation(uuid, callback)
+  local launched = run(LUNAR, {"@", "--remote", "displays", uuid, "rotation"},
+    function(_, stdout, stderr)
+      local out = oneLine((stdout or "") .. " " .. (stderr or ""))
+      callback(tonumber(out:match("rotation:%s*(%d+)")))
+    end)
+  if not launched then callback(nil) end
 end
 
 -- Lunar talks to Apple's MonitorPanel framework, the same path System Settings uses.
@@ -388,13 +403,32 @@ fix = function(cfgName, matched, attempt, opts)
       rotateNext(i + 1)
       return
     end
-    log(string.format("%s %s: rotating to %d via Lunar", entry.target.side, entry.serial, entry.target.rotation))
-    lunarRotate(s:getUUID(), entry.target.rotation, 1, function(ok, err)
-      if not ok then
-        failed(cfgName, matched, attempt, opts, "Lunar rotation failed: " .. tostring(err))
+    local uuid, target, current = s:getUUID(), entry.target.rotation, s:rotate()
+    local function rotateToTarget()
+      lunarRotate(uuid, target, 1, function(ok, err)
+        if not ok then
+          failed(cfgName, matched, attempt, opts, "Lunar rotation failed: " .. tostring(err))
+          return
+        end
+        later(ROTATE_GAP, function() rotateNext(i + 1) end)
+      end)
+    end
+    lunarBelievedRotation(uuid, function(believed)
+      if believed ~= target then
+        log(string.format("%s %s: rotating to %d via Lunar", entry.target.side, entry.serial, target))
+        rotateToTarget()
         return
       end
-      later(ROTATE_GAP, function() rotateNext(i + 1) end)
+      -- Lunar already holds the target, so asking for it would do nothing: nudge first
+      log(string.format("%s %s: Lunar already believes %d, nudging through %d then %d",
+        entry.target.side, entry.serial, believed, current, target))
+      lunarRotate(uuid, current, 1, function(ok, err)
+        if not ok then
+          failed(cfgName, matched, attempt, opts, "Lunar nudge failed: " .. tostring(err))
+          return
+        end
+        later(ROTATE_GAP, rotateToTarget)
+      end)
     end)
   end
   rotateNext(1)

@@ -23,6 +23,7 @@ local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 local dataDir = scriptPath .. "../data/"
 local backupDir = dataDir .. "layout-backups/"
 local lunarSyncScript = scriptPath .. "../features/F010-sync-display-names-in-Lunar/lunar-sync-names.py"
+local PYTHON = "/opt/homebrew/bin/python3"   -- native; the Intel /usr/local one goes away with F040
 local displayguard = dofile(scriptPath .. "displayguard.lua")
 
 -- Known display configurations, keyed by screen count.
@@ -83,6 +84,15 @@ local lastScreenCount = 0
 
 local SAVE_TRIGGER_DELAY = 3        -- seconds after last triggered operation
 local LOG_RETENTION = 600            -- 10 minutes of log entries
+
+-- macOS moves windows off displays that vanish and does not put them back when the
+-- displays return. A same-count blip (5 → 1 → 5 while re-cabling, 2026-10-03) therefore
+-- needs a drift restore, and no autosave may run until the layout has been checked:
+-- that night the autosave 60 s after the transition recorded every side window on the
+-- built-in display, and every restore since then put them there.
+local BLIP_RESTORE_DELAY = 5         -- seconds after a same-count change, past the guard's probe
+local AUTOSAVE_HOLDOFF = 120         -- seconds after any screen change during which autosave waits
+local lastScreenChange = 0
 
 -- One-shot timers and tasks are referenced here until they fire: an unreferenced
 -- hs.timer or hs.task can be garbage-collected before it runs (stepper.lua forces a
@@ -414,7 +424,7 @@ local function syncLunarNames()
   -- The script quits Lunar, writes names + ids, and relaunches it — only when names
   -- differ, Lunar's display mapping is stale, or its DDC sliders are crossed
   local task
-  task = hs.task.new("/usr/local/bin/python3", function(exitCode, stdout, stderr)
+  task = hs.task.new(PYTHON, function(exitCode, stdout, stderr)
     pending[task] = nil
     if stdout and #stdout > 0 then
       for line in stdout:gmatch("[^\n]+") do
@@ -429,11 +439,10 @@ local function syncLunarNames()
     end
   end, {lunarSyncScript, hs.json.encode(expected)})
   pending[task] = true
-  -- Homebrew python here is x86_64: without Rosetta (e.g. right after a macOS
-  -- upgrade) it can't launch, and the callback never fires
+  -- A python that can't launch never calls back, so say so here
   if not task:start() then
     pending[task] = nil
-    print("[layout.lunar] Error: couldn't launch /usr/local/bin/python3 (Rosetta missing?)")
+    print("[layout.lunar] Error: couldn't launch " .. PYTHON)
   end
 end
 
@@ -743,9 +752,10 @@ function M.restoreFromJSON(json, label)
     end
 
     -- Mark as verified in position protection (only for reliable matches).
-    -- Index-fallback matches may have grabbed the wrong window — keep
+    -- Index-fallback matches may have grabbed the wrong window, and a window put on a
+    -- fallback or resolution-matched screen may not be on its real display yet — keep
     -- protection active so autosave can substitute the correct position.
-    if p.matchTier ~= "index-fallback" then
+    if p.matchTier ~= "index-fallback" and matchType ~= "fallback" and matchType ~= "resolution" then
       local key = protectionKey(entry.app, entry.title)
       protectedEntries[key] = nil
     end
@@ -947,6 +957,12 @@ function M.autoSave()
   end
   if retryActive then
     logEvent("autosave-suppressed", "retry in progress")
+    return
+  end
+  local sinceChange = hs.timer.secondsSinceEpoch() - lastScreenChange
+  if sinceChange < AUTOSAVE_HOLDOFF then
+    logEvent("autosave-held", string.format("%ds after a screen change, holding %ds",
+      math.floor(sinceChange), AUTOSAVE_HOLDOFF))
     return
   end
 
@@ -1191,6 +1207,7 @@ local function transitionToConfig(newCount, newCfg)
 end
 
 local function onScreenChange()
+  lastScreenChange = hs.timer.secondsSinceEpoch()
   -- Cancel all pending timers on every callback
   if debounceTimer then debounceTimer:stop() end
   if stabilityTimer then stabilityTimer:stop() end
@@ -1213,6 +1230,15 @@ local function onScreenChange()
       lastScreenCount = count
       if activeConfig and activeConfig.lunarSync then scheduleLunarSync() end
       runGuard("screens")
+      -- Put back what macOS shuffled while displays were away. If the guard is busy
+      -- fixing the screens, its onFixed runs the same restore afterwards.
+      later(BLIP_RESTORE_DELAY, function()
+        if displayguard.isBusy() then
+          logEvent("screens-drift-deferred", "display guard busy, its onFixed restores")
+          return
+        end
+        restoreIfDrifted("screens")
+      end)
       return
     end
 
