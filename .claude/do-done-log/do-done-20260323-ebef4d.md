@@ -33,6 +33,13 @@ Here's what happened:
 oh ok, yes, let's have onWake auto-restore after a compare check bc macos has been super fragile lately even with minor sleeps... and I actually think this was just a sleep display situation not a sleep sleep
 
 ## Claude:
+Now I have the full picture. Here's the plan:
+
+- `onWake()` will wait a few seconds for displays to stabilize, load the saved layout, compare each window's current screen position against saved, and auto-restore if any drifted
+- Reuses the existing `detectMacOSPlacements` + `restore` + `retryMisses` flow so position protection kicks in too
+
+<!--DO_DONE_BREAK_V1-->
+
 Clean reload. Now, for your immediate issue — w12thoughts is currently on top but should be on right. Your manual save has it on right. You can press **fn+ctrl+alt+shift+delete** to restore from the manual save and put it back.
 
 Going forward: on every `screensDidWake` event, the system will now wait 3 seconds, then compare every window's current display against the saved layout. If any windows drifted to a different display, it auto-restores with position protection enabled (so autosave won't overwrite the correct positions with the drifted ones for 5 minutes).
