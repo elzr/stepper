@@ -98,7 +98,7 @@ Guard, [displayguard.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/pr
 
 - ==🟢Make the rotation step idempotence-proof.== Read Lunar's believed rotation first (`displays <uuid> rotation`); if it equals the target while macOS differs, nudge: set macOS's current rotation (a no-op on screen that updates Lunar's cache), then the target. Or, when the first command has not landed after ~5 s, resend through an intermediate value instead of repeating it.
 - Longer term, rotate without Lunar: MonitorPanel.framework is what Lunar and System Settings call. A small Swift or ObjC helper would remove the dependency on Lunar's state; PyObjC is not installed in either python.
-- ==🔴Switch `PYTHON` to `/opt/homebrew/bin/python3`== here and in `layout.lua`. Both scripts are stdlib + ctypes and `display-serials.py` ran natively in this session. [F040](https://fleet.internal/features/F040-uptodate-infrastructure/) deletes `/usr/local/bin/python3` on 2026-11-02, after which both keepers would fail with a line only the console sees.
+- ==🔴Switch `PYTHON` to `/opt/homebrew/bin/python3`== here and in `layout.lua`. Both scripts are stdlib + ctypes and `display-serials.py` ran natively in this session. [F040](https://fleet.internal/features/F040-tiptop-software-infrastructure/) deletes `/usr/local/bin/python3` on 2026-11-02, after which both keepers would fail with a line only the console sees.
 
 Layout, [layout.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layout.lua):
 
