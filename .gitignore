@@ -7,3 +7,5 @@ layout-backups/
 screen-memory.json
 move-to-resize.json
 window-layout-[0-9]*.json
+# built by displayguard.lua from display-arrange.swift on first use
+features/F010-sync-display-names-in-Lunar/display-arrange

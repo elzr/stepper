@@ -10,11 +10,14 @@
 --
 -- The guard identifies each Samsung by its text serial (display-serials.py
 -- --json: ioreg + CoreDisplay), compares its rotation with the mounting recorded
--- in data/display-guard.json, and when a monitor is wrong re-applies the
--- rotation through Lunar (hs.screen:rotate() and displayplacer's degree: are
--- no-ops on Apple Silicon), then the last known-good mode and origin natively.
--- While both rotations are right, the current mode and origin are learned, so a
--- rearrangement in System Settings becomes the new target instead of a fight.
+-- in data/display-guard.json, and when a monitor is wrong rotates it by display
+-- ID through Apple's MonitorPanel framework (display-arrange.swift, compiled on
+-- first use; hs.screen:rotate() and displayplacer's degree: are no-ops on Apple
+-- Silicon, and Lunar's rotation acts on display objects it cached before the
+-- re-enumeration), then re-applies the last known-good mode and places both
+-- origins in one CoreGraphics transaction. While both rotations are right, the
+-- current mode and origin are learned, so a rearrangement in System Settings
+-- becomes the new target instead of a fight.
 --
 -- Driven by layout.lua: check(configName, reason, opts) is asynchronous and
 -- returns immediately; opts.onFixed(summary) fires after a successful fix,
@@ -24,23 +27,26 @@
 local M = {}
 
 local PYTHON = "/opt/homebrew/bin/python3"   -- native; the Intel /usr/local one goes away with F040
-local LUNAR  = "/Applications/Lunar.app/Contents/MacOS/Lunar"
+local SWIFTC = "/usr/bin/swiftc"             -- Xcode Command Line Tools; builds the rotation tool
 
 local scriptPath  = debug.getinfo(1, "S").source:match("@(.*/)")
+local featureDir  = scriptPath .. "../features/F010-sync-display-names-in-Lunar/"
 local dataFile    = scriptPath .. "../data/display-guard.json"
-local probeScript = scriptPath .. "../features/F010-sync-display-names-in-Lunar/display-serials.py"
+local probeScript = featureDir .. "display-serials.py"
+local toolSource  = featureDir .. "display-arrange.swift"
+local toolBinary  = featureDir .. "display-arrange"   -- built from toolSource on demand, not tracked
 
 local SETTLE_DELAY      = 1    -- s before probing (screens appear sequentially)
-local ROTATE_GAP        = 2    -- s between the two Lunar rotation commands
+local ROTATE_GAP        = 2    -- s between the two rotations
 local ROTATE_POLL       = 1    -- s between checks that a rotation has landed
 local ROTATE_TIMEOUT    = 15   -- s to wait for rotations before giving up
-local LUNAR_RETRIES     = 6    -- F010 may be restarting Lunar: retry this many
-local LUNAR_RETRY_DELAY = 3    --   times, LUNAR_RETRY_DELAY s apart
-local STEP_GAP          = 1    -- s between consecutive mode / origin changes
+local TOOL_RETRIES      = 2    -- display-arrange calls per rotation (it waits for
+local TOOL_RETRY_DELAY  = 3    --   MonitorPanel's lock itself), TOOL_RETRY_DELAY s apart
+local STEP_GAP          = 1    -- s between consecutive mode changes
 local VERIFY_DELAY      = 3    -- s after the last change before verifying
 local MAX_ATTEMPTS      = 2    -- fix attempts per episode
 local COOLDOWN          = 60   -- s after an episode before another may start
-local WATCHDOG          = 120  -- s after which a stuck episode is abandoned
+local WATCHDOG          = 180  -- s after which a stuck episode is abandoned
 local ORIGIN_TOLERANCE  = 4    -- px of origin drift that still counts as fixed
 
 local targets = nil            -- config name → serial → {side, rotation, mode, origin}
@@ -243,40 +249,69 @@ local function finishEpisode(summary, fixed, opts)
   if fixed and opts.onFixed then opts.onFixed(summary) end
 end
 
--- Lunar's rotation is the value it last set, not the display's state (it reads 0 while
--- macOS shows 90/270), and setting a Lunar property to its stored value is a no-op: on
--- 2026-10-03 a hub swap put each Samsung on a UUID whose stored rotation was exactly the
--- target, the guard asked twice, Lunar answered "rotation: N" and nothing rotated. So
--- read what Lunar believes first; when it already equals the target, pass the display's
--- current rotation through Lunar to make the real request a change.
-local function lunarBelievedRotation(uuid, callback)
-  local launched = run(LUNAR, {"@", "--remote", "displays", uuid, "rotation"},
-    function(_, stdout, stderr)
-      local out = oneLine((stdout or "") .. " " .. (stderr or ""))
-      callback(tonumber(out:match("rotation:%s*(%d+)")))
-    end)
-  if not launched then callback(nil) end
+-- Rotation goes through display-arrange (features/F010…/display-arrange.swift), which
+-- talks to Apple's MonitorPanel framework — the path System Settings uses — with a fresh
+-- display manager and the display's current ID. Lunar uses the same framework but through
+-- display objects it cached when it first saw the UUID; after a hub re-enumeration those
+-- are stale, so `Lunar @ --remote displays <uuid> rotation N` updated Lunar's own number
+-- and moved nothing (2026-10-03 and 2026-10-04: four attempts each, nothing reached
+-- WindowServer).
+
+-- The binary is built from its source the first time it is needed and whenever the
+-- source is newer, so only the source is tracked
+local function toolIsCurrent()
+  local bin, src = hs.fs.attributes(toolBinary), hs.fs.attributes(toolSource)
+  return bin ~= nil and src ~= nil and bin.modification >= src.modification
 end
 
--- Lunar talks to Apple's MonitorPanel framework, the same path System Settings uses.
--- F010 restarts Lunar around screen changes, so an unreachable Lunar is retried.
-local function lunarRotate(uuid, degrees, attempt, callback)
-  local launched = run(LUNAR, {"@", "--remote", "displays", uuid, "rotation", tostring(degrees)},
-    function(_, stdout, stderr)
-      local out = oneLine((stdout or "") .. " " .. (stderr or ""))
-      if out:find("rotation: " .. degrees, 1, true) then
-        callback(true)
-      elseif attempt < LUNAR_RETRIES then
-        log(string.format("Lunar didn't take rotation %d for %s (try %d/%d): %s",
-          degrees, uuid:sub(1, 8), attempt, LUNAR_RETRIES, out:sub(1, 120)))
-        later(LUNAR_RETRY_DELAY, function()
-          lunarRotate(uuid, degrees, attempt + 1, callback)
-        end)
-      else
-        callback(false, out:sub(1, 200))
-      end
-    end)
-  if not launched then callback(false, "couldn't launch " .. LUNAR) end
+local function ensureTool(callback)
+  if toolIsCurrent() then
+    callback(true)
+    return
+  end
+  log("building display-arrange from source")
+  local launched = run(SWIFTC, {"-O", "-o", toolBinary, toolSource}, function(exitCode, _, stderr)
+    if exitCode == 0 then
+      callback(true)
+    else
+      callback(false, string.format("swiftc exit %d: %s", exitCode, oneLine(stderr):sub(1, 200)))
+    end
+  end)
+  if not launched then callback(false, "couldn't launch " .. SWIFTC) end
+end
+
+-- callback(ok, result, err) with the tool's JSON document as result
+local function runTool(args, callback)
+  local launched = run(toolBinary, args, function(exitCode, stdout, stderr)
+    local ok, result = pcall(hs.json.decode, stdout or "")
+    if not ok or type(result) ~= "table" then
+      callback(false, nil, string.format("display-arrange exit %d: %s", exitCode,
+        oneLine((stdout or "") .. " " .. (stderr or "")):sub(1, 200)))
+    elseif result.ok then
+      callback(true, result)
+    else
+      callback(false, result, result.error or ("exit " .. exitCode))
+    end
+  end)
+  if not launched then callback(false, nil, "couldn't launch " .. toolBinary) end
+end
+
+-- The tool waits for MonitorPanel's lock and for CoreGraphics to report the new angle;
+-- a failure is retried once in case the display was still settling
+local function rotateDisplay(displayID, degrees, attempt, callback)
+  runTool({"rotate", tostring(displayID), tostring(degrees)}, function(ok, _, err)
+    if ok then
+      callback(true)
+    elseif attempt < TOOL_RETRIES then
+      log(string.format("display %d didn't take rotation %d (try %d/%d): %s",
+        displayID, degrees, attempt, TOOL_RETRIES, tostring(err)))
+      later(TOOL_RETRY_DELAY, function()
+        rotateDisplay(displayID, degrees, attempt + 1, callback)
+      end)
+    else
+      callback(false, err)
+    end
+  end)
 end
 
 local function waitForRotations(entries, deadline, callback)
@@ -296,9 +331,9 @@ local function waitForRotations(entries, deadline, callback)
   end
 end
 
--- Mode first (the rotated panel reports portrait modes, e.g. 2160x3840), then origin,
--- one display at a time with a pause for WindowServer between changes
-local function applyGeometry(entries, index, callback)
+-- Modes one display at a time (the rotated panel reports portrait modes, e.g.
+-- 2160x3840), with a pause for WindowServer between changes
+local function applyModes(entries, index, callback)
   local entry = entries[index]
   if not entry then
     callback(true)
@@ -316,20 +351,30 @@ local function applyGeometry(entries, index, callback)
     log(string.format("%s %s: setMode %s → %s", t.side, entry.serial, fmtMode(t.mode), ok and "ok" or "FAILED"))
     pause = STEP_GAP
   end
-  later(pause, function()
-    local s2 = screenById(entry.screen:id())
-    if not s2 then
-      callback(false, entry.serial .. " vanished")
-      return
+  later(pause, function() applyModes(entries, index + 1, callback) end)
+end
+
+-- Then every origin in one CoreGraphics transaction: after a hub swap each Samsung sits
+-- where the other belongs, and moving them one at a time makes macOS nudge the first
+-- off the spot the second still occupies. A miss here is only a warning in verify —
+-- rotation is the invariant, position is convenience.
+local function applyOrigins(entries, callback)
+  local args, parts = {"place"}, {}
+  for _, entry in ipairs(entries) do
+    local t = entry.target
+    local s = screenById(entry.screen:id())
+    if s and t.origin and not nearOrigin(s:fullFrame(), t.origin) then
+      args[#args + 1] = string.format("%d:%d,%d", s:id(), t.origin.x, t.origin.y)
+      parts[#parts + 1] = string.format("%s %s to (%d,%d)", t.side, entry.serial, t.origin.x, t.origin.y)
     end
-    local pause2 = 0.1
-    if t.origin and not nearOrigin(s2:fullFrame(), t.origin) then
-      local ok = s2:setOrigin(t.origin.x, t.origin.y)
-      log(string.format("%s %s: setOrigin (%d,%d) → %s",
-        t.side, entry.serial, t.origin.x, t.origin.y, ok and "ok" or "FAILED"))
-      pause2 = STEP_GAP
-    end
-    later(pause2, function() applyGeometry(entries, index + 1, callback) end)
+  end
+  if #args == 1 then
+    callback(true)
+    return
+  end
+  runTool(args, function(ok, _, err)
+    log(string.format("place %s → %s", table.concat(parts, ", "), ok and "ok" or ("FAILED: " .. tostring(err))))
+    callback(true)
   end)
 end
 
@@ -383,12 +428,14 @@ fix = function(cfgName, matched, attempt, opts)
           return
         end
         later(STEP_GAP, function()
-          applyGeometry(entries, 1, function(ok2, err2)
+          applyModes(entries, 1, function(ok2, err2)
             if not ok2 then
               failed(cfgName, matched, attempt, opts, err2)
               return
             end
-            later(VERIFY_DELAY, function() verify(cfgName, matched, attempt, opts) end)
+            applyOrigins(entries, function()
+              later(VERIFY_DELAY, function() verify(cfgName, matched, attempt, opts) end)
+            end)
           end)
         end)
       end)
@@ -403,35 +450,23 @@ fix = function(cfgName, matched, attempt, opts)
       rotateNext(i + 1)
       return
     end
-    local uuid, target, current = s:getUUID(), entry.target.rotation, s:rotate()
-    local function rotateToTarget()
-      lunarRotate(uuid, target, 1, function(ok, err)
-        if not ok then
-          failed(cfgName, matched, attempt, opts, "Lunar rotation failed: " .. tostring(err))
-          return
-        end
-        later(ROTATE_GAP, function() rotateNext(i + 1) end)
-      end)
-    end
-    lunarBelievedRotation(uuid, function(believed)
-      if believed ~= target then
-        log(string.format("%s %s: rotating to %d via Lunar", entry.target.side, entry.serial, target))
-        rotateToTarget()
+    log(string.format("%s %s: rotating display %d from %s to %d",
+      entry.target.side, entry.serial, s:id(), tostring(s:rotate()), entry.target.rotation))
+    rotateDisplay(s:id(), entry.target.rotation, 1, function(ok, err)
+      if not ok then
+        failed(cfgName, matched, attempt, opts, "rotation failed: " .. tostring(err))
         return
       end
-      -- Lunar already holds the target, so asking for it would do nothing: nudge first
-      log(string.format("%s %s: Lunar already believes %d, nudging through %d then %d",
-        entry.target.side, entry.serial, believed, current, target))
-      lunarRotate(uuid, current, 1, function(ok, err)
-        if not ok then
-          failed(cfgName, matched, attempt, opts, "Lunar nudge failed: " .. tostring(err))
-          return
-        end
-        later(ROTATE_GAP, rotateToTarget)
-      end)
+      later(ROTATE_GAP, function() rotateNext(i + 1) end)
     end)
   end
-  rotateNext(1)
+  ensureTool(function(ok, err)
+    if not ok then
+      failed(cfgName, matched, attempt, opts, "no rotation tool: " .. tostring(err))
+      return
+    end
+    rotateNext(1)
+  end)
 end
 
 -- ---------------------------------------------------------------------------

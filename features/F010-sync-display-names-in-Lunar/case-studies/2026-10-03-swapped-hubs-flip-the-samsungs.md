@@ -92,6 +92,8 @@ The side windows were not lost. They were saved on the wrong screens. The 20:14 
 
 ## Proposed fixes (not applied)
 
+==🟢Follow-up 2026-10-04==: the Lunar nudge and the layout changes below went in that evening; the nudge did not help (Lunar's rotation acts on a display object cached before the re-enumeration), and the guard now rotates through MonitorPanel directly — see [2026-10-04-lunar-rotation-caches-go-stale.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/F010-sync-display-names-in-Lunar/case-studies/2026-10-04-lunar-rotation-caches-go-stale.md).
+
 Guard, [displayguard.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/displayguard.lua):
 
 - ==🟢Make the rotation step idempotence-proof.== Read Lunar's believed rotation first (`displays <uuid> rotation`); if it equals the target while macOS differs, nudge: set macOS's current rotation (a no-op on screen that updates Lunar's cache), then the target. Or, when the first command has not landed after ~5 s, resend through an intermediate value instead of repeating it.
