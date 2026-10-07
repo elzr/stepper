@@ -886,9 +886,81 @@ local function clearEnhancedUI()
   end
 end
 
+-- Key repeat for the fn+arrow bindings runs here, not in Hammerspoon.
+-- Hammerspoon's own repeat (hs.hotkey's repeatfn) is one global timer that only
+-- stops at the next hotkey event, so a key-up that never arrives leaves it firing
+-- at key-repeat speed: on 2026-10-07 a lost fn+right key-up walked every window
+-- that took focus to the right edge of the right Samsung until an unrelated
+-- hotkey (hyper+P) happened to stop it. This repeat re-reads the keyboard on
+-- every tick: each modifier held at press (fn included) must still be held, and
+-- no hold repeats past REPEAT_MAX_SECONDS.
+-- See case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md
+local REPEAT_MAX_SECONDS = 5
+local REPEAT_MODS = {"fn", "cmd", "alt", "shift", "ctrl"}
+local repeatTimer = nil
+local lostKeyUpCheck = nil  -- held so the pending check isn't garbage-collected
+
+local function stopRepeat()
+  if repeatTimer then repeatTimer:stop(); repeatTimer = nil end
+end
+
+-- The chord changed (or ran too long) before its key-up arrived. Usually the
+-- key-up is only milliseconds behind — fn released before the arrow — so it is
+-- reported as lost only if it still hasn't come 2s later.
+local function abandonRepeat(press, reason)
+  stopRepeat()
+  local elapsed = hs.timer.secondsSinceEpoch() - press.at
+  lostKeyUpCheck = hs.timer.doAfter(2, function()
+    if not press.released then
+      print(string.format("[stepper] lost key-up: %s in %s, repeat stopped after %.1fs (%s)",
+        press.label, press.app, elapsed, reason))
+    end
+  end)
+end
+
 local function bindWithRepeat(mods, key, fn)
-    local healed = function() clearEnhancedUI() fn() end
-    hs.hotkey.bind(mods, key, healed, nil, healed)
+  local healed = function() clearEnhancedUI() fn() end
+  local label = table.concat(mods, "+") .. (#mods > 0 and "+" or "") .. key
+  local press = nil
+
+  local function tick()
+    local now = hs.eventtap.checkKeyboardModifiers()
+    for _, m in ipairs(REPEAT_MODS) do
+      if press.held[m] and not now[m] then return abandonRepeat(press, m .. " released") end
+    end
+    if hs.timer.secondsSinceEpoch() - press.at > REPEAT_MAX_SECONDS then
+      return abandonRepeat(press, string.format("held over %ds", REPEAT_MAX_SECONDS))
+    end
+    -- Hammerspoon's repeat stopped on a callback error; keep that
+    local ok, err = pcall(healed)
+    if not ok then
+      stopRepeat()
+      print("[stepper] repeat stopped by error: " .. tostring(err))
+    end
+  end
+
+  return hs.hotkey.bind(mods, key, function()
+    stopRepeat()
+    local app = hs.application.frontmostApplication()
+    press = {
+      label = label,
+      app = app and app:name() or "?",
+      at = hs.timer.secondsSinceEpoch(),
+      held = hs.eventtap.checkKeyboardModifiers(),
+    }
+    healed()
+    -- A callback that spins the event loop (hs.osascript does) can handle this
+    -- key-up, or another press, before returning; then there's nothing to repeat.
+    -- Hammerspoon's own repeat starts regardless (issues #1178, #3584, #3589).
+    if press.released or repeatTimer then return end
+    repeatTimer = hs.timer.doAfter(hs.eventtap.keyRepeatDelay(), function()
+      repeatTimer = hs.timer.doEvery(hs.eventtap.keyRepeatInterval(), tick)
+      tick()
+    end)
+  end, function()
+    if press then press.released = true end
+    stopRepeat()
+  end)
 end
 
 -- Define mappings of keys to dirs
@@ -1108,6 +1180,10 @@ end
 -- making them eligible for GC. Globals rooted in _G are never collected.
 -- Also accessible via IPC for testing: hs -c "return type(_G._stepper.weekTimer)"
 _G._stepper = {}
+
+-- The guarded key repeat, for IPC tests that bind a throwaway key through it:
+-- case-studies/2026-10-07-runaway-hotkey-repeat/repeat-guard-test.lua
+_G._stepper.bindWithRepeat = bindWithRepeat
 
 -- Monday midnight: the only day the week number changes.
 -- The on-load sync check and wake trigger handle other scenarios.

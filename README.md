@@ -17,7 +17,7 @@
 
 ==🔵Interactive steps, not preset sizes.== You build window arrangements through small, reversible increments — no snapping to halves, thirds, or memorized layouts. The result feels more like sculpting than snapping.
 
-- **Piecemeal**: each keypress makes a small change. Hold to repeat.
+- **Piecemeal**: each keypress makes a small change. Hold to repeat — ==🔵the repeat lasts only while the combo is physically held== (rechecked on every step, 5 s at most), so a lost key-up can't leave windows walking to the screen edge ([case study](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md)).
 - **Reversible**: every action undoes with the opposite action.
 - **Predictable**: same key, same behavior, regardless of window position.
 - **Overlapping-friendly**: windows overlap naturally. No forced tiling grid.
