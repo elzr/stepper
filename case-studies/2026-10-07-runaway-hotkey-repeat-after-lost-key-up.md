@@ -121,7 +121,23 @@ The five displaced windows were restored to their 14:47:34 frames from `layout-1
 
 ## Next time
 
-A `[stepper] lost key-up` line in the console means the guard caught one. The app named is the frontmost app at the press — if one app keeps showing up, start with the taps that app (or Hyperkey, rcmd, BetterTouchTool) installs. A lost key-up from a plain End key on an external keyboard (no fn, nothing to check) is bounded by the 5 s cap instead.
+A `[stepper] lost key-up` line in the console means the guard caught one. ==🔵Both report lines also go to `data/lost-key-ups.log`== (untracked) — the console doesn't survive a Hammerspoon relaunch or reboot — but only for stepper's own keys, so test runs on F20 stay out of it. Since this case the report carries the context that was missing here, from [inputprobe.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/inputprobe.lua) and its Swift helper [inputprobe.swift](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/inputprobe.swift) (built on first use, like `display-arrange`):
+
+```
+[stepper] lost key-up: end in Bear, repeat stopped after 0.3s (fn released) · 7.5 min after wake · 5.0 min after unlock · secure input off · HID holds: nothing
+[stepper] taps that could drop a key-up: BetterTouchTool hid · SiriNCService session · Hyperkey session · Monologue annotated · Siri session | since wake: no change
+```
+
+How to read it:
+
+- ==🟣HID holds: end== — the keyboard layer never released End: no key-up was produced, or the fn remap split the pair (End down, plain → up). The fault is below every app.
+- ==🟣HID holds: nothing== — the key-up was produced and then dropped before reaching Hammerspoon. The second line lists the only taps that could: enabled, filtering, and receiving key-ups. "since wake" lists key taps that appeared, vanished or switched on/off since the last wake (a census taken at every wake).
+- **min after wake / unlock** tests the wake hypothesis; **secure input ON** points at the [orphaned secure input](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/case-studies/2026-05-20-orphaned-secure-input-kills-all-hotkeys.md) class instead.
+- The app named first is the frontmost app at the press.
+
+The probe reads key state through `CGEventSource.keyState(.hidSystemState)`, which needs Input Monitoring; Hammerspoon's grant covers it. Without access it says "unreadable" rather than "nothing". Tap latency stats were left out on purpose: macOS's per-tap numbers jumped to 19–61 s right after synthetic test events, so they would mislead.
+
+A lost key-up from a plain End key on an external keyboard (no fn, nothing to check) is bounded by the 5 s cap instead.
 
 ## Appendix: harness notes
 

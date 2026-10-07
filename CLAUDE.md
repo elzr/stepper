@@ -16,6 +16,8 @@ stepper/
 │   ├── screenmemory.lua  # Per-screen window position memory (session + persistent)
 │   ├── layout.lua        # Window layout save/restore per display config; drives F010 + the guard
 │   ├── displayguard.lua  # Puts the Samsung pair back in portrait after a hub re-enumeration
+│   ├── inputprobe.lua    # Context for "[stepper] lost key-up" lines: HID key state, event taps, wake times
+│   ├── inputprobe.swift  # Its helper, built on first use (binary untracked)
 │   └── bear-hud.lua      # Bear note HUD with caret/scroll persistence
 ├── data/
 │   ├── bear-notes.jsonc   # Note hotkey configuration

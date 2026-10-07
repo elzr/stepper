@@ -1,13 +1,13 @@
 {
-  "vars": {
-    "weekNum": "40",                   // current
-    "weekDays": "28sep-4oct2026",
+  "vars": {  // set weekly by L005; git stores them blanked as NN/DAYS (.gitattributes)
+    "weekNum": "NN",                   // current
+    "weekDays": "DAYS",
 
-    "pastWeekNum": "39",              // R⌘ (right-cmd)
-    "pastWeekDays": "21-27sep2026",     // R⌘ (right-cmd)
+    "pastWeekNum": "NN",              // R⌘ (right-cmd)
+    "pastWeekDays": "DAYS",     // R⌘ (right-cmd)
 
-    "nextWeekNum": "41",              // R⌥ (right-option)
-    "nextWeekDays": "5-11oct2026"    // R⌥ (right-option)
+    "nextWeekNum": "NN",              // R⌥ (right-option)
+    "nextWeekDays": "DAYS"    // R⌥ (right-option)
   },
   // run ~/bin/hs-reload.sh to reload after editing
   "mods": ["ctrl", "alt", "shift", "cmd"],

@@ -1,0 +1,7 @@
+# Git ignores the weekly week-name roll
+
+**Date**: 2026-10-07
+
+Every Monday, [L005](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts) rewrites the week names in `data/bear-notes.jsonc`, and [L009](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap) regenerates `keymap.html` with them, so both sat in `git status` as uncommitted noise. Both files stay tracked, because hand edits to them matter.
+
+**Change**: [.gitattributes](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/.gitattributes) routes both through a clean filter, [git-week-filter.sh](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts/git-week-filter.sh), which blanks week numbers to `NN` and date ranges to `DAYS` before git compares or stores them. ==🟢A roll leaves `git status` clean== — checked by rolling copies to next week with L005's own updater, which gave identical filtered hashes — while hand edits still diff normally. ==🔵One-time setup per clone==: `git config filter.l005-weeks.clean features/L005-weekly-updater-of-Bear-shortcuts/git-week-filter.sh`. Details in the [L005 README](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts/README.md#git-sees-only-hand-edits).

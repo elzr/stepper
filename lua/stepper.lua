@@ -19,6 +19,7 @@ bear_paste = dofile(scriptPath .. "bear-paste.lua")
 layout = dofile(scriptPath .. "layout.lua")
 keymap = dofile(projectRoot .. "features/L009-keymap/keymap.lua")
 ofsr = dofile(scriptPath .. "move-to-resize.lua")
+local inputprobe = dofile(scriptPath .. "inputprobe.lua")
 
 -- Clean up any orphaned focus highlights from previous session
 focus.clearHighlight()
@@ -906,14 +907,15 @@ end
 
 -- The chord changed (or ran too long) before its key-up arrived. Usually the
 -- key-up is only milliseconds behind — fn released before the arrow — so it is
--- reported as lost only if it still hasn't come 2s later.
+-- reported as lost only if it still hasn't come 2s later, with inputprobe's
+-- context (time since wake, whether the keyboard layer still holds the key, taps).
 local function abandonRepeat(press, reason)
   stopRepeat()
   local elapsed = hs.timer.secondsSinceEpoch() - press.at
   lostKeyUpCheck = hs.timer.doAfter(2, function()
     if not press.released then
-      print(string.format("[stepper] lost key-up: %s in %s, repeat stopped after %.1fs (%s)",
-        press.label, press.app, elapsed, reason))
+      inputprobe.reportLostKeyUp(string.format("%s in %s, repeat stopped after %.1fs (%s)",
+        press.label, press.app, elapsed, reason), press.key)
     end
   end)
 end
@@ -943,6 +945,7 @@ local function bindWithRepeat(mods, key, fn)
     stopRepeat()
     local app = hs.application.frontmostApplication()
     press = {
+      key = key,
       label = label,
       app = app and app:name() or "?",
       at = hs.timer.secondsSinceEpoch(),
@@ -1154,6 +1157,9 @@ screenswitch.setScreenMemory(screenmemory)
 -- Initialize layout auto-save, screen watcher, and Lunar name sync
 layout.init({screenswitch = screenswitch, screenmemory = screenmemory})
 
+-- Lost key-up forensics: builds inputprobe if needed and takes a baseline tap census
+inputprobe.init()
+
 -- Manual layout save: fn+ctrl+alt+delete (pinned, survives autosave overwrites)
 hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
 
@@ -1181,9 +1187,10 @@ end
 -- Also accessible via IPC for testing: hs -c "return type(_G._stepper.weekTimer)"
 _G._stepper = {}
 
--- The guarded key repeat, for IPC tests that bind a throwaway key through it:
--- case-studies/2026-10-07-runaway-hotkey-repeat/repeat-guard-test.lua
+-- The guarded key repeat and its lost key-up forensics, for IPC tests that bind a
+-- throwaway key through it: case-studies/2026-10-07-runaway-hotkey-repeat/repeat-guard-test.lua
 _G._stepper.bindWithRepeat = bindWithRepeat
+_G._stepper.inputprobe = inputprobe
 
 -- Monday midnight: the only day the week number changes.
 -- The on-load sync check and wake trigger handle other scenarios.
@@ -1200,8 +1207,11 @@ _G._stepper.sleepWatcher = hs.caffeinate.watcher.new(function(event)
     layout.autoSave()
   elseif event == hs.caffeinate.watcher.screensDidWake then
     print("[stepper] Wake detected — checking displays")
+    inputprobe.noteWake()
     layout.onWake()
     updateBearWeeksAsync()
+  elseif event == hs.caffeinate.watcher.screensDidUnlock then
+    inputprobe.noteUnlock()
   end
 end)
 _G._stepper.sleepWatcher:start()

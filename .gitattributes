@@ -1,0 +1,5 @@
+# Files the L005 weekly roll rewrites: git compares them with week numbers and date
+# ranges blanked, so only hand edits show up. Filter and its one-time setup:
+# features/L005-weekly-updater-of-Bear-shortcuts/git-week-filter.sh
+data/bear-notes.jsonc            filter=l005-weeks
+features/L009-keymap/keymap.html filter=l005-weeks
