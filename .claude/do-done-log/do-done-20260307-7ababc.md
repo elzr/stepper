@@ -2,7 +2,7 @@
 
 ---
 *2026-03-07 15:13* <!-- 8473b65a-470b-4e45-8a58-e22418254e56 -->
-*6 in, 131 out · Worked for 1m 2s*
+*9 in, 2.2k out · 45.7k cached · Worked for 1m2s · done 15:14 · hook 915ms*
 
 ## Eli:
 let's review what just happened right now, I was on my macbook + 1 big display configuration and I moved to macbook + 5 external displays and my expectation was that the windows that were on the big sincle external screen would move to the central screen but it's empty and the restore seems to be a mess, what happened?
@@ -29,7 +29,7 @@ Want me to implement this? The changes would be:
 
 ---
 *2026-03-07 15:15* <!-- d37ef7b0-1863-4204-b5b3-2e64c255b450 -->
-*6 in, 109 out · 41.6k cached · Worked for 1m 34s*
+*19 in, 3.7k out · 355.2k cached · Worked for 1m34s · done 15:17 · hook 996ms*
 
 ## Eli:
 ok, go ahead
@@ -51,7 +51,7 @@ Next time you dock into the 5-display setup, windows should auto-restore to thei
 
 ---
 *2026-03-07 15:19* <!-- fb39bbb7-a4fa-4558-81b6-8408a62fca5c -->
-*3 in, 26 out · 35.9k cached · Worked for 31s*
+*7 in, 742 out · 188.8k cached · Worked for 31s · done 15:19 · hook 881ms*
 
 ## Eli:
 commit & push
