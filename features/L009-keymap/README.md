@@ -54,3 +54,4 @@ If `notes.jsonc` annotates `Q → Cursor` but rcmd no longer binds `Q` (or binds
 
 - ==🔵[L007-hyperkey-shortcuts](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L007-hyperkey-shortcuts)== — the hyperkey system this map visualizes
 - [L005-weekly-updater-of-Bear-shortcuts](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts) — why HS reload covers weekly regen
+- [fleet F002 — harmonious-keybindings](https://fleet.internal/features/F002-harmonious-keybindings/) — the other half: this map draws the keys, and F002's census checks every owner (BTT, Raycast, Hammerspoon, ChatGPT, macOS) against the others. ==🔴Drift here means a stale annotation; there it means two apps fighting over one shortcut.==
