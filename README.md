@@ -9,6 +9,7 @@
 - [Window operations](#window-operations)
 - [Bear Note HUD](#bear-note-hud)
 - [Mouse move](#mouse-move)
+- [Dead ⌘⇥ watch](#dead--watch) — ==🔵logs each ⌘⇥ that did nothing while AltTab is on trial==
 - [Further reading](#further-reading)
 
 ---
@@ -141,6 +142,12 @@ Caret via `AXSelectedTextRange`, scroll via `AXScrollBar`, persisted to [bear-hu
 ## Mouse move
 
 ==🔵Hold fn + move mouse== to reposition the window under the cursor. Hold ==🔵fn + shift + move== to resize — the 3x3 grab grid determines which corner/edge moves. See [keycombo-map](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/docs/keycombo-map.md#mouse-move) for the grid diagram. Implemented in [mousemove.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/mousemove.lua).
+
+---
+
+## Dead ⌘⇥ watch
+
+While [AltTab](https://alt-tab-macos.netlify.app/) is on trial as the ⌘⇥ switcher, Stepper keeps [cmdtabwatch](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/cmdtabwatch.lua) running. It observes every ⌘⇥ through listen-only taps and logs each one that did nothing to [data/cmd-tab-watch.jsonl](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/cmd-tab-watch.jsonl), with the likely cause. ==🔵An alert says so once per episode==, e.g. "⌘⇥ did nothing, logged · AltTab thinks App Exposé is on screen". Diagnosis and log format: [fleet F040/AltTab](https://fleet.internal/features/F040-tiptop-software-infrastructure/subfeatures/AltTab/).
 
 ---
 

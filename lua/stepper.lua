@@ -20,6 +20,7 @@ layout = dofile(scriptPath .. "layout.lua")
 keymap = dofile(projectRoot .. "features/L009-keymap/keymap.lua")
 ofsr = dofile(scriptPath .. "move-to-resize.lua")
 local inputprobe = dofile(scriptPath .. "inputprobe.lua")
+local cmdtabwatch = dofile(scriptPath .. "cmdtabwatch.lua")
 
 -- Clean up any orphaned focus highlights from previous session
 focus.clearHighlight()
@@ -1160,6 +1161,10 @@ layout.init({screenswitch = screenswitch, screenmemory = screenmemory})
 -- Lost key-up forensics: builds inputprobe if needed and takes a baseline tap census
 inputprobe.init()
 
+-- Dead ⌘⇥ forensics while AltTab is on trial: logs each ⌘⇥ that did nothing
+-- to data/cmd-tab-watch.jsonl (fleet F040/AltTab)
+cmdtabwatch.start()
+
 -- Manual layout save: fn+ctrl+alt+delete (pinned, survives autosave overwrites)
 hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
 
@@ -1191,6 +1196,7 @@ _G._stepper = {}
 -- throwaway key through it: case-studies/2026-10-07-runaway-hotkey-repeat/repeat-guard-test.lua
 _G._stepper.bindWithRepeat = bindWithRepeat
 _G._stepper.inputprobe = inputprobe
+_G._stepper.cmdtabwatch = cmdtabwatch
 
 -- Monday midnight: the only day the week number changes.
 -- The on-load sync check and wake trigger handle other scenarios.

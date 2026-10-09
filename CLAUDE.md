@@ -18,10 +18,13 @@ stepper/
 │   ├── displayguard.lua  # Puts the Samsung pair back in portrait after a hub re-enumeration
 │   ├── inputprobe.lua    # Context for "[stepper] lost key-up" lines: HID key state, event taps, wake times
 │   ├── inputprobe.swift  # Its helper, built on first use (binary untracked)
+│   ├── cmdtabwatch.lua   # Keeps the dead ⌘⇥ watcher running for the AltTab trial (fleet F040/AltTab)
+│   ├── cmdtabwatch.swift # The watcher: listen-only taps, logs each ⌘⇥ that did nothing (binary untracked)
 │   └── bear-hud.lua      # Bear note HUD with caret/scroll persistence
 ├── data/
 │   ├── bear-notes.jsonc   # Note hotkey configuration
 │   ├── display-guard.json # Per-config target rotation/mode/origin per monitor text serial
+│   ├── cmd-tab-watch.jsonl # The watcher's log, plus AltTab stack samples in cmd-tab-samples/ (not tracked)
 │   └── bear-hud-positions.json  # Runtime caret/scroll positions (not tracked)
 ├── docs/                 # Architecture notes and decision records
 ├── CLAUDE.md             # This file
