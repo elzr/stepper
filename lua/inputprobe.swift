@@ -1,10 +1,13 @@
-// Context for stepper's "[stepper] lost key-up" console line: two things Hammerspoon
-// can't read itself. Built by inputprobe.lua on first use; prints one JSON document.
+// What Hammerspoon can't read itself about the keyboard, for stepper's key repeat and its
+// "[stepper] lost key-up" console line. Built by inputprobe.lua on first use; prints one
+// JSON document.
 //
-//   inputprobe keys <keycode>...   which of these keys the HID system still holds down
-//   inputprobe taps                every event tap that sees key events, and its state
+//   inputprobe keys <keycode>...          which of these keys the HID system still holds down
+//   inputprobe taps                       every event tap that sees key events, and its state
+//   inputprobe hold <keycode> [maxSec]    waits until the HID system lets go of the key
 //
 // See case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md
+// and case-studies/2026-10-09-lost-key-up-walked-note-down.md
 
 import AppKit
 import CoreGraphics
@@ -63,6 +66,27 @@ case "taps":
   }
   emit(["ok": true, "taps": taps])
 
+case "hold":
+  // stepper starts one per press and stops repeating when it exits. The HID system's view
+  // comes before every event tap and hotkey route, so it still reports the key-up when
+  // macOS loses the hotkey's release, and it doesn't lag the way Hammerspoon's modifier
+  // state does while its main thread is busy.
+  guard args.count >= 2, let code = UInt16(args[1]) else {
+    emit(["ok": false, "error": "usage: inputprobe hold <keycode> [maxSeconds]"])
+  }
+  guard CGPreflightListenEventAccess() else {
+    emit(["ok": false, "error": "no Input Monitoring access"])
+  }
+  let limit = args.count > 2 ? Double(args[2]) ?? 30 : 30
+  let start = Date()
+  while CGEventSource.keyState(.hidSystemState, key: CGKeyCode(code)) {
+    if Date().timeIntervalSince(start) > limit {
+      emit(["ok": false, "error": "still held after \(Int(limit)) s"])
+    }
+    usleep(10_000)
+  }
+  emit(["ok": true, "heldMs": Int(Date().timeIntervalSince(start) * 1000)])
+
 default:
-  emit(["ok": false, "error": "usage: inputprobe keys <keycode>... | inputprobe taps"])
+  emit(["ok": false, "error": "usage: inputprobe keys <keycode>... | inputprobe taps | inputprobe hold <keycode> [maxSeconds]"])
 }

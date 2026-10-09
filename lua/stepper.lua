@@ -893,32 +893,65 @@ end
 -- stops at the next hotkey event, so a key-up that never arrives leaves it firing
 -- at key-repeat speed: on 2026-10-07 a lost fn+right key-up walked every window
 -- that took focus to the right edge of the right Samsung until an unrelated
--- hotkey (hyper+P) happened to stop it. This repeat re-reads the keyboard on
--- every tick: each modifier held at press (fn included) must still be held, and
--- no hold repeats past REPEAT_MAX_SECONDS.
+-- hotkey (hyper+P) happened to stop it. This repeat stops at the first tick where
+-- any of these says the key is no longer held:
+--   1. the HID system has let go of it (inputprobe's hold watcher, started at the
+--      press). This one holds even when macOS loses the hotkey's release, which it
+--      does when the modifier comes up before the key while Hammerspoon's main
+--      thread is busy: on 2026-10-09 that walked a Bear note to the bottom of the
+--      right Samsung.
+--   2. a modifier held at press (fn included) is up. Hammerspoon's modifier state
+--      lags while its main thread is busy, which is why this check wasn't enough.
+--   3. the hold has lasted REPEAT_MAX_SECONDS.
 -- See case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md
+-- and case-studies/2026-10-09-lost-key-up-walked-note-down.md
 local REPEAT_MAX_SECONDS = 5
 local REPEAT_MODS = {"fn", "cmd", "alt", "shift", "ctrl"}
-local repeatTimer = nil
-local lostKeyUpCheck = nil  -- held so the pending check isn't garbage-collected
+local repeatTimer, repeatOwner = nil, nil  -- the running repeat and the press it repeats
+local pendingChecks = {}  -- lost key-up checks, held so they aren't garbage-collected
 
 local function stopRepeat()
   if repeatTimer then repeatTimer:stop(); repeatTimer = nil end
+  repeatOwner = nil
 end
 
--- The chord changed (or ran too long) before its key-up arrived. Usually the
--- key-up is only milliseconds behind — fn released before the arrow — so it is
--- reported as lost only if it still hasn't come 2s later, with inputprobe's
--- context (time since wake, whether the keyboard layer still holds the key, taps).
+local function endWatch(press)
+  if press.watch and press.watch:isRunning() then press.watch:terminate() end
+end
+
+local function modsText(mods)
+  local held = {}
+  for _, m in ipairs(REPEAT_MODS) do
+    if mods[m] then table.insert(held, m) end
+  end
+  return #held > 0 and table.concat(held, "+") or "none"
+end
+
+-- The key-up should follow within milliseconds (fn is often released before the
+-- arrow), so it's reported as lost only once it's 2s late and the keyboard isn't
+-- still holding the key, with inputprobe's context (main-thread stalls, time since
+-- wake, HID state, taps). macOS then still counts the hotkey as down and would
+-- swallow its next press, so a synthetic key-up closes it.
+local function expectKeyUp(press, summary)
+  local check
+  check = hs.timer.doAfter(2, function()
+    pendingChecks[check] = nil
+    if press.released then return end
+    if press.watch and press.watch:isRunning() and not press.letGo then
+      return expectKeyUp(press, summary)  -- a long hold, not a lost key-up
+    end
+    inputprobe.reportLostKeyUp(summary, press.key, press.at)
+    press.released = true
+    hs.eventtap.event.newKeyEvent(press.key, false):post()
+  end)
+  pendingChecks[check] = true
+end
+
 local function abandonRepeat(press, reason)
   stopRepeat()
-  local elapsed = hs.timer.secondsSinceEpoch() - press.at
-  lostKeyUpCheck = hs.timer.doAfter(2, function()
-    if not press.released then
-      inputprobe.reportLostKeyUp(string.format("%s in %s, repeat stopped after %.1fs (%s)",
-        press.label, press.app, elapsed, reason), press.key)
-    end
-  end)
+  expectKeyUp(press, string.format("%s in %s, repeat stopped after %.1fs (%s) · modifiers at press %s, at stop %s",
+    press.label, press.app, hs.timer.secondsSinceEpoch() - press.at, reason,
+    modsText(press.held), modsText(hs.eventtap.checkKeyboardModifiers())))
 end
 
 local function bindWithRepeat(mods, key, fn)
@@ -927,6 +960,7 @@ local function bindWithRepeat(mods, key, fn)
   local press = nil
 
   local function tick()
+    if press.letGo then return abandonRepeat(press, "keyboard let go") end
     local now = hs.eventtap.checkKeyboardModifiers()
     for _, m in ipairs(REPEAT_MODS) do
       if press.held[m] and not now[m] then return abandonRepeat(press, m .. " released") end
@@ -944,14 +978,17 @@ local function bindWithRepeat(mods, key, fn)
 
   return hs.hotkey.bind(mods, key, function()
     stopRepeat()
+    if press then endWatch(press) end
     local app = hs.application.frontmostApplication()
-    press = {
+    local this = {
       key = key,
       label = label,
       app = app and app:name() or "?",
       at = hs.timer.secondsSinceEpoch(),
       held = hs.eventtap.checkKeyboardModifiers(),
     }
+    press = this
+    this.watch = inputprobe.watchHold(key, function() this.letGo = true end)
     healed()
     -- A callback that spins the event loop (hs.osascript does) can handle this
     -- key-up, or another press, before returning; then there's nothing to repeat.
@@ -961,9 +998,15 @@ local function bindWithRepeat(mods, key, fn)
       repeatTimer = hs.timer.doEvery(hs.eventtap.keyRepeatInterval(), tick)
       tick()
     end)
+    repeatOwner = press
   end, function()
-    if press then press.released = true end
-    stopRepeat()
+    if press then
+      press.released = true
+      endWatch(press)
+      -- Only this key's own repeat: the synthetic key-up that closes a lost one
+      -- mustn't stop a hold on another key
+      if repeatOwner == press then stopRepeat() end
+    end
   end)
 end
 
@@ -1195,7 +1238,7 @@ end
 _G._stepper = {}
 
 -- The guarded key repeat and its lost key-up forensics, for IPC tests that bind a
--- throwaway key through it: case-studies/2026-10-07-runaway-hotkey-repeat/repeat-guard-test.lua
+-- throwaway key through it: case-studies/2026-10-09-lost-key-up-walked-note-down/repeat-guard-test.lua
 _G._stepper.bindWithRepeat = bindWithRepeat
 _G._stepper.inputprobe = inputprobe
 _G._stepper.cmdtabwatch = cmdtabwatch

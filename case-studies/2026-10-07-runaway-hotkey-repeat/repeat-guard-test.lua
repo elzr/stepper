@@ -1,3 +1,7 @@
+-- SUPERSEDED on 2026-10-09 by ../2026-10-09-lost-key-up-walked-note-down/repeat-guard-test.lua:
+-- the guard now also asks the HID system whether the key is held, and the synthetic F20
+-- posted here never reaches the HID key state, so these scenarios stop at the first tick.
+--
 -- Regression test for stepper's guarded key repeat (bindWithRepeat).
 -- Binds a throwaway F20 hotkey through the real bindWithRepeat with a counting
 -- operation (no windows touched), drives it with synthetic F20 key events, and

@@ -4,6 +4,12 @@
 -- holds the key down (key-up never generated, vs. eaten downstream by an event tap),
 -- and every process's event taps on key events. Wake and unlock times frame the report.
 -- See case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md
+--
+-- On 2026-10-09 the cause turned out to be Hammerspoon itself being busy: macOS drops a
+-- hotkey's release when its modifier comes up before the key while Hammerspoon's main
+-- thread is stuck. So stepper's repeat now asks the HID system directly whether the key
+-- is still down (watchHold), and the report says how late the main thread ran.
+-- See case-studies/2026-10-09-lost-key-up-walked-note-down.md
 
 local M = {}
 
@@ -21,13 +27,20 @@ local KEYCODES = {home = 115, ["end"] = 119, pageup = 116, pagedown = 121,
 
 local pending = {}           -- running hs.task objects, held so they aren't collected
 local lastWake, lastUnlock = nil, nil
+local SAVED_TIMES = "stepper.inputprobe.times"  -- hs.settings key: wake/unlock outlive reloads
 local baseline = nil         -- {label = "wake"|"load", taps = {...}} for "changed since"
+
+-- Main-thread lag: a ticker that notes every time it runs more than LAG_MIN late. The
+-- reports quote the worst stall around the press, the condition that loses key-ups.
+local LAG_TICK, LAG_MIN, LAG_KEEP = 0.25, 0.15, 120
+local lastTick = nil
+local lags = {}              -- {at = when the late tick finally ran, late = seconds}
 
 local function oneLine(s)
   return (tostring(s or ""):gsub("%s+", " "))
 end
 
--- Returns true when the task was launched; callback(exitCode, stdout, stderr)
+-- Returns the task when it was launched, else nil; callback(exitCode, stdout, stderr)
 local function run(binary, args, callback)
   local task
   task = hs.task.new(binary, function(exitCode, stdout, stderr)
@@ -35,9 +48,9 @@ local function run(binary, args, callback)
     callback(exitCode, stdout, stderr)
   end, args)
   pending[task] = true
-  if task:start() then return true end
+  if task:start() then return task end
   pending[task] = nil
-  return false
+  return nil
 end
 
 local function toolIsCurrent()
@@ -124,17 +137,89 @@ local function takeBaseline(label)
   end)
 end
 
+local function lagTick()
+  local now = hs.timer.secondsSinceEpoch()
+  if lastTick and now - lastTick - LAG_TICK > LAG_MIN then
+    table.insert(lags, {at = now, late = now - lastTick - LAG_TICK})
+  end
+  lastTick = now
+  while lags[1] and now - lags[1].at > LAG_KEEP do table.remove(lags, 1) end
+end
+
+-- "main thread stalled 2.0s, until 0.1s after the press": the worst stall that ended
+-- between 3 s before the press (it held the press back) and 6 s after it
+local function lagNear(pressAt)
+  local worst = nil
+  for _, l in ipairs(lags) do
+    if l.at >= pressAt - 3 and l.at <= pressAt + 6 and (not worst or l.late > worst.late) then worst = l end
+  end
+  if not worst then return "main thread on time" end
+  local offset = worst.at - pressAt
+  return string.format("main thread stalled %.1fs, until %.1fs %s the press",
+    worst.late, math.abs(offset), offset < 0 and "before" or "after")
+end
+
+local function saveTimes()
+  hs.settings.set(SAVED_TIMES, {wake = lastWake, unlock = lastUnlock})
+end
+
 function M.init()
+  local saved = hs.settings.get(SAVED_TIMES) or {}
+  lastWake, lastUnlock = saved.wake, saved.unlock
+  M._lagTimer = hs.timer.doEvery(LAG_TICK, lagTick)
   takeBaseline("load")  -- also builds the tool now, so it's ready before it's needed
 end
 
 function M.noteWake()
   lastWake = hs.timer.secondsSinceEpoch()
+  saveTimes()
   takeBaseline("wake")
 end
 
 function M.noteUnlock()
   lastUnlock = hs.timer.secondsSinceEpoch()
+  saveTimes()
+end
+
+-- What the last holds' watchers reported, newest last, for checking by IPC:
+-- hs -c 'return _G._stepper.inputprobe.recentHolds()'
+local holds = {}
+local watchWarned = false
+
+function M.recentHolds()
+  local out = {}
+  for _, h in ipairs(holds) do
+    table.insert(out, string.format("%s  %-9s %s", os.date("%H:%M:%S", math.floor(h.at)), h.key, h.result))
+  end
+  return #out > 0 and table.concat(out, "\n") or "no holds watched since load"
+end
+
+-- Starts `inputprobe hold` on the key and calls onLetGo() once the HID system lets go of
+-- it. Returns the task, to terminate when the hold is over some other way, or nil when
+-- the tool isn't built yet (stepper's repeat then has only its own checks).
+function M.watchHold(key, onLetGo)
+  local code = hs.keycodes.map[key]
+  local task = code and toolIsCurrent() and run(toolBinary, {"hold", tostring(code), "30"}, function(_, stdout)
+    local result = "held until the hotkey release (watcher stopped)"
+    -- A terminated watcher prints nothing; decoding that would log a LuaSkin error
+    if (stdout or ""):find("^%s*{") then
+      local decoded, doc = pcall(hs.json.decode, stdout)
+      if decoded and type(doc) == "table" and doc.ok then
+        result = string.format("keyboard let go after %d ms", doc.heldMs or -1)
+        onLetGo()
+      elseif decoded and type(doc) == "table" then
+        result = "failed: " .. tostring(doc.error)
+      end
+    end
+    table.insert(holds, {key = key, at = hs.timer.secondsSinceEpoch(), result = result})
+    if #holds > 20 then table.remove(holds, 1) end
+  end)
+  if not task and not watchWarned then
+    watchWarned = true
+    print("[stepper] hold watcher unavailable (inputprobe not built or failed to start); "
+      .. "key repeat falls back to the modifier check and the 5 s cap")
+  end
+  return task or nil
 end
 
 -- Console line, also kept in logFile for stepper's own keys (test keys like F20 aren't)
@@ -149,11 +234,12 @@ local function record(line, durable)
 end
 
 -- Prints the lost key-up line with its context, then the tap census.
--- key is the Hammerspoon key name of the press (e.g. "end")
-function M.reportLostKeyUp(summary, key)
+-- key is the Hammerspoon key name of the press (e.g. "end"), pressAt its time
+function M.reportLostKeyUp(summary, key, pressAt)
   local durable = KEYCODES[key] ~= nil
   local now = hs.timer.secondsSinceEpoch()
   local context = {}
+  if pressAt then table.insert(context, lagNear(pressAt)) end
   if lastWake then table.insert(context, string.format("%.1f min after wake", (now - lastWake) / 60)) end
   if lastUnlock then table.insert(context, string.format("%.1f min after unlock", (now - lastUnlock) / 60)) end
   table.insert(context, "secure input " .. (hs.eventtap.isSecureInputEnabled() and "ON" or "off"))

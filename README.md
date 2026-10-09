@@ -18,7 +18,7 @@
 
 ==🔵Interactive steps, not preset sizes.== You build window arrangements through small, reversible increments — no snapping to halves, thirds, or memorized layouts. The result feels more like sculpting than snapping.
 
-- **Piecemeal**: each keypress makes a small change. Hold to repeat — ==🔵the repeat lasts only while the combo is physically held== (rechecked on every step, 5 s at most), so a lost key-up can't leave windows walking to the screen edge ([case study](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md)).
+- **Piecemeal**: each keypress makes a small change. Hold to repeat — ==🔵the repeat lasts only while the combo is physically held==: ==🟢every step asks the keyboard layer itself whether the key is still down==, rechecks the modifiers, and stops at 5 s regardless. So a key-up that macOS loses can't leave windows walking to the screen edge ([2026-10-07](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/case-studies/2026-10-07-runaway-hotkey-repeat-after-lost-key-up.md), [2026-10-09](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/case-studies/2026-10-09-lost-key-up-walked-note-down.md)). When one is lost, stepper closes it, so your next press of that key still works.
 - **Reversible**: every action undoes with the opposite action.
 - **Predictable**: same key, same behavior, regardless of window position.
 - **Overlapping-friendly**: windows overlap naturally. No forced tiling grid.
