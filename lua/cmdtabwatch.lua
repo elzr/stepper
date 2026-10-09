@@ -26,6 +26,15 @@ local options = nil      -- what the watcher was started with
 local buffer = ""        -- stdout not yet split into lines
 local lastRecord = nil
 
+-- AltTab's own debug log: local, not in Dropbox (megabytes an hour). The watcher copies the
+-- lines around each dead press into its own log, which is what lasts.
+local ALTTAB = "com.lwouis.alt-tab-macos"
+local ALTTAB_APP = "/Applications/AltTab.app"
+local altTabLogDir = os.getenv("HOME") .. "/Library/Logs/AltTab"
+local altTabLog = altTabLogDir .. "/alttab.log"
+local ROTATE_AT = 50 * 1024 * 1024
+M.altTabLog = altTabLog
+
 local function oneLine(s)
   return (tostring(s or ""):gsub("%s+", " "))
 end
@@ -80,7 +89,8 @@ end
 
 launch = function()
   buffer = ""
-  local args = {"--log", options.log, "--samples", options.samples, "--pidfile", options.pidfile}
+  local args = {"--log", options.log, "--samples", options.samples, "--pidfile", options.pidfile,
+                "--alttab-log", altTabLog}
   if options.key then
     table.insert(args, "--key")
     table.insert(args, tostring(options.key))
@@ -147,14 +157,84 @@ function M.stop()
   if running then running:terminate() end
 end
 
+-- AltTab logs only when launched with --logs=debug (or while its Debug Tools window is
+-- open), and only to stdout. So it is launched here through `open --stdout`: again whenever
+-- it is found running without the flag (after a login or an update), never when it isn't
+-- running at all. Its stdout appends, so the log rotates safely by copy and truncate.
+local altTabTimer, launchCheck, quitPoll, verify, openTask, rotating
+local lastRelaunch = 0
+local relaunchFailed = false
+
+local function altTabLogging(app)
+  local args = hs.execute("/bin/ps -o args= -p " .. app:pid()) or ""
+  return args:find("--logs=", 1, true) ~= nil
+end
+
+local function rotateAltTabLog()
+  local attrs = hs.fs.attributes(altTabLog)
+  if rotating or not attrs or attrs.size < ROTATE_AT then return end
+  rotating = hs.task.new("/bin/cp", function(exitCode)
+    rotating = nil
+    if exitCode ~= 0 then return end
+    local f = io.open(altTabLog, "w")  -- truncates; AltTab carries on writing at the start
+    if f then f:close() end
+  end, {altTabLog, altTabLog .. ".1"})
+  rotating:start()
+end
+
+local function ensureAltTabLog()
+  local app = hs.application.get(ALTTAB)
+  if relaunchFailed or quitPoll or not app or altTabLogging(app) then return end
+  local now = hs.timer.secondsSinceEpoch()
+  if now - lastRelaunch < 60 then return end
+  lastRelaunch = now
+  print("[cmdtabwatch] relaunching AltTab with its debug log → " .. altTabLog)
+  hs.fs.mkdir(altTabLogDir)
+  app:kill()  -- an ordinary quit: AltTab hands ⌘⇥ back to macOS until it is back
+  local waited = 0
+  quitPoll = hs.timer.doEvery(0.5, function()
+    waited = waited + 0.5
+    if hs.application.get(ALTTAB) and waited < 10 then return end
+    quitPoll:stop()
+    quitPoll = nil
+    openTask = hs.task.new("/usr/bin/open", nil, {"-g", "-a", ALTTAB_APP, "--stdout", altTabLog,
+                                                  "--stderr", altTabLog, "--args", "--logs=debug"})
+    openTask:start()
+    -- `open --args` drops the flag if an AltTab is still running; don't keep trying then
+    verify = hs.timer.doAfter(8, function()
+      local back = hs.application.get(ALTTAB)
+      if back and not altTabLogging(back) then
+        relaunchFailed = true
+        print("[cmdtabwatch] AltTab came back without its log; not retrying until the next reload")
+      elseif not back then
+        print("[cmdtabwatch] AltTab didn't come back after its relaunch")
+      end
+    end)
+  end)
+end
+
+-- Started once from stepper.lua: checks at load and every 2 min. (hs.application.watcher
+-- heard nothing when AltTab, a menu bar agent, relaunched, so polling it is.)
+function M.superviseAltTabLog()
+  if altTabTimer then return end
+  altTabTimer = hs.timer.doEvery(120, function()
+    ensureAltTabLog()
+    rotateAltTabLog()
+  end)
+  launchCheck = hs.timer.doAfter(5, ensureAltTabLog)
+end
+
 -- For IPC checks: hs -c "return hs.inspect(_G._stepper.cmdtabwatch.status())"
 function M.status()
+  local app = hs.application.get(ALTTAB)
   return {
     running = task ~= nil and task:isRunning(),
     pid = task and task:pid() or nil,
     building = builder ~= nil,
     log = options and options.log,
     last = lastRecord and (lastRecord.event .. ": " .. tostring(lastRecord.summary)) or nil,
+    altTabLogging = app and altTabLogging(app) or false,
+    altTabLog = altTabLog,
   }
 end
 

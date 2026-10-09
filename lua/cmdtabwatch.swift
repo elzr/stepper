@@ -38,6 +38,8 @@ let chord = watchedKey == 48 ? "⌘⇥" : "⌘key\(watchedKey)"
 let altTabBundle = "com.lwouis.alt-tab-macos"
 let panelOwner = argument("--panel-owner") ?? altTabBundle
 let isTest = watchedKey != 48 || panelOwner != altTabBundle
+// AltTab's own debug log, when cmdtabwatch.lua runs it with --logs=debug (rotated to <log>.1)
+let altTabLogPath = argument("--alttab-log")
 
 let clock: ISO8601DateFormatter = {
   let f = ISO8601DateFormatter()
@@ -373,6 +375,93 @@ func pruneSamples(keep: Int = 30) {
   for name in samples.dropLast(keep) { try? fm.removeItem(atPath: samplesDir + "/" + name) }
 }
 
+// MARK: - AltTab's own log
+
+// Run with --logs=debug, AltTab prints what it does with every hotkey, and cmdtabwatch.lua
+// points that stdout at altTabLogPath. Lines start "HH:mm:ss.SSS LEVEL File.swift:N func()
+// [thread]" in ANSI colors, and reach the file in 16 KB chunks: a quiet AltTab can be ~30 s behind.
+
+func altTabRunsWithLog(_ pid: pid_t) -> Bool {
+  let ps = Process()
+  ps.executableURL = URL(fileURLWithPath: "/bin/ps")
+  ps.arguments = ["-o", "args=", "-p", String(pid)]
+  let pipe = Pipe()
+  ps.standardOutput = pipe
+  ps.standardError = FileHandle.nullDevice
+  guard (try? ps.run()) != nil else { return false }
+  let args = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+  ps.waitUntilExit()
+  return args.contains("--logs=")
+}
+
+func secondsOfDay(_ date: Date) -> Double {
+  let c = Calendar.current.dateComponents([.hour, .minute, .second, .nanosecond], from: date)
+  return Double((c.hour ?? 0) * 3600 + (c.minute ?? 0) * 60 + (c.second ?? 0)) + Double(c.nanosecond ?? 0) / 1e9
+}
+
+struct LogLine { let at: Double; let text: String }  // at: seconds into the day
+
+// The end of a log as timestamped lines, colors stripped, each cut to 300 characters
+func logTail(_ path: String, bytes: UInt64 = 4 << 20) -> [LogLine] {
+  guard let file = FileHandle(forReadingAtPath: path) else { return [] }
+  defer { file.closeFile() }
+  let size = file.seekToEndOfFile()
+  file.seek(toFileOffset: size > bytes ? size - bytes : 0)
+  let text = String(decoding: file.readDataToEndOfFile(), as: UTF8.self)
+    .replacingOccurrences(of: "\u{1B}\\[[0-9;]*m", with: "", options: .regularExpression)
+  return text.split(separator: "\n").compactMap { line in
+    let clock = line.prefix(12).split(separator: ":")
+    guard clock.count == 3, let h = Double(clock[0]), let m = Double(clock[1]), let s = Double(clock[2]) else { return nil }
+    return LogLine(at: h * 3600 + m * 60 + s, text: String(line.prefix(300)))
+  }
+}
+
+// Once AltTab's log has caught up past a dead press, the lines around it and what they say:
+// whether AltTab heard the hotkey, whether it started a summon and cancelled it at once (no
+// focus in between: its Exposé check at work), and its last Exposé reading before the press
+func excerptAltTabLog(pressedAt: Date, judgedAt: Date, episodeStarted: String, deadInEpisode: Int) {
+  guard let path = altTabLogPath else { return }
+  let from = secondsOfDay(pressedAt) - 3, to = secondsOfDay(judgedAt) + 1
+  let giveUp = Date().addingTimeInterval(120)
+  Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { timer in
+    var lines = logTail(path)
+    let caughtUp = (lines.last?.at ?? 0) >= to
+    guard caughtUp || Date() > giveUp else { return }
+    timer.invalidate()
+    if (lines.first?.at ?? 0) > from { lines = logTail(path + ".1") + lines }  // rotated meanwhile
+    let window = lines.filter { $0.at >= from && $0.at <= to }
+    let heard = window.first { $0.text.contains("globalShortcut:nextWindowShortcut") && $0.text.contains("state:down") }
+    let summoned = window.first { $0.text.contains("showUiOrCycleSelection()") }
+    var cancelled = false
+    if let summoned {
+      let hide = window.first { $0.at >= summoned.at && $0.text.contains("beginHideUi()") }
+      let focus = window.first { $0.at >= summoned.at && $0.text.contains("focusTarget()") }
+      if let hide { cancelled = focus.map { $0.at > hide.at } ?? true }
+    }
+    let lastExpose = lines.last { $0.at <= to &&
+      ($0.text.contains("missionControl observed") || $0.text.contains("missionControl announced")) }
+    let noisy = ["AxObserverRegistry", "Thumbnail", "thumbnail", "screenshot"]
+    let kept = window.filter { line in !noisy.contains { line.text.contains($0) } }.prefix(200).map { $0.text }
+    var says = [heard == nil ? "never heard the hotkey" : "heard the hotkey"]
+    if summoned != nil {
+      says.append(cancelled ? "started a summon and cancelled it at once" : "summoned the switcher")
+    } else if heard != nil {
+      says.append("but never started a summon")
+    }
+    if let lastExpose {
+      let reading = lastExpose.text.components(separatedBy: "missionControl ").last ?? ""
+      says.append("last Exposé reading at \(lastExpose.text.prefix(12)): \(reading)")
+    }
+    if !caughtUp { says.append("(its log hadn't caught up after 2 min)") }
+    record("alttab-log", [
+      "episodeStarted": episodeStarted, "deadInEpisode": deadInEpisode, "caughtUp": caughtUp,
+      "heardHotkey": heard != nil, "summoned": summoned != nil, "cancelledAtOnce": cancelled,
+      "lastExposeReading": orNull(lastExpose?.text), "linesInWindow": window.count, "lines": Array(kept),
+      "summary": "AltTab's own log: " + says.joined(separator: ", "),
+    ])
+  }
+}
+
 // MARK: - Watching presses
 
 // One hold of ⌘ with one or more ⇥ in it
@@ -606,6 +695,7 @@ func sceneFields(_ s: Scene) -> [String: Any] {
   var altTab: [String: Any] = ["running": s.altTab != nil, "windows": s.altTabWindows]
   altTab["version"] = orNull(s.altTab.map { version($0) })
   altTab["pid"] = orNull(s.altTab.map { Int($0.processIdentifier) })
+  altTab["logging"] = orNull(s.altTab.map { altTabRunsWithLog($0.processIdentifier) })
   altTab["ax"] = orNull(s.ax)
   var front: [String: Any] = [:]
   front["app"] = orNull(s.frontApp?.localizedName)
@@ -632,6 +722,8 @@ func sceneFields(_ s: Scene) -> [String: Any] {
 }
 
 func pressWasDead(_ g: Gesture, stillHeld: Bool) {
+  let judgedAt = Date()
+  let pressedAt = judgedAt.addingTimeInterval(g.started - ProcessInfo.processInfo.systemUptime)
   deadPresses += 1
   let e = episode ?? Episode()
   episode = e
@@ -669,6 +761,7 @@ func pressWasDead(_ g: Gesture, stillHeld: Bool) {
       fields["summary"] = "dead \(chord) (\(place)) · \(suspect.detail)"
       record("dead", fields)
       if e.dead == 1, let altTabPid { sampleAltTab(altTabPid, episodeStarted: started) }
+      excerptAltTabLog(pressedAt: pressedAt, judgedAt: judgedAt, episodeStarted: started, deadInEpisode: e.dead)
     }
   }
 }
@@ -787,11 +880,14 @@ guard hidTap != nil || sessionTap != nil else {
 
 let altTabAtStart = running(altTabBundle)
 let tapNames = [hidTap != nil ? "hid" : nil, sessionTap != nil ? "session" : nil].compactMap { $0 }.joined(separator: "+")
+let altTabLogging: Bool? = altTabAtStart.map { altTabRunsWithLog($0.processIdentifier) }
+let loggingNote = altTabLogging == true ? "its own log on" : altTabLogging == false ? "its own log off" : "-"
 record("start", [
   "pid": Int(getpid()), "replaced": orNull(replaced), "altTab": orNull(altTabAtStart.map(version)),
+  "altTabLogging": orNull(altTabLogging), "altTabLog": orNull(altTabLogPath),
   "taps": tapNames, "listenAccess": CGPreflightListenEventAccess(), "axTrusted": AXIsProcessTrusted(),
   "displays": displayList(), "stageManager": stageManager(),
-  "summary": "watching \(chord) for AltTab \(altTabAtStart.map(version) ?? "(not running)") · taps: \(tapNames) · Accessibility \(AXIsProcessTrusted() ? "yes" : "NO")",
+  "summary": "watching \(chord) for AltTab \(altTabAtStart.map(version) ?? "(not running)") (\(loggingNote)) · taps: \(tapNames) · Accessibility \(AXIsProcessTrusted() ? "yes" : "NO")",
 ])
 
 DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"),

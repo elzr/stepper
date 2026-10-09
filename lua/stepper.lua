@@ -1162,8 +1162,10 @@ layout.init({screenswitch = screenswitch, screenmemory = screenmemory})
 inputprobe.init()
 
 -- Dead ⌘⇥ forensics while AltTab is on trial: logs each ⌘⇥ that did nothing
--- to data/cmd-tab-watch.jsonl (fleet F040/AltTab)
+-- to data/cmd-tab-watch.jsonl, with the lines around it from AltTab's own debug log,
+-- which it keeps on (~/Library/Logs/AltTab/alttab.log; fleet F040/AltTab)
 cmdtabwatch.start()
+cmdtabwatch.superviseAltTabLog()
 
 -- Manual layout save: fn+ctrl+alt+delete (pinned, survives autosave overwrites)
 hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
