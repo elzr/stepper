@@ -60,6 +60,8 @@ Each slot records:
 | `doc` | Document title: the Bear note, or the Chrome tab without Chrome's " - Part of group …", " - High memory usage - …" and " - Google Chrome - <profile>" |
 | `setAt` | When it was assigned |
 
+==🔵Window-level on purpose, never tab-level (user's call, 2026-10-08)==: a hotkey must not depend on which Chrome tab is showing, which is exactly what made the title-matched slots finicky. Two slots may share one Chrome window, and then both raise it with whatever tab it shows.
+
 ### 3. General actions
 
 Config: [`data/hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc)
