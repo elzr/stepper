@@ -1,57 +1,28 @@
 # L009-keymap
 
-> ==🟣Auto-regenerating visual map of all my keyboard shortcuts== — rcmd, Stepper hyper, and others. Hand-edit the annotations file; everything else mirrors live config.
+> ==🔴Superseded on 2026-10-09 by [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s [keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html)==, which grew out of this one: every ◆ hyperkey and rcmd right-⌥ key as an A–Z list that turns into a keyboard, with the live slots, the Bear note bindings, and the clashes [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s census finds across every app.
 
 ## Contents
 
-- [What it does](#what-it-does)
-- [Layers](#layers)
-- [Source files](#source-files)
-- [Regen triggers](#regen-triggers)
-- [Drift warnings](#drift-warnings)
-- [Related](#related)
+- [What it was](#what-it-was)
+- [Where each piece went](#where-each-piece-went)
+- [Why it moved](#why-it-moved)
 
-## What it does
+## What it was
 
-Generates [keymap.html](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/keymap.html) — a full MacBook Pro M1 Max keyboard diagram with thin colored underlines per layer, plus a filterable bindings table below. ==🟢Empty key tiles render too==, so unused real estate is visible at a glance.
+A Hammerspoon module ([stepper.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua) loaded it from 2026-04-19) that read rcmd's plist, stepper's hotkey data and a hand-written `notes.jsonc`, and wrote `keymap.html`: a MacBook Pro keyboard with colored underlines per layer, a bindings table, and drift warnings when a note no longer matched rcmd. Pathwatchers regenerated it on every change.
 
-Served by caddy at [stepper.internal/features/L009-keymap/keymap.html](https://stepper.internal/features/L009-keymap/keymap.html).
+## Where each piece went
 
-## Layers
-
-| Layer | Modifier | Source |
-|---|---|---|
-| ==🟠rcmd== | right-opt + key | [rcmd plist](openfile:///Users/sara/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist) |
-| ==🔵stepper-hyper== | hyper (caps lock) + key | [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc), [hyper-actions.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/hyper-actions.jsonc), [live-toggle-hotkeys.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/live-toggle-hotkeys.json) |
-| ==🟣other== | varies (BTT, system, app shortcuts) | manual entries in [notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/notes.jsonc) |
-
-==🔵◆== marks any key bound through the hyper modifier.
-
-## Source files
-
-| File | Purpose |
+| Was here | Now |
 |---|---|
-| [keymap.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/keymap.lua) | Generator + pathwatchers (loaded from [stepper.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua)) |
-| [notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/notes.jsonc) | Editorial seed: mnemonics, notes, bearNote wikilinks, expectedApp |
-| [keymap.html](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/keymap.html) | Generated artifact (tracked) |
-| [keymap.css](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/keymap.css) | Static styles |
-| [keymap.js](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap/keymap.js) | Click-to-filter + pill toggles |
+| `keymap.html` (keyboard + table) | [F002/keymap.html](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html), drawn in the browser from the census |
+| `keymap.lua` reading rcmd and stepper's data | [F002/keybinding-census.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/keybinding-census.py), which reads every other app too |
+| its pathwatchers | [lua/keymapwatch.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/keymapwatch.lua), which reruns the census |
+| `notes.jsonc` (mnemonics, Bear notes, drift checks) | [F002/keymap-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/keymap-notes.jsonc), reseeded from the Bear note [_app rcmd](bear://x-callback-url/open-note?id=DC12D4B5-3818-437A-9143-D5B6A783A89B) |
 
-## Regen triggers
+The code is in git history: `git log --all -- features/L009-keymap/keymap.lua`.
 
-| Event | Mechanism |
-|---|---|
-| HS reload (incl. weekly via [L005](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts)) | `M.init()` runs `M.generate()` |
-| rcmd plist write (changing a binding in rcmd.app) | `hs.pathwatcher` on plist |
-| Live-toggle reassign (R⌥+hyper+X/Q/A/Z) | `hs.pathwatcher` on `live-toggle-hotkeys.json` |
-| Manual edit of any config or `notes.jsonc` | `hs.pathwatcher`, debounced 0.5s |
+## Why it moved
 
-## Drift warnings
-
-If `notes.jsonc` annotates `Q → Cursor` but rcmd no longer binds `Q` (or binds it to something else), the HTML shows ==🔴a warning banner== plus a red corner dot on the affected key. ==🟢This catches drift between mental model and reality==, e.g. when you stop using an app but the annotation lingers.
-
-## Related
-
-- ==🔵[L007-hyperkey-shortcuts](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L007-hyperkey-shortcuts)== — the hyperkey system this map visualizes
-- [L005-weekly-updater-of-Bear-shortcuts](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts) — why HS reload covers weekly regen
-- [fleet F002 — harmonious-keybindings](https://fleet.internal/features/F002-harmonious-keybindings/) — the other half: this map draws the keys, and F002's census checks every owner (BTT, Raycast, Hammerspoon, ChatGPT, macOS) against the others. ==🔴Drift here means a stale annotation; there it means two apps fighting over one shortcut.==
+==🔵A keymap is half of keeping shortcuts harmonious==: it shows who owns each key, and the [F002](https://fleet.internal/features/F002-harmonious-keybindings/) census shows which owners collide. Kept apart, they read the same sources twice and still missed the apps neither one read, such as Paste holding ◆C. Together, one census feeds both.

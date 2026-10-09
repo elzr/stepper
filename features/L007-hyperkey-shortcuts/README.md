@@ -143,7 +143,7 @@ Then run `~/bin/hs-reload.sh`.
 
 ## Visual map
 
-==🔵[L009-keymap](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap)== renders this entire stack — plus rcmd's right-opt bindings — as a live HTML keyboard diagram with per-layer underlines. ◆ marks any key bound through the hyper modifier.
+==🔵[fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html)== shows this entire stack, plus rcmd's right-⌥ keys, as an A–Z list that turns into a keyboard, and flags any other app that holds a ◆ chord. It replaced [L009-keymap](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap) on 2026-10-09; [keymapwatch.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/keymapwatch.lua) keeps it current when these files change.
 
 ## Origin story
 

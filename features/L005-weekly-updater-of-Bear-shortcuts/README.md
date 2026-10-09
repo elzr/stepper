@@ -30,7 +30,9 @@ Auto-updates the week number and date-range variables in [data/bear-notes.jsonc]
 
 ## Git sees only hand edits
 
-The Monday roll rewrites the week names in `bear-notes.jsonc` and, through it, in [L009](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap)'s generated `keymap.html`. Those changes aren't worth tracking, but hand edits to either file are. [.gitattributes](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/.gitattributes) runs both files through `git-week-filter.sh`, which blanks week numbers to `NN` and date ranges to `DAYS` before git compares or stores them. ==🟢A roll leaves `git status` clean==, while a new note hotkey still shows up as a normal diff.
+The Monday roll rewrites the week names in `bear-notes.jsonc`. Those changes aren't worth tracking, but hand edits to the file are. [.gitattributes](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/.gitattributes) runs it through `git-week-filter.sh`, which blanks week numbers to `NN` and date ranges to `DAYS` before git compares or stores it. ==🟢A roll leaves `git status` clean==, while a new note hotkey still shows up as a normal diff.
+
+==🔵Only `bear-notes.jsonc` goes through the filter now.== [L009](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap)'s generated `keymap.html` did too, until [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s [keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) replaced it on 2026-10-09; [F002](https://fleet.internal/features/F002-harmonious-keybindings/) keeps its week-named census out of git.
 
 - ==🔵One-time setup per clone== (without it git just shows the weekly noise again):
   `git config filter.l005-weeks.clean features/L005-weekly-updater-of-Bear-shortcuts/git-week-filter.sh`

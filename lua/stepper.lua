@@ -17,7 +17,7 @@ local screenmemory = dofile(scriptPath .. "screenmemory.lua")
 bear_hud = dofile(scriptPath .. "bear-hud.lua")
 bear_paste = dofile(scriptPath .. "bear-paste.lua")
 layout = dofile(scriptPath .. "layout.lua")
-keymap = dofile(projectRoot .. "features/L009-keymap/keymap.lua")
+local keymapwatch = dofile(scriptPath .. "keymapwatch.lua")
 ofsr = dofile(scriptPath .. "move-to-resize.lua")
 local inputprobe = dofile(scriptPath .. "inputprobe.lua")
 local cmdtabwatch = dofile(scriptPath .. "cmdtabwatch.lua")
@@ -1148,8 +1148,8 @@ bear_hud.init(projectRoot, focus)
 -- L008: intercept ⌘V in Bear, auto-shrink pasted images to 150px thumbnails
 bear_paste.init()
 
--- Initialize keymap generator (L009-keymap)
-keymap.init(projectRoot)
+-- Keeps fleet F002's keymap.html current (it replaced L009-keymap's generator)
+keymapwatch.init(projectRoot)
 
 -- Initialize per-screen window position memory
 screenmemory.init()
@@ -1199,6 +1199,7 @@ _G._stepper = {}
 _G._stepper.bindWithRepeat = bindWithRepeat
 _G._stepper.inputprobe = inputprobe
 _G._stepper.cmdtabwatch = cmdtabwatch
+_G._stepper.keymapwatch = keymapwatch
 
 -- Monday midnight: the only day the week number changes.
 -- The on-load sync check and wake trigger handle other scenarios.

@@ -20,12 +20,13 @@ stepper/
 │   ├── inputprobe.swift  # Its helper, built on first use (binary untracked)
 │   ├── cmdtabwatch.lua   # Keeps the dead ⌘⇥ watcher running for the AltTab trial, and AltTab's own debug log on (fleet F040/AltTab)
 │   ├── cmdtabwatch.swift # The watcher: listen-only taps, logs each ⌘⇥ that did nothing (binary untracked)
+│   ├── keymapwatch.lua   # Reruns fleet F002's keybinding census when rcmd's keys or stepper's hotkey data change; feeds F002's keymap.html
 │   └── bear-hud.lua      # Bear note HUD with caret/scroll persistence
 ├── data/
 │   ├── bear-notes.jsonc   # Note hotkey configuration
 │   ├── display-guard.json # Per-config target rotation/mode/origin per monitor text serial
 │   ├── cmd-tab-watch.jsonl # The watcher's log, plus AltTab stack samples in cmd-tab-samples/ (not tracked)
-│   ├── live-toggle-hotkeys.json # ◆X/Q/A/Z slots; docs/diagrams.html shows them live, with icons from app-icons/ (not tracked)
+│   ├── live-toggle-hotkeys.json # ◆X/Q/A/Z slots; fleet F002's keymap.html shows them live (caddy lets it read this file), with icons from app-icons/ (not tracked)
 │   └── bear-hud-positions.json  # Runtime caret/scroll positions (not tracked)
 ├── docs/                 # Architecture notes and decision records
 ├── CLAUDE.md             # This file
