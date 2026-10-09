@@ -1,33 +1,36 @@
 {
   "A" : {
+    "doc" : "22:01:17 - do-done",
     "bundleID" : "com.google.Chrome",
     "app" : "Google Chrome",
+    "title" : "22:01:17 - do-done - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-08T22:01:20",
     "icon" : "data\/app-icons\/com.google.Chrome.png",
-    "title" : "\/subprojects\/tilepaper\/README.md - Part of group TP reading - Google Chrome - Eli (Eli - main)",
-    "doc" : "\/subprojects\/tilepaper\/README.md",
-    "winID" : 57677
+    "winID" : 69308
   },
   "Q" : {
     "app" : "Bear",
+    "doc" : "_cdmx Encuentro Nacional 2026 MAS",
     "title" : "_cdmx Encuentro Nacional 2026 MAS",
     "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
-    "doc" : "_cdmx Encuentro Nacional 2026 MAS",
     "bundleID" : "net.shinyfrog.bear"
   },
   "Z" : {
-    "setAt" : "2026-10-08T21:15:59",
-    "app" : "Google Chrome",
-    "title" : "ChatGPT - High memory usage - 830 MB - Google Chrome - Eli (Eli - main)",
-    "icon" : "data\/app-icons\/com.google.Chrome.png",
     "doc" : "ChatGPT",
+    "winID" : 64849,
+    "app" : "Google Chrome",
+    "title" : "ChatGPT - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-08T21:39:33",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
     "bundleID" : "com.google.Chrome"
   },
   "X" : {
-    "bundleID" : "com.google.Chrome",
+    "doc" : "21:49:17 - do-done",
+    "winID" : 69308,
     "app" : "Google Chrome",
+    "title" : "21:49:17 - do-done - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-08T21:54:48",
     "icon" : "data\/app-icons\/com.google.Chrome.png",
-    "title" : "Stepper Diagrams - Google Chrome - Eli (Eli - main)",
-    "doc" : "Stepper Diagrams",
-    "winID" : 64849
+    "bundleID" : "com.google.Chrome"
   }
 }
