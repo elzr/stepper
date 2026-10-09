@@ -177,6 +177,38 @@
   }
   .notes-list .group-label:first-child { margin-top: 0; }
 
+  /* Live hotkeys (full-width, rendered from data/live-toggle-hotkeys.json) */
+  .card.full { flex: 1 1 100%; }
+  .card-hd {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 0.3rem 1.5rem; margin-bottom: 0.75rem;
+  }
+  .card-hd h3 { margin-bottom: 0; }
+  .card-hd .hint { font-size: 0.72rem; color: var(--muted); }
+  .live-grid {
+    display: grid; gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .live-slot {
+    display: flex; align-items: center; gap: 0.7rem; min-width: 0;
+    background: var(--blue-bg); border: 1px solid var(--blue-border);
+    border-radius: 8px; padding: 0.6rem 0.8rem;
+  }
+  .live-slot.empty {
+    border-style: dashed;
+    border-color: rgba(139, 148, 158, 0.35);
+    background: rgba(139, 148, 158, 0.06);
+  }
+  .live-slot .live-key { font-size: 1.05rem; min-width: 2.1rem; }
+  .live-icon { width: 36px; height: 36px; flex: none; }
+  .live-text { min-width: 0; }
+  .live-doc {
+    font-size: 0.9rem; font-weight: 600; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .live-slot.empty .live-doc { color: var(--muted); font-weight: 500; font-style: italic; }
+  .live-app { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
   /* Visual cross with mini-screen illustrations */
   .cross.vis {
     grid-template-columns: 100px 100px 100px;
@@ -330,6 +362,15 @@
 </header>
 
 <div class="flow">
+
+  <!-- Live Hotkeys (full width; filled in and kept current by the first script below) -->
+  <div class="card full" id="card-live">
+    <div class="card-hd">
+      <h3>Live Hotkeys</h3>
+      <span class="hint"><span class="kc">R⌥◆</span> + letter assigns the focused window · <span class="kc">◆</span> + letter toggles it · <span class="kc">R⇧◆</span> + letter summons it to the cursor</span>
+    </div>
+    <div class="live-grid"><span class="loading">loading...</span></div>
+  </div>
 
   <!-- Modifier Escalation (HTML) -->
   <div class="card">
@@ -777,11 +818,6 @@
       <div class="group-label">Reference</div>
       <div class="nr"><span class="kc">◆S</span> <span>_topsight 2026</span></div>
       <div class="nr"><span class="kc">◆I</span> <span>_index 2026</span></div>
-      <div class="group-label">Live windows</div>
-      <div class="nr"><span class="kc">◆X</span> <span>(live — set with R⌥)</span></div>
-      <div class="nr"><span class="kc">◆Q</span> <span>(live — set with R⌥)</span></div>
-      <div class="nr"><span class="kc">◆A</span> <span>(live — set with R⌥)</span></div>
-      <div class="nr"><span class="kc">◆Z</span> <span>(live — set with R⌥)</span></div>
     </div>
   </div>
 
@@ -793,10 +829,71 @@
 
 </div>
 
-<script src="https://unpkg.com/beautiful-mermaid/dist/beautiful-mermaid.browser.global.js"></script>
 <script>
-const { renderMermaid, THEMES } = beautifulMermaid;
-const theme = THEMES['github-dark'];
+// Live hotkeys: bear-hud.lua rewrites data/live-toggle-hotkeys.json on every
+// R⌥◆key assignment, so re-read it every 2 s and this card follows without a
+// reload. Its own <script>, so a CDN failure in the next one can't take it down.
+const LIVE_KEYS = ['X', 'Q', 'A', 'Z'];  // bear-hud.lua's liveKeys
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+function since(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || isNaN(d)) return '';
+  const today = d.toDateString() === new Date().toDateString();
+  return ' · since ' + (today
+    ? d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    : d.toLocaleDateString('en', { month: 'short', day: 'numeric' }));
+}
+
+function liveSlot(key, s) {
+  if (!s) {
+    return `<div class="live-slot empty"><span class="kc live-key">◆${key}</span>
+      <div class="live-text"><div class="live-doc">unassigned</div>
+      <div class="live-app">R⌥◆${key} on any window</div></div></div>`;
+  }
+  const icon = s.icon ? `<img class="live-icon" src="../${esc(s.icon)}" alt="">` : '';
+  const doc = esc(s.doc || s.title).replace(/\//g, '/<wbr>');  // paths wrap at a slash
+  return `<div class="live-slot"><span class="kc live-key">◆${key}</span>${icon}
+    <div class="live-text"><div class="live-doc" title="${esc(s.title)}">${doc}</div>
+    <div class="live-app">${esc(s.app || s.bundleID)}${since(s.setAt)}</div></div></div>`;
+}
+
+let liveText = null;
+async function refreshLive() {
+  const grid = document.querySelector('#card-live .live-grid');
+  try {
+    // raw=1 skips caddy's JSON viewer
+    const res = await fetch('../data/live-toggle-hotkeys.json?raw=1', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    if (text === liveText) return;
+    const slots = JSON.parse(text);
+    liveText = text;
+    grid.innerHTML = LIVE_KEYS.map(k => liveSlot(k, slots[k])).join('');
+  } catch (e) {
+    // A read can land mid-write: keep the last good render and retry next tick
+    if (liveText === null) {
+      grid.innerHTML = `<span class="loading">Can't read data/live-toggle-hotkeys.json: ${esc(e.message)}</span>`;
+    }
+  }
+}
+
+refreshLive();
+setInterval(() => { if (!document.hidden) refreshLive(); }, 2000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshLive(); });
+</script>
+
+<!-- Pinned: beautiful-mermaid 1.0.0 dropped this browser build, so the unpinned URL 404s -->
+<script src="https://unpkg.com/beautiful-mermaid@0.1.3/dist/beautiful-mermaid.browser.global.js"></script>
+<script>
+if (!window.beautifulMermaid) {
+  document.querySelectorAll('.dia .loading').forEach(el => {
+    el.textContent = 'beautiful-mermaid failed to load from unpkg';
+  });
+}
+const { renderMermaid, THEMES } = window.beautifulMermaid || {};
+const theme = THEMES?.['github-dark'];
 
 const diagrams = {
 
@@ -848,7 +945,7 @@ async function renderAll() {
   }
 }
 
-renderAll();
+if (renderMermaid) renderAll();
 </script>
 </body>
 </html>

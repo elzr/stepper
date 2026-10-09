@@ -1,18 +1,33 @@
 {
   "A" : {
-    "title" : "_cdmx Armando 2026",
-    "bundleID" : "net.shinyfrog.bear"
+    "bundleID" : "com.google.Chrome",
+    "app" : "Google Chrome",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
+    "title" : "\/subprojects\/tilepaper\/README.md - Part of group TP reading - Google Chrome - Eli (Eli - main)",
+    "doc" : "\/subprojects\/tilepaper\/README.md",
+    "winID" : 57677
   },
   "Q" : {
+    "app" : "Bear",
     "title" : "_cdmx Encuentro Nacional 2026 MAS",
+    "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "doc" : "_cdmx Encuentro Nacional 2026 MAS",
     "bundleID" : "net.shinyfrog.bear"
   },
   "Z" : {
-    "title" : "_meet Armando 15jun2026",
-    "bundleID" : "net.shinyfrog.bear"
+    "setAt" : "2026-10-08T21:15:59",
+    "app" : "Google Chrome",
+    "title" : "ChatGPT - High memory usage - 830 MB - Google Chrome - Eli (Eli - main)",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
+    "doc" : "ChatGPT",
+    "bundleID" : "com.google.Chrome"
   },
   "X" : {
-    "title" : "_budget 24jul2026",
-    "bundleID" : "net.shinyfrog.bear"
+    "bundleID" : "com.google.Chrome",
+    "app" : "Google Chrome",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
+    "title" : "Stepper Diagrams - Google Chrome - Eli (Eli - main)",
+    "doc" : "Stepper Diagrams",
+    "winID" : 64849
   }
 }

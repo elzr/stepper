@@ -21,8 +21,9 @@ local positionsFile = nil   -- set by init()
 local appWatcher = nil
 local saveTimer = nil
 local focusModule = nil     -- set by init(), provides flashFocusHighlight + focusSingleWindow
-local liveSlots = {}        -- {key = {bundleID=..., title=...}}, persisted
+local liveSlots = {}        -- {key = {bundleID=, title=, winID=, app=, doc=, icon=, setAt=}}, persisted
 local liveToggleFile = nil  -- set by init()
+local projectDir = nil      -- set by init(); live slots' app icons are saved under it
 local summonedNotes = {}    -- {key = {originalFrame}}
 local saveInFlight = false  -- guards against overlapping timer saves
 local dirty = false         -- tracks whether positions need writing to disk
@@ -232,6 +233,50 @@ local function saveLiveSlots()
   f:close()
 end
 
+-- Notes Chrome puts between a tab's title and " - Google Chrome" in its window
+-- title, e.g. "ChatGPT - High memory usage - 830 MB - Google Chrome - <profile>"
+local chromeTabNotes = {
+  " %- Part of group .*$", " %- Part of unnamed group.*$", " %- High memory usage %- .*$",
+  " %- Audio playing$", " %- Audio muted$", " %- Network error$", " %- Crashed$",
+  " %- Camera recording$", " %- Microphone recording$", " %- Camera or microphone recording$",
+}
+
+-- Besides the window it toggles, a live slot records what docs/diagrams.html
+-- shows: the app's name and icon, and the document the window holds. Bear titles
+-- a window with its note's title; Chrome with "<tab> - <notes> - Google Chrome -
+-- <profile>"; most other apps end theirs " - <App>".
+local function documentTitle(title, appName)
+  if not (title and appName) then return title end
+  local cut
+  for _, sep in ipairs({" - ", " — ", " – "}) do
+    local at = 0
+    repeat
+      at = title:find(sep .. appName, at + 1, true)
+      if at and (not cut or at > cut) then cut = at end
+    until not at
+  end
+  if not cut then return title end
+  local doc = title:sub(1, cut - 1)
+  repeat
+    local before = doc
+    for _, note in ipairs(chromeTabNotes) do doc = doc:gsub(note, "") end
+  until doc == before
+  return doc ~= "" and doc or title
+end
+
+-- Save an app's icon as data/app-icons/<bundleID>.png (64 pt); returns that
+-- project-relative path, or nil when the app can't be found
+local function saveAppIcon(bundleID, onlyIfMissing)
+  if not bundleID then return nil end
+  local rel = "data/app-icons/" .. bundleID .. ".png"
+  if onlyIfMissing and hs.fs.attributes(projectDir .. rel) then return rel end
+  local img = hs.image.imageFromAppBundle(bundleID)
+  if not img then return nil end
+  hs.fs.mkdir(projectDir .. "data/app-icons")
+  if not img:copy():setSize({w = 64, h = 64}):saveToFile(projectDir .. rel) then return nil end
+  return rel
+end
+
 -- =============================================================================
 -- Public API
 -- =============================================================================
@@ -438,14 +483,24 @@ end
 -- Note hotkey state machine
 -- =============================================================================
 
--- Find any window by bundle ID + title
-local function findWindowByBundleAndTitle(bundleID, title)
-  local app = hs.application.get(bundleID)
+-- Find a live slot's window: the very window assigned (by id), else one with the
+-- recorded title, for when that window is gone (app relaunched, Bear note
+-- reopened). Title alone failed 32 times on 2026-10-08: Chrome retitles a window
+-- with each tab switch and with notes like "High memory usage - 830 MB".
+local function findLiveSlotWindow(slot)
+  local app = hs.application.get(slot.bundleID)
   if not app then return nil end
+  local byTitle
   for _, win in ipairs(app:allWindows()) do
-    if win:title() == title then return win end
+    if slot.winID and win:id() == slot.winID then return win end
+    if not byTitle and win:title() == slot.title then byTitle = win end
   end
-  return nil
+  -- Found by title: remember the window, so its next retitle doesn't lose it
+  if byTitle and (byTitle:id() or 0) > 0 then  -- 0: a stand-in while the screen is locked
+    slot.winID = byTitle:id()
+    saveLiveSlots()
+  end
+  return byTitle
 end
 
 -- Find a Bear window by title (using hs.window objects, not AX)
@@ -552,7 +607,11 @@ local function setLiveWindow(slotKey)
   local title = win:title()
   if not title or title == "" then return end
   local bundleID = app:bundleID()
-  liveSlots[slotKey] = {bundleID = bundleID, title = title}
+  liveSlots[slotKey] = {
+    bundleID = bundleID, title = title, winID = win:id(),
+    app = app:name(), doc = documentTitle(title, app:name()),
+    icon = saveAppIcon(bundleID), setAt = os.date("%Y-%m-%dT%H:%M:%S"),
+  }
   saveLiveSlots()
   focusModule.flashFocusHighlight(win, nil, {color = {red = 1, green = 0.85, blue = 0, alpha = 0.9}})
   print(string.format("[bear-hud] Live %s set: '%s' (%s)", slotKey, title, app:name()))
@@ -568,7 +627,7 @@ local function handleLiveToggle(slotKey)
   local slot = liveSlots[slotKey]
   if not slot then return end
   print(string.format("[bear-hud] Live %s toggle '%s'", slotKey, slot.title))
-  local win = findWindowByBundleAndTitle(slot.bundleID, slot.title)
+  local win = findLiveSlotWindow(slot)
   local focusedAtEntry = hs.window.focusedWindow()
   if not (win and focusedAtEntry and win:id() == focusedAtEntry:id()) then
     priorWindow = focusedAtEntry
@@ -632,7 +691,7 @@ local function handleLiveSummon(slotKey)
   local slot = liveSlots[slotKey]
   if not slot then return end
   print(string.format("[bear-hud] Live %s summon '%s'", slotKey, slot.title))
-  local win = findWindowByBundleAndTitle(slot.bundleID, slot.title)
+  local win = findLiveSlotWindow(slot)
 
   -- Already summoned → unsummon
   local state = summonedNotes[slotKey]
@@ -764,6 +823,7 @@ end
 
 function M.init(projectRoot, focus)
   focusModule = focus
+  projectDir = projectRoot
   positionsFile = projectRoot .. "data/bear-hud-positions.json"
   liveToggleFile = projectRoot .. "data/live-toggle-hotkeys.json"
   loadPositions()
@@ -792,6 +852,31 @@ function M.init(projectRoot, focus)
       end
     end
   end
+
+  -- Fill in what docs/diagrams.html shows for slots assigned before setLiveWindow
+  -- recorded it, re-derive document titles so documentTitle() fixes reach old
+  -- slots, and re-save icons a fresh checkout lacks (data/app-icons/ is untracked)
+  local slotsChanged = false
+  for _, slot in pairs(liveSlots) do
+    if slot.bundleID then
+      local app = slot.app
+      if not app then
+        -- The running app's name is the one in its window titles ("Google Chrome", not "Chrome")
+        local running = hs.application.get(slot.bundleID)
+        app = running and running:name() or hs.application.nameForBundleID(slot.bundleID)
+      end
+      local doc = documentTitle(slot.title, app)
+      local icon = saveAppIcon(slot.bundleID, true)
+      if app ~= slot.app or doc ~= slot.doc or icon ~= slot.icon then
+        slot.app, slot.doc, slot.icon = app, doc, icon
+        slotsChanged = true
+      end
+      -- Slots assigned before winID was recorded: attach the window their title
+      -- finds now (findLiveSlotWindow records it), or else at their next toggle
+      if not slot.winID then findLiveSlotWindow(slot) end
+    end
+  end
+  if slotsChanged then saveLiveSlots() end
 
   -- URL handler: hammerspoon://open-bear-note?title=<title> or ?id=<id>
   -- Defers work via timer so the handler returns immediately (avoids blocking)

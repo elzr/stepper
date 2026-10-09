@@ -48,6 +48,18 @@ Hyper + reserved letter → toggle visibility of any window (not just Bear). Slo
 
 Keys: X, Q, A, Z (reserved in [bear-notes.jsonc](https://stepper.internal/data/bear-notes.jsonc)).
 
+==🟢Live view: [stepper.internal/docs/diagrams.html](https://stepper.internal/docs/diagrams.html)== shows the four slots in a full-width box at the top, re-reading the slots file every 2 s, so a new assignment appears without a reload.
+
+Each slot records:
+
+| Field | What |
+|---|---|
+| `winID` | ==🔵The window itself==, found first. Matching only on `title` failed 32 times on 2026-10-08: Chrome retitles a window with each tab switch and adds notes like "High memory usage - 830 MB" |
+| `title` | The window title at assignment; the fallback once that window is gone (Chrome relaunched, Bear note reopened), and a hit re-attaches `winID` |
+| `app`, `icon` | App name and icon; icons are saved to `data/app-icons/<bundleID>.png` (untracked, restored at load) |
+| `doc` | Document title: the Bear note, or the Chrome tab without Chrome's " - Part of group …", " - High memory usage - …" and " - Google Chrome - <profile>" |
+| `setAt` | When it was assigned |
+
 ### 3. General actions
 
 Config: [`data/hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc)
@@ -101,6 +113,7 @@ A `"comment"` property works but pollutes the data structure — it gets parsed,
 
 - [`data/bear-notes.jsonc`](https://stepper.internal/data/bear-notes.jsonc) — Bear note hotkey definitions + template vars
 - [`data/live-toggle-hotkeys.json`](https://stepper.internal/data/live-toggle-hotkeys.json) — active window toggle slots
+- [`docs/diagrams.html`](https://stepper.internal/docs/diagrams.html) — shows those slots live, at the top
 - [`data/hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc) — general hyperkey actions
 - [`lua/bear-hud.lua`](https://stepper.internal/lua/bear-hud.lua) — all hyperkey binding logic (loads all 3 config files)
 

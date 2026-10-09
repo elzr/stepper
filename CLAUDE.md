@@ -25,6 +25,7 @@ stepper/
 │   ├── bear-notes.jsonc   # Note hotkey configuration
 │   ├── display-guard.json # Per-config target rotation/mode/origin per monitor text serial
 │   ├── cmd-tab-watch.jsonl # The watcher's log, plus AltTab stack samples in cmd-tab-samples/ (not tracked)
+│   ├── live-toggle-hotkeys.json # ◆X/Q/A/Z slots; docs/diagrams.html shows them live, with icons from app-icons/ (not tracked)
 │   └── bear-hud-positions.json  # Runtime caret/scroll positions (not tracked)
 ├── docs/                 # Architecture notes and decision records
 ├── CLAUDE.md             # This file

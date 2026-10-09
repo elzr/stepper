@@ -16,3 +16,5 @@ lost-key-ups.log
 lua/cmdtabwatch
 cmd-tab-watch.jsonl
 cmd-tab-samples/
+# app icons bear-hud.lua saves for the live hotkeys on docs/diagrams.html
+data/app-icons/
