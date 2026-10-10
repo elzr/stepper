@@ -1,0 +1,207 @@
+/* Screenmaps: tokens, panel and popup after F030's tablogs (reading.internal), so the
+   two maps read as one family */
+:root {
+  --bg: #fff;
+  --text: #222;
+  --grey: #888;
+  --link: #1a5fb4;
+  --hover-bg: #f3f4f6;
+  --border: #e5e7eb;
+  --active-bg: #1a5fb4;
+  --active-text: #fff;
+  --front: #8b5cf6;   /* tablogs' violet: the front window */
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.5;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Header: the config's name, how fresh it is, and the other configs */
+.page-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.taken { color: var(--grey); font-size: 0.95rem; font-weight: 400; }
+.configs { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.configs button {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 2px 10px;
+  border: none;
+  background: #fff;
+  color: var(--grey);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.configs button + button { border-left: 1px solid var(--border); }
+.configs button:hover { color: var(--text); }
+.configs button .when { font-size: 0.72rem; opacity: 0.8; }
+.configs button.current::after { content: " ●"; color: #16a34a; font-size: 0.6rem; vertical-align: 2px; }
+.configs button.active { background: var(--active-bg); color: var(--active-text); }
+.subtitle { color: var(--grey); font-size: 0.95rem; margin-bottom: 16px; }
+.subtitle .note { color: #b45309; }
+
+/* The panel: Map | List, as in the tablogs */
+.nav-panel {
+  padding: 10px 14px 14px;
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.panel-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.panel-views { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.panel-views button {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border: none;
+  background: #fff;
+  color: var(--grey);
+  cursor: pointer;
+}
+.panel-views button + button { border-left: 1px solid var(--border); }
+.panel-views button:hover { color: var(--text); }
+.panel-views button.active { background: var(--active-bg); color: var(--active-text); }
+.panel-hint { color: var(--grey); font-size: 0.75rem; }
+.nav-panel:not(.show-list) .screen-lists, .nav-panel.show-list .screen-map { display: none; }
+.empty { color: var(--grey); font-size: 0.9rem; padding: 20px 0; }
+
+/* Map: each display where it sits, its windows where they sit, back to front */
+.screen-map { position: relative; margin-top: 6px; }
+.display {
+  position: absolute;
+  background: #e9edf2;
+  border: 1px solid #c9d1db;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.display.builtin { border-radius: 6px 6px 10px 10px; }
+.display .menubar { position: absolute; left: 0; right: 0; top: 0; background: rgba(15, 23, 42, 0.08); }
+.display-label {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 10000;
+  max-width: calc(100% - 12px);
+  padding: 1px 7px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.display-label .count { color: var(--grey); font-weight: 400; }
+.win {
+  position: absolute;
+  display: block;
+  min-width: 6px;
+  min-height: 6px;
+  background: hsl(var(--hue) 50% 98%);
+  border: 1px solid hsl(var(--hue) 28% 70%);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  color: var(--text);
+  text-decoration: none;
+  cursor: default;
+}
+a.win { cursor: pointer; }
+.win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
+.win.focused { border-color: var(--front); box-shadow: 0 0 0 1.5px var(--front), 0 2px 7px rgba(0, 0, 0, 0.2); }
+.win:hover { border-color: var(--link); }
+.win-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 17px;
+  padding: 0 4px;
+  background: hsl(var(--hue) 40% 91%);
+  font-size: 10.5px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+.win-head img, .win-head .letter { width: 12px; height: 12px; flex-shrink: 0; }
+.win-title { overflow: hidden; text-overflow: ellipsis; }
+.win.tiny .win-head { padding: 0 2px; }
+.win.tiny .win-title { display: none; }
+.win-mark {   /* its app's icon, faded, in the middle of a big enough window */
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 8px);
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  opacity: 0.28;
+  pointer-events: none;
+}
+.letter.win-mark { width: 30px; height: 30px; font-size: 15px; opacity: 0.35; }
+
+/* An app without a saved icon: its initial on a tint of its own (as the tablogs' sites) */
+.letter {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: hsl(var(--hue) 42% 52%);
+}
+
+/* List: a bulleted list per display, front to back */
+.screen-lists { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px 28px; margin-top: 6px; }
+.screen-list h3 { font-size: 0.9rem; font-weight: 600; display: flex; align-items: baseline; gap: 6px; }
+.screen-list h3 .count { color: var(--grey); font-weight: 400; font-size: 0.8rem; }
+.screen-list .monitor { color: var(--grey); font-size: 0.75rem; margin-bottom: 3px; }
+.screen-list ul { list-style: disc; padding-left: 20px; }
+.screen-list li { margin: 1px 0; font-size: 0.88rem; }
+.screen-list li::marker { color: #b8bec7; }
+.screen-list li.focused::marker { color: var(--front); }
+.screen-list li img, .screen-list li .letter { width: 14px; height: 14px; vertical-align: -2px; margin-right: 6px; }
+.screen-list li .letter { display: inline-flex; }
+.screen-list a { color: var(--link); text-decoration: none; }
+.screen-list a:hover { text-decoration: underline; }
+.screen-list .app { color: var(--grey); font-size: 0.78rem; }
+.screen-list .none { color: var(--grey); font-size: 0.82rem; list-style: none; margin-left: -20px; }
+
+/* The popup (after the tablogs' map popup): a window's whole title, size and times */
+.map-pop {
+  position: absolute;
+  z-index: 20000;
+  min-width: 220px;
+  max-width: 380px;
+  padding: 8px 11px 9px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.map-pop[hidden] { display: none; }
+.pop-title { display: flex; gap: 7px; align-items: flex-start; font-weight: 600; font-size: 0.88rem; }
+.pop-title img, .pop-title .letter { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+.pop-line { margin: 3px 0 0 23px; color: var(--grey); font-size: 0.75rem; }
+.pop-line.act { color: var(--link); }

@@ -72,12 +72,13 @@ func onScreenOrder() -> (zOrder: [CGWindowID: Int], pids: [pid_t]) {
 let (zOrder, pids) = onScreenOrder()
 
 // hs.window.orderedWindows() skips apps that aren't regular (kind() <= 0) or are hidden
-struct App: Sendable { let pid: pid_t; let name: String }
+struct App: Sendable { let pid: pid_t; let name: String; let bundle: String }
 var apps: [App] = []
 for pid in pids {
   guard let app = NSRunningApplication(processIdentifier: pid),
         app.activationPolicy == .regular, !app.isHidden else { continue }
-  apps.append(App(pid: pid, name: app.localizedName ?? app.bundleIdentifier ?? "pid \(pid)"))
+  apps.append(App(pid: pid, name: app.localizedName ?? app.bundleIdentifier ?? "pid \(pid)",
+                  bundle: app.bundleIdentifier ?? ""))
 }
 
 struct Reading { var windows: [[String: Any]] = []; var error: String? = nil; var ms = 0 }
@@ -104,7 +105,7 @@ func readWindows(_ app: App, _ zOrder: [CGWindowID: Int]) -> Reading {
     if values[4] as? Bool == true { continue }
     guard let origin = point(values[2]), let extent = size(values[3]) else { continue }
     reading.windows.append([
-      "id": Int(id), "z": z, "pid": Int(app.pid), "app": app.name,
+      "id": Int(id), "z": z, "pid": Int(app.pid), "app": app.name, "bundle": app.bundle,
       "title": values[0] as? String ?? "", "subrole": values[1] as? String ?? "",
       "x": Double(origin.x), "y": Double(origin.y),
       "w": Double(extent.width), "h": Double(extent.height),

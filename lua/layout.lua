@@ -121,6 +121,7 @@ local changedSince10m = true
 -- Module references (set during init)
 local screenswitch = nil
 local screenmemory = nil
+local screenmaps = nil
 local triggerTimer = nil
 
 -- Retry state — polls for windows that weren't visible at restore time
@@ -515,8 +516,8 @@ local function readWindowsHere()
     local app = win:application()
     if app then
       local f = win:frame()
-      table.insert(windows, {id = win:id(), app = app:name(), title = win:title() or "",
-        subrole = win:subrole(), x = f.x, y = f.y, w = f.w, h = f.h})
+      table.insert(windows, {id = win:id(), app = app:name(), bundle = app:bundleID(),
+        title = win:title() or "", subrole = win:subrole(), x = f.x, y = f.y, w = f.w, h = f.h})
     end
   end
   return {windows = windows, failed = {}}
@@ -624,11 +625,12 @@ local function snapshot(callback, opts)
   end
 end
 
--- What a save writes, from a snapshot; also the live window ids by "App\nTitle", for
--- screenmemory, and the ghost windows left out
+-- What a save writes, from a snapshot. Also: the live window ids by "App\nTitle", for
+-- screenmemory; the ghost windows left out; each entry's window id (ids[i] for
+-- entries[i]) and the screens' position names, for screenmaps
 local function entriesFromSnapshot(doc)
   local idToPos = buildScreenIdToPosition()
-  local entries, liveIDs, ghosts = {}, {}, {}
+  local entries, liveIDs, ghosts, ids = {}, {}, {}, {}
   for _, w in ipairs(doc.windows) do
     if isGhostWindow(w) then
       table.insert(ghosts, string.format("%s '%s' %dx%d",
@@ -640,6 +642,7 @@ local function entriesFromSnapshot(doc)
       local sf = screen:frame()
       table.insert(entries, {
         app            = w.app,
+        bundle         = w.bundle ~= "" and w.bundle or nil,
         title          = w.title,
         screenPosition = idToPos[screen:id()],
         screenFrame    = roundFrame(sf),
@@ -652,9 +655,10 @@ local function entriesFromSnapshot(doc)
         },
       })
       liveIDs[protectionKey(w.app, w.title)] = w.id
+      ids[#entries] = w.id
     end
   end
-  return entries, liveIDs, ghosts
+  return entries, liveIDs, ghosts, ids, idToPos
 end
 
 -- ---------------------------------------------------------------------------
@@ -665,7 +669,7 @@ end
 local function fileSnapshot(doc)
   local df = currentDataFile()
   if not df then return "empty" end
-  local entries, liveIDs, ghosts = entriesFromSnapshot(doc)
+  local entries, liveIDs, ghosts, ids, idToPos = entriesFromSnapshot(doc)
 
   if #entries == 0 then
     print("[layout.save] Skipping save — 0 windows found (display may still be waking)")
@@ -742,6 +746,10 @@ local function fileSnapshot(doc)
   -- Update per-screen position memory from saved entries
   if screenmemory then
     screenmemory.updateFromLayout(entries, liveIDs)
+  end
+  -- The digital twin of this config: L006/screenmaps' page draws it
+  if screenmaps then
+    screenmaps.record(activeConfig.name, activeCount, entries, ids, idToPos)
   end
   return "written"
 end
@@ -1408,6 +1416,7 @@ local function transitionToConfig(newCount, newCfg)
   -- Activate new config
   activeConfig = newCfg
   activeCount = newCount
+  if screenmaps then screenmaps.setCurrent(newCfg.name, newCount) end
 
   -- Restore new config's layout (after 1s settle for screens to stabilize)
   local df = currentDataFile()
@@ -1573,6 +1582,8 @@ function M.init(opts)
   opts = opts or {}
   screenswitch = opts.screenswitch
   screenmemory = opts.screenmemory
+  screenmaps = opts.screenmaps
+  if screenmaps then screenmaps.setConfigs(KNOWN_CONFIGS) end
 
   migrateOldFiles()
 
@@ -1581,6 +1592,7 @@ function M.init(opts)
   if cfg then
     activeConfig = cfg
     activeCount = lastScreenCount
+    if screenmaps then screenmaps.setCurrent(cfg.name, lastScreenCount) end
     print(string.format("[layout] Initial config: %s (%d screens)", cfg.name, lastScreenCount))
     startPeriodicSave()
     -- At login Lunar wires DDC from last session's display IDs, which macOS may have reshuffled

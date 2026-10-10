@@ -14,6 +14,7 @@ local focus = dofile(scriptPath .. "focus.lua")
 local mousemove = dofile(scriptPath .. "mousemove.lua")
 local screenswitch = dofile(scriptPath .. "screenswitch.lua")
 local screenmemory = dofile(scriptPath .. "screenmemory.lua")
+local screenmaps = dofile(scriptPath .. "screenmaps.lua")
 bear_hud = dofile(scriptPath .. "bear-hud.lua")
 bear_paste = dofile(scriptPath .. "bear-paste.lua")
 layout = dofile(scriptPath .. "layout.lua")
@@ -1198,8 +1199,10 @@ keymapwatch.init(projectRoot)
 screenmemory.init()
 screenswitch.setScreenMemory(screenmemory)
 
--- Initialize layout auto-save, screen watcher, and Lunar name sync
-layout.init({screenswitch = screenswitch, screenmemory = screenmemory})
+-- Initialize layout auto-save, screen watcher, and Lunar name sync; every save that
+-- changes something also updates L006/screenmaps, the layout's digital twin
+screenmaps.init()
+layout.init({screenswitch = screenswitch, screenmemory = screenmemory, screenmaps = screenmaps})
 
 -- Lost key-up forensics: builds inputprobe if needed and takes a baseline tap census
 inputprobe.init()
@@ -1243,6 +1246,7 @@ _G._stepper.bindWithRepeat = bindWithRepeat
 _G._stepper.inputprobe = inputprobe
 _G._stepper.cmdtabwatch = cmdtabwatch
 _G._stepper.keymapwatch = keymapwatch
+_G._stepper.screenmaps = screenmaps
 
 -- Monday midnight: the only day the week number changes.
 -- The on-load sync check and wake trigger handle other scenarios.

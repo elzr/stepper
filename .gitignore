@@ -7,6 +7,9 @@ layout-backups/
 screen-memory.json
 move-to-resize.json
 window-layout-[0-9]*.json
+# L006/screenmaps' data, written by lua/screenmaps.lua with each save that changes something
+screenmap-*.json
+screenmaps-now.json
 # built by displayguard.lua from display-arrange.swift on first use
 features/F010-sync-display-names-in-Lunar/display-arrange
 # built by inputprobe.lua from inputprobe.swift on first use

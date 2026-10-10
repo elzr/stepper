@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screenmaps</title>
+  <link rel="stylesheet" href="screenmaps.css">
+</head>
+<body>
+  <header class="page-header">
+    <h1><span id="heading">Screenmaps</span> <span class="taken" id="asOf"></span></h1>
+    <nav class="configs" id="configs" aria-label="Display configs"></nav>
+  </header>
+  <p class="subtitle" id="summary"></p>
+
+  <section class="nav-panel" id="panel">
+    <div class="panel-head">
+      <div class="panel-views" role="tablist">
+        <button type="button" data-view="map" title="Map (m)">Map</button>
+        <button type="button" data-view="list" title="List (l)">List</button>
+      </div>
+      <span class="panel-hint" id="hint"></span>
+    </div>
+    <div class="screen-map" id="map"></div>
+    <div class="screen-lists" id="list"></div>
+  </section>
+
+  <div class="map-pop" id="pop" hidden></div>
+  <script src="screenmaps.js"></script>
+</body>
+</html>
