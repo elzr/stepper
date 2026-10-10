@@ -78,6 +78,21 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .panel-views button + button { border-left: 1px solid var(--border); }
 .panel-views button:hover { color: var(--text); }
 .panel-views button.active { background: var(--active-bg); color: var(--active-text); }
+/* Flat | 3D beside them, as the tablogs' map modes */
+.map-modes { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.map-modes[hidden] { display: none; }
+.map-modes button {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 2px 10px;
+  border: none;
+  background: #fff;
+  color: var(--grey);
+  cursor: pointer;
+}
+.map-modes button + button { border-left: 1px solid var(--border); }
+.map-modes button:hover { color: var(--text); }
+.map-modes button.active { background: var(--active-bg); color: var(--active-text); }
 .panel-hint { color: var(--grey); font-size: 0.75rem; }
 .nav-panel:not(.show-days) .days, .nav-panel.show-days .screen-map { display: none; }
 .empty { color: var(--grey); font-size: 0.9rem; padding: 20px 0; }
@@ -85,6 +100,57 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 /* Map: each display at its real size where it sits, its windows where they sit, back to front */
 .screen-map { margin-top: 6px; }
 .map-stage { position: relative; }
+.fit { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.plane { position: relative; }
+
+/* 3D: the plane at an isometric angle (renderMap, then fitInStage), each window a layer
+   above the one behind it; their names stand upright in a column beside (placeNames) */
+.three-d .plane { transform-style: preserve-3d; transform: rotateX(56deg) rotateZ(-36deg); }
+.three-d .display { overflow: visible; transform-style: preserve-3d; background: #dde3ea; }
+.three-d .win { background: hsl(var(--hue) 50% 98% / 0.94); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22); }
+.three-d .win-head { display: none; }
+.corner { position: absolute; width: 1px; height: 1px; pointer-events: none; }
+.names { position: absolute; inset: 0; pointer-events: none; }
+.name-lines { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+.name-lines line { stroke: #9aa5b4; stroke-width: 1; }
+.name-lines circle { fill: #64748b; }
+/* several displays: a name's line only while the name is hovered */
+.name-lines .on-hover { visibility: hidden; }
+.name-lines .on-hover.shown { visibility: visible; }
+.name-lines line.on-hover.shown { stroke: var(--link); stroke-width: 1.5; }
+.name-lines circle.on-hover.shown { fill: var(--link); }
+.name-group {
+  position: absolute;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 18px;
+  color: #64748b;
+  white-space: nowrap;
+}
+.layer-name {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 220px;
+  height: 17px;
+  padding: 0 4px;
+  font-size: 0.74rem;
+  line-height: 17px;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 4px;
+  pointer-events: auto;
+}
+.layer-name span { overflow: hidden; text-overflow: ellipsis; }
+.layer-name img, .layer-name .letter { width: 13px; height: 13px; flex-shrink: 0; }
+a.layer-name:hover { color: var(--link); }
+.layer-name.focused { color: var(--front); font-weight: 600; }
+.layer-name.dim { opacity: 0.3; }
+.layer-name.hit { background: #fef3c7; }
 .display {
   position: absolute;
   background: #e9edf2;

@@ -1,6 +1,6 @@
 # [L006/screenmaps](https://stepper.internal/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/) — a digital twin of the desk
 
-> Each display config's last layout: a map of its displays at their real sizes, the windows by the day they were opened and last used, and a list laid out as the displays stand. ==🟢Open it on the go to see where every window was on the desk==; at the desk it's a live twin that brings a window forward when you click it.
+> Each display config's last layout: a map of its displays at their real sizes, flat or in 3D with every window a layer, the windows by the day they were opened and last used, and a list laid out as the displays stand. ==🟢Open it on the go to see where every window was on the desk==; at the desk it's a live twin that brings a window forward when you click it.
 
 ## Contents
 
@@ -24,6 +24,7 @@
 
 ==🟢*Map*== draws each display ==🔵at its real size==, from its EDID's millimetres: the 37″ Samsungs stand taller than the 32″ LGs are wide, though all four are 4K. The displays sit as macOS arranges them, pushed against the ones they touch so the bigger panels neither overlap nor leave gaps, and each label gives the size (`←Left 37″ · 5`). Each window is where it was, back to front, clipped to its display the way macOS shows it, with its app's icon and title (Chrome's " - Google Chrome - Eli…" tail trimmed), a faded icon in the middle of the big ones, and a tint per app.
 
+- ==🟢*Flat | 3D*== (`3` switches): ==🔵3D tilts the plane to an isometric angle and lifts each window one layer above the one behind it==, from the front-to-back order the saves record, so a stack of maximized windows that hides itself on a flat map shows every layer. The names stand upright in a column beside the stacks, front to back, each with a hairline to its window's corner; with several displays the column gets a heading per display, and a name's hairline shows while it's hovered. ==🟢3D is the default on native==, the laptop alone, where most windows are maximized; flat elsewhere. The choice is kept per config.
 - ==🔵The front window has tablogs' violet outline==; each display's top window casts a deeper shadow.
 - ==🟢Minimized windows come after a rule== under the displays, as the tablogs' minimized Chrome windows do.
 - ==🟢Hovering a window opens its popup==: the whole title, its app, size and display, when it was opened, moved and last used.
@@ -56,7 +57,7 @@
 
 | File | Role |
 |---|---|
-| [index.html](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/index.html), [screenmaps.js](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/screenmaps.js), [screenmaps.css](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/screenmaps.css) | ==🟢The page==: loads the data, picks the config, lays out the displays by size (`physicalRects`) and the list by column (`displayColumns`), draws *Map*, *Days* and the list, polls while in view |
+| [index.html](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/index.html), [screenmaps.js](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/screenmaps.js), [screenmaps.css](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/screenmaps.css) | ==🟢The page==: loads the data, picks the config, lays out the displays by size (`physicalRects`) and the list by column (`displayColumns`), draws *Map* flat or in 3D (CSS 3D transforms; `fitInStage` and `placeNames` measure the tilted plane to place it and the names), *Days* and the list, polls while in view |
 | [lua/screenmaps.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/screenmaps.lua) | Writes the data with each changed save (the times: `record`), saves the icons, handles `hammerspoon://screenmaps` |
 | [lua/layoutsnap.swift](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layoutsnap.swift) | Reads the windows, the minimized ones and the displays' sizes, in its own process |
 | [lua/layout.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layout.lua) | Hands it each changed save (`fileSnapshot`) and each config change (`setCurrent`) |

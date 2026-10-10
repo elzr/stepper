@@ -365,7 +365,12 @@ function applyFilter() {
 
 // --- Map --------------------------------------------------------------------------
 
-function renderMap(map, live) {
+const TAG_ROOM = 240;   // 3D: px left of the stacks for the column of window names
+
+// The map's displays and windows sit on a plane. Flat, it's the stage; in 3D it's tilted
+// to an isometric angle, each window one layer above the one behind it on its display
+// (the stack the saves record front to back), with the windows' names in a column beside.
+function renderMap(map, live, depth) {
   const box = $('map');
   box.textContent = '';
   const ds = map.displays;
@@ -373,19 +378,36 @@ function renderMap(map, live) {
     box.append(el('p', 'empty', 'No displays saved for this config.'));
     return;
   }
+  const threeD = depth === '3d';
   const rects = physicalRects(ds);
   const rs = [...rects.values()];
   const minX = Math.min(...rs.map(r => r.x)), minY = Math.min(...rs.map(r => r.y));
   const maxX = Math.max(...rs.map(r => r.x + r.w)), maxY = Math.max(...rs.map(r => r.y + r.h));
   const width = box.clientWidth || 1000;
-  const scale = Math.min(width / (maxX - minX), Math.max(320, window.innerHeight * 0.68) / (maxY - minY));
-  const left = (width - (maxX - minX) * scale) / 2;   // centred when the height limits it
-  const stage = el('div', 'map-stage');
-  stage.style.height = `${Math.ceil((maxY - minY) * scale)}px`;
+  const room = Math.max(320, window.innerHeight * 0.68);
+  // Flat: the arrangement fills the width, or the room. 3D: a plane small enough that,
+  // tilted and stacked, it fits beside the names at full size
+  const scale = threeD
+    ? ((width - TAG_ROOM) * 0.7) / (maxX - minX)
+    : Math.min(width / (maxX - minX), room / (maxY - minY));
+  const left = threeD ? 0 : (width - (maxX - minX) * scale) / 2;   // flat: centred
+  const planeHeight = Math.ceil((maxY - minY) * scale);
+  const stage = el('div', 'map-stage' + (threeD ? ' three-d' : ''));
+  const fit = el('div', 'fit');
+  const plane = el('div', 'plane');
+  plane.style.width = `${threeD ? Math.ceil((maxX - minX) * scale) : width}px`;
+  plane.style.height = `${planeHeight}px`;
+  fit.append(plane);
+  stage.append(fit);
+  stage.style.height = `${planeHeight}px`;
   box.append(stage);
 
   const by = windowsByDisplay(map);
   const total = map.windows.length;
+  // 3D layers: far enough apart for a name between two, closer in a tall stack
+  const tallest = Math.max(1, ...[...by.values()].map(wins => wins.length));
+  const layer = Math.max(10, Math.min(20, 480 / tallest));
+  const corners = [];   // 3D: each window's corner that its name points at
   for (const d of ds) {
     const r = rects.get(d);
     const sx = (r.w / d.full.w) * scale, sy = (r.h / d.full.h) * scale;   // px per point here
@@ -410,8 +432,9 @@ function renderMap(map, live) {
       if (i === 0) we.classList.add('front');
       // Inside its display, which clips it the way macOS does
       const ww = w.frame.w * sx, wh = w.frame.h * sy;
-      we.style.left = `${(w.frame.x - d.full.x) * sx - GAP / 2}px`;
-      we.style.top = `${(w.frame.y - d.full.y) * sy - GAP / 2}px`;
+      const wl = (w.frame.x - d.full.x) * sx - GAP / 2, wt = (w.frame.y - d.full.y) * sy - GAP / 2;
+      we.style.left = `${wl}px`;
+      we.style.top = `${wt}px`;
       we.style.width = `${ww}px`;
       we.style.height = `${wh}px`;
       we.style.zIndex = String(total - z);
@@ -424,13 +447,31 @@ function renderMap(map, live) {
       if (ww >= 70 && wh >= 64) we.append(iconEl(w, 'win-mark'));
       onHover(we, () => windowPop(map, w, z, live));
       de.append(we);
+      if (threeD) {
+        // The display's front window on top: i is its place in this display's stack
+        const lift = `translateZ(${(wins.length - i) * layer}px)`;
+        we.style.transform = lift;
+        // Its top-left corner: the plane's tilt makes it the layer's leftmost point,
+        // the nearest to the names
+        const corner = el('i', 'corner');
+        corner.style.left = `${wl}px`;
+        corner.style.top = `${wt}px`;
+        corner.style.transform = lift;
+        de.append(corner);
+        corners.push({corner, w, z, clickable, d, rank: i});
+      }
     });
     const label = el('div', 'display-label', displayName(d));
     if (d.mm) label.append(el('span', 'size', ` ${inches(d)}`));
     label.append(el('span', 'count', ` · ${wins.length}`));
     de.title = monitorText(d);
     de.append(label);
-    stage.append(de);
+    plane.append(de);
+  }
+  if (threeD) {
+    fitInStage(stage, fit, width - TAG_ROOM, TAG_ROOM);
+    placeNames(map, stage, corners, live);
+    centreComposition(stage, fit);
   }
 
   // The minimized windows after a rule, as the tablogs show minimized Chrome windows
@@ -449,6 +490,124 @@ function renderMap(map, live) {
     }
     box.append(strip);
   }
+}
+
+// The tilted plane's projection spills out of its box: measure what its displays and windows
+// cover on screen, then move it beside the names' column (and shrink it if it's too wide;
+// a tall stack just makes the stage taller, so the names keep their size)
+function fitInStage(stage, fit, maxWidth, leftPad) {
+  const sr = stage.getBoundingClientRect();
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of stage.querySelectorAll('.display, .win')) {
+    const r = n.getBoundingClientRect();
+    x0 = Math.min(x0, r.left);
+    y0 = Math.min(y0, r.top);
+    x1 = Math.max(x1, r.right);
+    y1 = Math.max(y1, r.bottom);
+  }
+  const w = x1 - x0, h = y1 - y0;
+  if (!(w > 0 && h > 0)) return;
+  const s = Math.min(1, maxWidth / w), pad = 12;
+  fit.style.transform = `translate(${leftPad + (maxWidth - w * s) / 2 - (x0 - sr.left) * s}px, ` +
+    `${pad - (y0 - sr.top) * s}px) scale(${s})`;
+  stage.style.height = `${Math.ceil(h * s) + 2 * pad}px`;
+}
+
+// 3D: centre the names and the stacks together in the stage
+function centreComposition(stage, fit) {
+  const sr = stage.getBoundingClientRect();
+  let x0 = Infinity, x1 = -Infinity;
+  for (const n of stage.querySelectorAll('.display, .win, .layer-name')) {
+    const r = n.getBoundingClientRect();
+    x0 = Math.min(x0, r.left);
+    x1 = Math.max(x1, r.right);
+  }
+  const dx = (sr.width - (x1 - x0)) / 2 - (x0 - sr.left);
+  if (!Number.isFinite(dx)) return;
+  fit.style.transform = `translateX(${dx}px) ${fit.style.transform}`;
+  stage.querySelector('.names').style.transform = `translateX(${dx}px)`;
+}
+
+// 3D: the windows' names upright in a column left of the stacks, read as the stacks are:
+// display by display (as the list lays them out), each front to back, with a hairline from
+// each name to its window's top-left corner. With several displays the lines would cross
+// the whole map, so the column gets a heading per display and a name's line shows while
+// it's hovered. The names take the windows' hover, click and Days picks.
+function placeNames(map, stage, corners, live) {
+  const sr = stage.getBoundingClientRect();
+  const layerEl = el('div', 'names');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('name-lines');
+  layerEl.append(svg);
+  stage.append(layerEl);
+  const order = displayColumns(map.displays).flat();
+  const points = corners.map(c => {
+    const r = c.corner.getBoundingClientRect();
+    return {...c, x: r.left - sr.left, y: r.top - sr.top};
+  }).sort((p, q) => order.indexOf(p.d) - order.indexOf(q.d) || p.rank - q.rank);
+  const LINE = 18, GROUP_GAP = 10;
+  const groups = new Set(points.map(p => p.d)).size;
+  const several = groups > 1;
+  const columnHeight = (points.length + (several ? groups : 0)) * LINE + (groups - 1) * GROUP_GAP;
+  const ys = points.map(p => p.y);
+  // Centred on the corners it points at
+  let next = Math.max(4, (Math.min(...ys) + Math.max(...ys)) / 2 - columnHeight / 2);
+  const columnRight = Math.min(...points.map(p => p.x)) - 16;
+  const svgEl = tag => document.createElementNS('http://www.w3.org/2000/svg', tag);
+  points.forEach((p, k) => {
+    const firstOfDisplay = k === 0 || p.d !== points[k - 1].d;
+    if (k > 0 && firstOfDisplay) next += GROUP_GAP;
+    if (several && firstOfDisplay) {
+      const heading = el('div', 'name-group', displayName(p.d) + (p.d.mm ? ` ${inches(p.d)}` : ''));
+      heading.style.top = `${next}px`;
+      heading.style.right = `${sr.width - columnRight}px`;
+      layerEl.append(heading);
+      next += LINE;
+    }
+    const top = next;
+    next += LINE;
+    const name = el(p.clickable ? 'a' : 'div', 'layer-name' + (p.z === 0 ? ' focused' : ''));
+    if (p.clickable) name.href = `hammerspoon://screenmaps?focus=${p.w.id}`;
+    name.dataset.key = keyOf(p.w);
+    name.style.top = `${top}px`;
+    name.style.right = `${sr.width - columnRight}px`;
+    name.append(iconEl(p.w), el('span', null, cleanTitle(p.w)));
+    onHover(name, () => windowPop(map, p.w, p.z, live));
+    layerEl.append(name);
+    const line = svgEl('line');
+    line.setAttribute('x1', columnRight + 4);
+    line.setAttribute('y1', top + LINE / 2);
+    line.setAttribute('x2', p.x);
+    line.setAttribute('y2', p.y);
+    const dot = svgEl('circle');
+    dot.setAttribute('cx', p.x);
+    dot.setAttribute('cy', p.y);
+    dot.setAttribute('r', 2);
+    if (several) {
+      line.classList.add('on-hover');
+      dot.classList.add('on-hover');
+      name.addEventListener('mouseenter', () => { line.classList.add('shown'); dot.classList.add('shown'); });
+      name.addEventListener('mouseleave', () => { line.classList.remove('shown'); dot.classList.remove('shown'); });
+    }
+    svg.append(line, dot);
+  });
+  if (next + 12 > sr.height) stage.style.height = `${Math.ceil(next + 12)}px`;
+}
+
+// Flat or 3D, per config. 3D by default for the laptop alone, whose mostly maximized
+// windows hide each other on a flat map
+function depthOf(name) {
+  const picked = localStorage.getItem(`screenmaps.depth.${name}`);
+  if (picked === 'flat' || picked === '3d') return picked;
+  const c = list(state.now.configs).find(c => c.name === name);
+  return c && c.screens === 1 ? '3d' : 'flat';
+}
+
+function setDepth(depth) {
+  const name = state.now && shownConfig();
+  if (!name) return;
+  localStorage.setItem(`screenmaps.depth.${name}`, depth);
+  render();
 }
 
 // --- Days: by the day each window was opened, and by the day it was last used --------
@@ -634,11 +793,18 @@ function render() {
   for (const b of document.querySelectorAll('.panel-views button')) {
     b.classList.toggle('active', b.dataset.view === state.view);
   }
+  const depth = depthOf(name);
+  $('depth').hidden = state.view !== 'map';
+  for (const b of document.querySelectorAll('#depth button')) {
+    b.classList.toggle('active', b.dataset.depth === depth);
+  }
   const action = live && ON_MAC ? '; click one to bring it forward' : '';
-  $('hint').textContent = state.view === 'map'
-    ? `Each display at its real size, where it sits, each window where it was; hover one for its title${action}`
-    : 'Click a day or an app to pick out its windows in the list below';
-  if (state.view === 'map') renderMap(map, live);
+  $('hint').textContent = state.view === 'days'
+    ? 'Click a day or an app to pick out its windows in the list below'
+    : depth === '3d'
+      ? `Each window a layer above the one behind it, the front one on top; hover a window or its name for its title${action}`
+      : `Each display at its real size, where it sits, each window where it was; hover one for its title${action}`;
+  if (state.view === 'map') renderMap(map, live, depth);
   else renderDays(map, live);
   renderList(map, live);
   applyFilter();
@@ -669,8 +835,14 @@ async function refresh() {
 for (const b of document.querySelectorAll('.panel-views button')) {
   b.addEventListener('click', () => setView(b.dataset.view));
 }
+for (const b of document.querySelectorAll('#depth button')) {
+  b.addEventListener('click', () => setDepth(b.dataset.depth));
+}
 document.addEventListener('keydown', ev => {
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.key === '3' && state.now && state.view === 'map') {
+    setDepth(depthOf(shownConfig()) === '3d' ? 'flat' : '3d');
+  }
   if (ev.key === 'm') setView('map');
   else if (ev.key === 'd') setView('days');
   else if (ev.key === 'Escape') {
