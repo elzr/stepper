@@ -7,7 +7,8 @@ local projectRoot = scriptPath .. "../"
 -- Update bear-notes.jsonc week vars BEFORE loading bear-hud (synchronous).
 -- This ensures hotkeys bind to current week names without needing a second reload.
 local weekUpdateScript = projectRoot .. "features/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
-local weekOut, weekOk = hs.execute("/usr/bin/python3 " .. weekUpdateScript .. " 2>&1")
+local PYTHON = "/opt/homebrew/bin/python3"   -- native Homebrew, as in layout.lua; not the system /usr/bin/python3
+local weekOut, weekOk = hs.execute(PYTHON .. " " .. weekUpdateScript .. " 2>&1")
 local weekUpdateMsg = "[weekUpdate] " .. (weekOut or ""):gsub("\n$", "")
 
 local focus = dofile(scriptPath .. "focus.lua")
@@ -1222,7 +1223,7 @@ hs.hotkey.bind({"ctrl", "alt", "shift"}, "forwarddelete", layout.manualRestore)
 -- Weekly bear-notes.jsonc updater for timer/wake (async, reloads if changed).
 -- The synchronous on-load update is at the top of this file.
 function updateBearWeeksAsync()
-  hs.task.new("/usr/bin/python3", function(exitCode, stdout, stderr)
+  hs.task.new(PYTHON, function(exitCode, stdout, stderr)
     if exitCode ~= 0 then
       print("[weekUpdate] ERROR: " .. (stderr or ""):gsub("\n$", ""))
       return

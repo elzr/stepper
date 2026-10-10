@@ -270,6 +270,8 @@ function M.init(opts)
     end
 
     -- Enhanced watchdog: detect both disabled eventtaps AND zombie state
+    _G.windowMove.lastWatchdogPos = hs.mouse.absolutePosition()
+    _G.windowMove.watchdogRestarts = _G.windowMove.watchdogRestarts or 0
     _G.windowMove.watchdog = hs.timer.new(3, function()
         local handler = _G.windowMove.mouseMoveHandler
         if not handler then
@@ -280,11 +282,21 @@ function M.init(opts)
         local enabled = handler:isEnabled()
         local timeSinceCallback = hs.timer.secondsSinceEpoch() - _G.windowMove.lastCallbackTime
 
-        -- Restart if:
-        -- 1. Handler reports disabled, OR
-        -- 2. No callbacks for 10+ seconds while mouse is visible (zombie state)
-        --    (mouse not visible = screensaver/lock, so no events expected)
-        if not enabled or (timeSinceCallback > 10 and hs.mouse.absolutePosition()) then
+        -- Zombie = the pointer moved since the last tick, with no button held
+        -- (a drag sends leftMouseDragged, not mouseMoved), yet the mouseMoved tap
+        -- stayed silent for the whole tick. Until 2026-10-10 the test was
+        -- "no callbacks for 10 s and hs.mouse.absolutePosition()"; that returns a
+        -- point, always truthy, so both taps were rebuilt every ~12 s whenever
+        -- the mouse merely rested (fleet F040/tracking-my-daemons).
+        local pos = hs.mouse.absolutePosition()
+        local last = _G.windowMove.lastWatchdogPos
+        _G.windowMove.lastWatchdogPos = pos
+        local moved = last ~= nil and (pos.x ~= last.x or pos.y ~= last.y)
+        local buttons = hs.mouse.getButtons and hs.mouse.getButtons() or {}
+        local dragging = next(buttons) ~= nil
+
+        if not enabled or (moved and not dragging and timeSinceCallback > 3.5) then
+            _G.windowMove.watchdogRestarts = _G.windowMove.watchdogRestarts + 1
             startEventTaps()
         end
     end)
