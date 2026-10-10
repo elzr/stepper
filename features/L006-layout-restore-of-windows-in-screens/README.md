@@ -14,21 +14,22 @@ This feature provides a complete save/restore system that:
 
 ## How it works
 
-### Display modes
+### Display configs
 
-The system recognizes three display configurations:
+==🟢Each known config has its own layout file, manual save and backup rings==, and autosaves only into its own file, so a partial setup can't overwrite the desk's. They are [layout.lua](../../lua/layout.lua)'s `KNOWN_CONFIGS`, keyed by screen count and ==🔵named by their external displays since 2026-10-09== ([changelog](../../changelog/2026-10-09-configs-named-by-their-externals.md); quad was quad-32):
 
-| Mode | Screens | Behavior |
+| Config | Screens | Displays |
 |------|---------|----------|
-| **Desk** (default) | 5 (MacBook + 4 LG) | Auto-save every 1m, auto-restore on reconnection/wake/unlock |
-| **Standing** | 2 (MacBook + 1 external) | No auto-save (won't overwrite desk layout), manual restore available |
-| **Travel** | 1 (MacBook only) | No auto-save, `gather()` consolidates windows to built-in |
+| **quad** | 5 | the built-in, two 32″ LG HDR 4K (top and center), two 37″ Samsung LS37D70xE in portrait (left and right); Lunar sync and the [arrangement guard](../F010-sync-display-names-in-Lunar/README.md#arrangement-guard) |
+| **dual** | 3 | the built-in and two externals |
+| **single** | 2 | the built-in and one external |
+| **native** | 1 | the built-in alone; `gather()` consolidates windows onto it |
 
-Auto-save **only fires at 5 displays** — this is the fundamental guard that prevents partial setups from corrupting the desk layout.
+A count with no config (4, while a dock ramps up) is transitional: nothing saves until a known count holds.
 
 ### Screen identification
 
-Since the 4 LG monitors are identical, screens are identified by spatial position relative to the built-in MacBook display (the anchor):
+Since monitors can be identical to macOS (the two Samsungs share an EDID serial, as the four LGs once did), screens are identified by spatial position relative to the built-in MacBook display (the anchor):
 
 ```
          ┌─────────┐

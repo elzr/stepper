@@ -1,5 +1,5 @@
-/* Screenmaps: tokens, panel and popup after F030's tablogs (reading.internal), so the
-   two maps read as one family */
+/* Screenmaps: tokens, panel, days and popup after F030's tablogs (reading.internal), so
+   the two maps read as one family */
 :root {
   --bg: #fff;
   --text: #222;
@@ -7,9 +7,11 @@
   --link: #1a5fb4;
   --hover-bg: #f3f4f6;
   --border: #e5e7eb;
+  --badge-text: #555;
   --active-bg: #1a5fb4;
   --active-text: #fff;
   --front: #8b5cf6;   /* tablogs' violet: the front window */
+  --hit: #f59e0b;     /* a window a day or an app in Days picked out */
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -54,7 +56,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .subtitle { color: var(--grey); font-size: 0.95rem; margin-bottom: 16px; }
 .subtitle .note { color: #b45309; }
 
-/* The panel: Map | List, as in the tablogs */
+/* The panel: Map | Days, as the tablogs' Windows | Days */
 .nav-panel {
   padding: 10px 14px 14px;
   background: #f9fafb;
@@ -77,11 +79,12 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .panel-views button:hover { color: var(--text); }
 .panel-views button.active { background: var(--active-bg); color: var(--active-text); }
 .panel-hint { color: var(--grey); font-size: 0.75rem; }
-.nav-panel:not(.show-list) .screen-lists, .nav-panel.show-list .screen-map { display: none; }
+.nav-panel:not(.show-days) .days, .nav-panel.show-days .screen-map { display: none; }
 .empty { color: var(--grey); font-size: 0.9rem; padding: 20px 0; }
 
-/* Map: each display where it sits, its windows where they sit, back to front */
-.screen-map { position: relative; margin-top: 6px; }
+/* Map: each display at its real size where it sits, its windows where they sit, back to front */
+.screen-map { margin-top: 6px; }
+.map-stage { position: relative; }
 .display {
   position: absolute;
   background: #e9edf2;
@@ -108,6 +111,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   text-overflow: ellipsis;
   pointer-events: none;
 }
+.display-label .size { font-weight: 500; }
 .display-label .count { color: var(--grey); font-weight: 400; }
 .win {
   position: absolute;
@@ -127,6 +131,8 @@ a.win { cursor: pointer; }
 .win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
 .win.focused { border-color: var(--front); box-shadow: 0 0 0 1.5px var(--front), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win:hover { border-color: var(--link); }
+.win.dim { opacity: 0.25; }
+.win.hit { border-color: var(--hit); box-shadow: 0 0 0 2px var(--hit), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win-head {
   display: flex;
   align-items: center;
@@ -152,7 +158,75 @@ a.win { cursor: pointer; }
   opacity: 0.28;
   pointer-events: none;
 }
-.letter.win-mark { width: 30px; height: 30px; font-size: 15px; opacity: 0.35; }
+
+/* Minimized windows, after a rule under the displays (the tablogs' minimized windows) */
+.map-divider { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--grey); font-size: 0.78rem; }
+.map-divider::before, .map-divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+.min-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.min-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 260px;
+  height: 26px;
+  padding: 0 8px 0 6px;
+  font-size: 0.78rem;
+  color: var(--text);
+  text-decoration: none;
+  background: hsl(var(--hue) 50% 98%);
+  border: 1px solid hsl(var(--hue) 28% 76%);
+  border-radius: 6px;
+}
+a.min-chip:hover { border-color: var(--link); }
+.min-chip img, .min-chip .letter { width: 14px; height: 14px; flex-shrink: 0; }
+.min-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.min-chip.dim { opacity: 0.3; }
+.min-chip.hit { border-color: var(--hit); box-shadow: inset 0 0 0 1px var(--hit); }
+
+/* Days: opened and last used side by side, a row per day, each app once with its count */
+.days-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 32px; margin-top: 6px; }
+.days-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.days-head h3 { font-size: 0.9rem; font-weight: 600; }
+.map-days { display: flex; flex-direction: column; }
+.map-day { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; border-top: 1px solid var(--border); }
+.map-day:first-child { border-top: none; }
+.map-day-label {
+  flex: 0 0 150px;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: none;
+  padding: 3px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.map-day-label:hover { background: var(--hover-bg); color: var(--link); }
+.map-day-label .count { color: var(--grey); font-size: 0.72rem; }
+.map-day-label.active { background: var(--active-bg); color: var(--active-text); }
+.map-day-label.active .count { color: inherit; opacity: 0.8; }
+.map-chips { display: flex; flex-wrap: wrap; gap: 3px 4px; flex: 1; min-width: 0; }
+.map-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--badge-text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.map-chip img, .map-chip .letter { width: 16px; height: 16px; border-radius: 2px; }
+.map-chip:hover { border-color: var(--link); }
+.map-chip.active { border-color: var(--active-bg); box-shadow: inset 0 0 0 1px var(--active-bg); }
 
 /* An app without a saved icon: its initial on a tint of its own (as the tablogs' sites) */
 .letter {
@@ -168,22 +242,45 @@ a.win { cursor: pointer; }
   color: #fff;
   background: hsl(var(--hue) 42% 52%);
 }
+.letter.win-mark { width: 30px; height: 30px; font-size: 15px; opacity: 0.35; }
 
-/* List: a bulleted list per display, front to back */
-.screen-lists { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px 28px; margin-top: 6px; }
+/* What a day or an app in Days picked out */
+.filter-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+}
+.filter-banner[hidden] { display: none; }
+.banner-clear { margin-left: auto; font: inherit; font-size: 0.8rem; color: var(--link); background: none; border: none; cursor: pointer; }
+.banner-clear:hover { text-decoration: underline; }
+
+/* List: a bulleted list per display, in columns as the displays stand */
+.screen-lists { margin-top: 18px; }
+.list-cols { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 14px 28px; }
+.list-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (max-width: 640px) { .list-cols { grid-template-columns: minmax(0, 1fr); } }
 .screen-list h3 { font-size: 0.9rem; font-weight: 600; display: flex; align-items: baseline; gap: 6px; }
 .screen-list h3 .count { color: var(--grey); font-weight: 400; font-size: 0.8rem; }
 .screen-list .monitor { color: var(--grey); font-size: 0.75rem; margin-bottom: 3px; }
 .screen-list ul { list-style: disc; padding-left: 20px; }
-.screen-list li { margin: 1px 0; font-size: 0.88rem; }
+.screen-list li { margin: 1px 0; font-size: 0.88rem; border-radius: 4px; }
 .screen-list li::marker { color: #b8bec7; }
 .screen-list li.focused::marker { color: var(--front); }
+.screen-list li.dim { opacity: 0.35; }
+.screen-list li.hit { background: #fef3c7; }
 .screen-list li img, .screen-list li .letter { width: 14px; height: 14px; vertical-align: -2px; margin-right: 6px; }
 .screen-list li .letter { display: inline-flex; }
 .screen-list a { color: var(--link); text-decoration: none; }
 .screen-list a:hover { text-decoration: underline; }
 .screen-list .app { color: var(--grey); font-size: 0.78rem; }
 .screen-list .none { color: var(--grey); font-size: 0.82rem; list-style: none; margin-left: -20px; }
+.minimized-list { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
 
 /* The popup (after the tablogs' map popup): a window's whole title, size and times */
 .map-pop {
@@ -205,3 +302,5 @@ a.win { cursor: pointer; }
 .pop-title img, .pop-title .letter { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
 .pop-line { margin: 3px 0 0 23px; color: var(--grey); font-size: 0.75rem; }
 .pop-line.act { color: var(--link); }
+.pop-list { margin: 5px 0 0 23px; padding-left: 14px; }
+.pop-list li { margin: 2px 0; }

@@ -17,13 +17,16 @@
     <div class="panel-head">
       <div class="panel-views" role="tablist">
         <button type="button" data-view="map" title="Map (m)">Map</button>
-        <button type="button" data-view="list" title="List (l)">List</button>
+        <button type="button" data-view="days" title="Days (d)">Days</button>
       </div>
       <span class="panel-hint" id="hint"></span>
     </div>
     <div class="screen-map" id="map"></div>
-    <div class="screen-lists" id="list"></div>
+    <div class="days" id="days"></div>
   </section>
+
+  <div class="filter-banner" id="banner" hidden></div>
+  <section class="screen-lists" id="list"></section>
 
   <div class="map-pop" id="pop" hidden></div>
   <script src="screenmaps.js"></script>

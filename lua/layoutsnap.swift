@@ -5,9 +5,11 @@
 //
 //   layoutsnap [axTimeoutSeconds] [deadlineSeconds]
 //
-// The windows are the ones hs.window.orderedWindows() returns: on screen, not minimized,
-// of unhidden regular apps, front to back. Apps are read in parallel, each Accessibility
-// call waits at most axTimeoutSeconds, and the apps that haven't answered by
+// "windows" are the ones hs.window.orderedWindows() returns: on screen, not minimized, of
+// unhidden regular apps, front to back. "minimized" are every regular app's minimized
+// windows, for L006/screenmaps (layout saves leave them out). "displays" gives each
+// display's size in millimetres, from its EDID. Apps are read in parallel, each
+// Accessibility call waits at most axTimeoutSeconds, and the apps that haven't answered by
 // deadlineSeconds are listed in "failed", so layout.lua keeps their last saved windows.
 // See changelog/2026-10-09-layout-saves-off-the-main-thread.md
 
@@ -56,32 +58,46 @@ guard AXIsProcessTrusted() else { emit(["ok": false, "error": "no Accessibility 
 AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), axTimeout)
 
 // Front to back, from the WindowServer, which answers for every app at once
-func onScreenOrder() -> (zOrder: [CGWindowID: Int], pids: [pid_t]) {
+func onScreenOrder() -> [CGWindowID: Int] {
   let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
                                         kCGNullWindowID) as? [[String: Any]] ?? []
   var zOrder: [CGWindowID: Int] = [:]
-  var pids: [pid_t] = []
   for (z, info) in list.enumerated() {
-    guard let id = info[kCGWindowNumber as String] as? CGWindowID,
-          let pid = info[kCGWindowOwnerPID as String] as? pid_t else { continue }
-    zOrder[id] = z
-    if !pids.contains(pid) { pids.append(pid) }
+    if let id = info[kCGWindowNumber as String] as? CGWindowID { zOrder[id] = z }
   }
-  return (zOrder, pids)
+  return zOrder
 }
-let (zOrder, pids) = onScreenOrder()
+let zOrder = onScreenOrder()
 
-// hs.window.orderedWindows() skips apps that aren't regular (kind() <= 0) or are hidden
-struct App: Sendable { let pid: pid_t; let name: String; let bundle: String }
-var apps: [App] = []
-for pid in pids {
-  guard let app = NSRunningApplication(processIdentifier: pid),
-        app.activationPolicy == .regular, !app.isHidden else { continue }
-  apps.append(App(pid: pid, name: app.localizedName ?? app.bundleIdentifier ?? "pid \(pid)",
-                  bundle: app.bundleIdentifier ?? ""))
+// Each display's physical size, which the screenmaps draw (a 37″ panel is bigger than a
+// 32″ one at the same resolution)
+func displaySizes() -> [[String: Any]] {
+  var count: UInt32 = 0
+  guard CGGetActiveDisplayList(0, nil, &count) == .success else { return [] }
+  var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+  guard CGGetActiveDisplayList(count, &ids, &count) == .success else { return [] }
+  return ids.prefix(Int(count)).map { id in
+    let mm = CGDisplayScreenSize(id)
+    return ["id": Int(id), "mmW": Double(mm.width), "mmH": Double(mm.height)]
+  }
 }
 
-struct Reading { var windows: [[String: Any]] = []; var error: String? = nil; var ms = 0 }
+// Every regular app (hs.application:kind() == 1): hidden ones only for their minimized windows
+struct App: Sendable { let pid: pid_t; let name: String; let bundle: String; let hidden: Bool }
+let apps: [App] = NSWorkspace.shared.runningApplications
+  .filter { $0.activationPolicy == .regular }
+  .map { app in
+    App(pid: app.processIdentifier,
+        name: app.localizedName ?? app.bundleIdentifier ?? "pid \(app.processIdentifier)",
+        bundle: app.bundleIdentifier ?? "", hidden: app.isHidden)
+  }
+
+struct Reading {
+  var windows: [[String: Any]] = []
+  var minimized: [[String: Any]] = []
+  var error: String? = nil
+  var ms = 0
+}
 
 func readWindows(_ app: App, _ zOrder: [CGWindowID: Int]) -> Reading {
   var reading = Reading()
@@ -96,20 +112,29 @@ func readWindows(_ app: App, _ zOrder: [CGWindowID: Int]) -> Reading {
                     kAXSizeAttribute, kAXMinimizedAttribute] as CFArray
   for element in elements {
     var id: CGWindowID = 0
-    guard _AXUIElementGetWindow(element, &id) == .success, let z = zOrder[id] else { continue }
+    guard _AXUIElementGetWindow(element, &id) == .success else { continue }
     var raw: CFArray?
     let copied = AXUIElementCopyMultipleAttributeValues(
       element, attributes, AXCopyMultipleAttributeOptions(rawValue: 0), &raw)
-    if copied == .cannotComplete { reading.windows = []; reading.error = "no answer"; return reading }
+    if copied == .cannotComplete { return Reading(error: "no answer") }
     guard copied == .success, let values = raw as? [AnyObject], values.count == 5 else { continue }
-    if values[4] as? Bool == true { continue }
+    let minimized = values[4] as? Bool == true
+    let z = zOrder[id]
+    // Neither minimized nor on screen (another Space), or of a hidden app: not recorded
+    if !minimized && (z == nil || app.hidden) { continue }
     guard let origin = point(values[2]), let extent = size(values[3]) else { continue }
-    reading.windows.append([
-      "id": Int(id), "z": z, "pid": Int(app.pid), "app": app.name, "bundle": app.bundle,
+    var window: [String: Any] = [
+      "id": Int(id), "pid": Int(app.pid), "app": app.name, "bundle": app.bundle,
       "title": values[0] as? String ?? "", "subrole": values[1] as? String ?? "",
       "x": Double(origin.x), "y": Double(origin.y),
       "w": Double(extent.width), "h": Double(extent.height),
-    ])
+    ]
+    if minimized {
+      reading.minimized.append(window)
+    } else {
+      window["z"] = z!
+      reading.windows.append(window)
+    }
   }
   return reading
 }
@@ -138,6 +163,7 @@ _ = group.wait(timeout: .now() + deadline)
 
 let answered = readings.snapshot()
 var windows: [[String: Any]] = []
+var minimized: [[String: Any]] = []
 var failed: [[String: Any]] = []
 var slow: [String] = []
 for app in apps {
@@ -149,10 +175,12 @@ for app in apps {
     failed.append(["app": app.name, "pid": Int(app.pid), "error": error, "ms": reading.ms])
   } else {
     windows += reading.windows
+    minimized += reading.minimized
   }
   if reading.ms >= 100 { slow.append("\(app.name) \(reading.ms) ms") }
 }
 windows.sort { ($0["z"] as! Int) < ($1["z"] as! Int) }
+minimized.sort { ($0["id"] as! Int) < ($1["id"] as! Int) }
 
-emit(["ok": true, "ms": msSince(started), "apps": apps.count,
-      "windows": windows, "failed": failed, "slow": slow])
+emit(["ok": true, "ms": msSince(started), "apps": apps.count, "windows": windows,
+      "minimized": minimized, "displays": displaySizes(), "failed": failed, "slow": slow])

@@ -28,14 +28,17 @@ local lunarSyncScript = scriptPath .. "../features/F010-sync-display-names-in-Lu
 local PYTHON = "/opt/homebrew/bin/python3"   -- native; the Intel /usr/local one goes away with F040
 local displayguard = dofile(scriptPath .. "displayguard.lua")
 
--- Known display configurations, keyed by screen count.
+-- Known display configurations, keyed by screen count, named by their external displays.
+-- quad: the built-in, two 32″ LGs and two 37″ Samsungs. Until 2026-10-09 these were
+-- quad-32, 37-and-43 and only-43, after the four 32″ LGs and the 43″ TVs they replaced.
 -- guard: the two Samsungs are EDID twins whose arrangement macOS loses after a hub
--- re-enumeration — displayguard.lua puts them back (see data/display-guard.json)
+-- re-enumeration — displayguard.lua puts them back (see data/display-guard.json, keyed
+-- by these names)
 local KNOWN_CONFIGS = {
-  [5] = { name = "quad-32",   lunarSync = true,  guard = true },
-  [3] = { name = "37-and-43", lunarSync = false },
-  [2] = { name = "only-43",   lunarSync = false },
-  [1] = { name = "native",    lunarSync = false },
+  [5] = { name = "quad",   lunarSync = true,  guard = true },
+  [3] = { name = "dual",   lunarSync = false },
+  [2] = { name = "single", lunarSync = false },
+  [1] = { name = "native", lunarSync = false },
 }
 
 local function configForCount(n)
@@ -747,9 +750,11 @@ local function fileSnapshot(doc)
   if screenmemory then
     screenmemory.updateFromLayout(entries, liveIDs)
   end
-  -- The digital twin of this config: L006/screenmaps' page draws it
+  -- The digital twin of this config: L006/screenmaps' page draws it, with the displays'
+  -- physical sizes and the minimized windows the save leaves out
   if screenmaps then
-    screenmaps.record(activeConfig.name, activeCount, entries, ids, idToPos)
+    screenmaps.record(activeConfig.name, activeCount, entries, ids, idToPos,
+      {displays = doc.displays, minimized = doc.minimized, failed = doc.failed})
   end
   return "written"
 end
