@@ -3,8 +3,8 @@
 -- This module keeps the census live: it reruns it once after each load, whenever rcmd's key assignments
 -- or stepper's own hotkey data change, whenever an app launches or quits (an update relaunches it, and
 -- updates bring shortcuts: ChatGPT's ⌃⇧4 on 2026-10-09), and every 15 minutes for settings changed
--- in place. After each run it saves an icon for any rcmd app that has none yet, and for the page's
--- BTT and Raycast filters.
+-- in place, and the moment a ChatGPT update lands. After each run it saves an icon for any rcmd app
+-- that has none yet, and for the page's BTT and Raycast filters.
 -- It replaced L009-keymap's generator on 2026-10-09.
 -- Hammerspoon's hotkeys go to the census on stdin: a run that Hammerspoon starts must not call back
 -- into Hammerspoon over IPC (a stuck hs CLI has crashed it before).
@@ -18,6 +18,7 @@ local CENSUS_JSON = F002 .. "keybindings-census.json"
 local PYTHON = "/opt/homebrew/bin/python3"  -- native arm64, no Rosetta needed
 local RCMD_PLIST = os.getenv("HOME") ..
   "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
+local CHATGPT_ASAR = "/Applications/ChatGPT.app/Contents/Resources/app.asar"
 local BEAR = "net.shinyfrog.bear"
 local FILTER_ICONS = {"com.hegenberg.BetterTouchTool", "com.raycast.macos"}  -- the page's BTT and Raycast filters
 local EVERY = 15 * 60
@@ -25,6 +26,7 @@ local EVERY = 15 * 60
 M._watchers = {}       -- module scope, so they aren't collected
 local task = nil       -- the running census, held for the same reason
 local timer = nil      -- debounces bursts of events
+local timerDue = nil   -- when that timer fires
 local startTimer = nil
 local periodic = nil
 local appWatcher = nil
@@ -83,8 +85,13 @@ local function run(reason)
   end
 end
 
+-- A request never postpones a run already due sooner: a ChatGPT update's 1 s run must not wait out
+-- the 10 s that the app's relaunch asks for
 schedule = function(reason, delay)
+  local due = hs.timer.secondsSinceEpoch() + (delay or 1)
+  if timer and timerDue <= due then return end
   if timer then timer:stop() end
+  timerDue = due
   timer = hs.timer.doAfter(delay or 1, function() timer = nil; run(reason) end)
 end
 
@@ -108,6 +115,16 @@ function M.init(root)
   end)
   watch(root .. "data/bear-notes.jsonc", "a change to bear-notes.jsonc")
   watch(root .. "data/hyper-actions.jsonc", "a change to hyper-actions.jsonc")
+  -- ChatGPT's updates bring system-wide shortcuts, which the census switches off (its chatgpt_guard) in
+  -- the override file ChatGPT reads as it starts; so it runs as soon as a new build lands, ahead of
+  -- the relaunch an update may do at once
+  local asarChanged = (hs.fs.attributes(CHATGPT_ASAR) or {}).change
+  watch("/Applications/ChatGPT.app/Contents/Resources/", "a ChatGPT update", function()
+    local now = (hs.fs.attributes(CHATGPT_ASAR) or {}).change
+    if now == asarChanged then return false end
+    asarChanged = now
+    return true
+  end)
   -- Launches come in bursts (helpers, login items), so wait for a quiet 10 s
   local appEvents = hs.application.watcher
   appWatcher = appEvents.new(function(name, event)
@@ -119,7 +136,7 @@ function M.init(root)
   periodic = hs.timer.doEvery(EVERY, function() run("the quarter-hourly check") end)
   -- After the rest of stepper has bound its hotkeys
   startTimer = hs.timer.doAfter(5, function() startTimer = nil; run("the load") end)
-  print("[keymapwatch] keeps fleet F002's census live: rcmd, stepper's hotkey data, app launches and quits, every 15 min")
+  print("[keymapwatch] keeps fleet F002's census live: rcmd, stepper's hotkey data, app launches and quits, ChatGPT updates, every 15 min")
 end
 
 return M
