@@ -42,13 +42,13 @@ Keys: N, R, D, W, T, S, M, I (and more — see [the jsonc file](https://stepper.
 
 Config: [`data/live-toggle-hotkeys.json`](https://stepper.internal/data/live-toggle-hotkeys.json)
 
-Hyper + reserved letter → toggle visibility of any window (not just Bear). Slots are reassignable at runtime:
+Hyper + live letter → toggle visibility of any window (not just Bear). Slots are reassignable at runtime:
 - **Right Option + hyper+key**: assign the frontmost window to that slot
 - **Right Shift + hyper+key**: summon window to cursor
 
-Keys: X, Q, A, Z (reserved in [bear-notes.jsonc](https://stepper.internal/data/bear-notes.jsonc)).
+Keys: ==🟢every ◆ letter that isn't a note or URL key==, A B C E G H J K L O Q U V X Y Z, listed as `liveKeys` in [bear-notes.jsonc](https://stepper.internal/data/bear-notes.jsonc) (X, Q, A and Z alone until 2026-10-09, when the user made the twelve free letters live). A note or URL key listed there too stays a note or URL: bear-hud.lua and F002's census both skip it.
 
-==🟢Live view: [stepper.internal/docs/diagrams.html](https://stepper.internal/docs/diagrams.html)== shows the four slots in a full-width box at the top, re-reading the slots file every 2 s, so a new assignment appears without a reload.
+==🟢Live view: [fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html)== shows every slot with its window's icon and a "live" badge, re-reading the slots file every 2 s, so a new assignment appears without a reload. It took over from `docs/diagrams.html` on 2026-10-09.
 
 Each slot records:
 
@@ -115,14 +115,14 @@ A `"comment"` property works but pollutes the data structure — it gets parsed,
 
 - [`data/bear-notes.jsonc`](https://stepper.internal/data/bear-notes.jsonc) — Bear note hotkey definitions + template vars
 - [`data/live-toggle-hotkeys.json`](https://stepper.internal/data/live-toggle-hotkeys.json) — active window toggle slots
-- [`docs/diagrams.html`](https://stepper.internal/docs/diagrams.html) — shows those slots live, at the top
+- [fleet F002's `keymap.html`](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) — shows those slots live, beside every other ◆ and ⌥ key
 - [`data/hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc) — general hyperkey actions
 - [`lua/bear-hud.lua`](https://stepper.internal/lua/bear-hud.lua) — all hyperkey binding logic (loads all 3 config files)
 
 ## How to add a new hyperkey shortcut
 
 1. **Bear note?** → add to `notes` array in [`bear-notes.jsonc`](https://stepper.internal/data/bear-notes.jsonc)
-2. **Window toggle?** → press Right Option + hyper+X/Q/A/Z at runtime
+2. **Window toggle?** → press Right Option + hyper + any live letter at runtime ([keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) marks them ==🟢live==)
 3. **Anything else?** → add to [`hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc):
 
 ```jsonc

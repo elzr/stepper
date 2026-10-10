@@ -241,7 +241,7 @@ local chromeTabNotes = {
   " %- Camera recording$", " %- Microphone recording$", " %- Camera or microphone recording$",
 }
 
--- Besides the window it toggles, a live slot records what docs/diagrams.html
+-- Besides the window it toggles, a live slot records what fleet F002's keymap.html
 -- shows: the app's name and icon, and the document the window holds. Bear titles
 -- a window with its note's title; Chrome with "<tab> - <notes> - Google Chrome -
 -- <profile>"; most other apps end theirs " - <App>".
@@ -853,7 +853,7 @@ function M.init(projectRoot, focus)
     end
   end
 
-  -- Fill in what docs/diagrams.html shows for slots assigned before setLiveWindow
+  -- Fill in what F002's keymap.html shows for slots assigned before setLiveWindow
   -- recorded it, re-derive document titles so documentTitle() fixes reach old
   -- slots, and re-save icons a fresh checkout lacks (data/app-icons/ is untracked)
   local slotsChanged = false
@@ -1026,27 +1026,35 @@ function M.init(projectRoot, focus)
         end)
       end
 
-      -- Live window hotkeys (hyper+X/Q/A/Z): any window, Bear gets caret persistence
-      local liveKeys = {"X", "Q", "A", "Z"}
-      for _, key in ipairs(liveKeys) do
-        hs.hotkey.bind(mods, key, function()
-          if rightOptionHeld then
-            setLiveWindow(key)
-          elseif liveSlots[key] then
-            if rightShiftHeld then
-              handleLiveSummon(key)
-            else
-              handleLiveToggle(key)
-            end
-          else
-            print(string.format("[bear-hud] No live window on %s (right-option + hyper+%s to set)", key, key))
-          end
-        end)
-        local slot = liveSlots[key]
-        if slot then
-          print(string.format("[bear-hud] Bound %s → live '%s' (%s)", key, slot.title, slot.bundleID))
+      -- Live window hotkeys (hyper + each of liveKeys): any window, Bear gets caret persistence.
+      -- Note and URL keys come first: one listed in liveKeys too stays a note or URL.
+      local fixedKeys = {}
+      for _, note in ipairs(config.notes or {}) do fixedKeys[note.key:upper()] = true end
+      for _, entry in ipairs(config.urls or {}) do fixedKeys[entry.key:upper()] = true end
+      for _, listed in ipairs(config.liveKeys or {}) do
+        local key = listed:upper()
+        if fixedKeys[key] then
+          print(string.format("[bear-hud] liveKeys: %s is a note or URL key, not made live", key))
         else
-          print(string.format("[bear-hud] Bound %s → live (not set)", key))
+          hs.hotkey.bind(mods, key, function()
+            if rightOptionHeld then
+              setLiveWindow(key)
+            elseif liveSlots[key] then
+              if rightShiftHeld then
+                handleLiveSummon(key)
+              else
+                handleLiveToggle(key)
+              end
+            else
+              print(string.format("[bear-hud] No live window on %s (right-option + hyper+%s to set)", key, key))
+            end
+          end)
+          local slot = liveSlots[key]
+          if slot then
+            print(string.format("[bear-hud] Bound %s → live '%s' (%s)", key, slot.title, slot.bundleID))
+          else
+            print(string.format("[bear-hud] Bound %s → live (not set)", key))
+          end
         end
       end
 

@@ -25,5 +25,7 @@
     {"key": "F", "url": "raycast://extensions/sara/featurebase/index"},
     {"key": "P", "url": "raycast://extensions/sara/spin/index"}
   ],
-  "reservedKeys": ["X", "Q", "A", "Z", "— live window toggle slots, bound in bear-hud.lua"] // set with R⌥
+  // Live window slots, bound in bear-hud.lua: R⌥◆key gives one the focused window, ◆key toggles it,
+  // R⇧◆key summons it. Every ◆ letter not taken above; a note or URL key listed here stays a note or URL
+  "liveKeys": ["A", "B", "C", "E", "G", "H", "J", "K", "L", "O", "Q", "U", "V", "X", "Y", "Z"]
 }

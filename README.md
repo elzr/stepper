@@ -125,11 +125,11 @@ Each hotkey ==🔵toggles through three states:== open → raise/focus → minim
 
 ==🔵Teleport the note window to your mouse cursor.== Press again to return it and minimize.
 
-### Live window hotkeys (hyper+X/Q/A/Z)
+### Live window hotkeys (hyper + any letter that isn't a note)
 
-==🟢Four independently assignable quick-access slots== for any window. Set with right-option + hyper+letter (yellow flash confirms). Toggle with hyper+letter, summon with right-shift. Persists across reloads in [live-toggle-hotkeys.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/live-toggle-hotkeys.json).
+==🟢Sixteen independently assignable quick-access slots== for any window: every ◆ letter that isn't a Bear note or a URL, A B C E G H J K L O Q U V X Y Z (X, Q, A and Z alone until 2026-10-09). They are the `liveKeys` in [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc); ==🔵a note or URL key listed there too stays a note or URL==. Set with right-option + hyper+letter (yellow flash confirms). Toggle with hyper+letter, summon with right-shift. Persists across reloads in [live-toggle-hotkeys.json](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/live-toggle-hotkeys.json).
 
-A slot ==🔵follows the window you assigned==, not its title: Chrome retitles a window with every tab switch and adds notes like "High memory usage - 830 MB", which used to break the hotkey within minutes. The title is the fallback once that window is gone (Chrome relaunched, Bear note reopened). Each assignment also records the app's name and icon and the document title (the Bear note, the Chrome tab), and ==🟢[fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) shows all four slots==, updating within 2 s of a new assignment, beside every other ◆ and right-⌥ key (it moved there from `docs/diagrams.html` on 2026-10-09).
+A slot ==🔵follows the window you assigned==, not its title: Chrome retitles a window with every tab switch and adds notes like "High memory usage - 830 MB", which used to break the hotkey within minutes. The title is the fallback once that window is gone (Chrome relaunched, Bear note reopened). Each assignment also records the app's name and icon and the document title (the Bear note, the Chrome tab), and ==🟢[fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) shows every slot==, updating within 2 s of a new assignment, beside every other ◆ and right-⌥ key (it moved there from `docs/diagrams.html` on 2026-10-09).
 
 ### URL hotkeys (hyper+letter → URL)
 

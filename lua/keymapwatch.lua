@@ -3,7 +3,8 @@
 -- This module keeps the census live: it reruns it once after each load, whenever rcmd's key assignments
 -- or stepper's own hotkey data change, whenever an app launches or quits (an update relaunches it, and
 -- updates bring shortcuts: ChatGPT's ⌃⇧4 on 2026-10-09), and every 15 minutes for settings changed
--- in place. After each run it saves an icon for any rcmd app that has none yet, for the page.
+-- in place. After each run it saves an icon for any rcmd app that has none yet, and for the page's
+-- BTT and Raycast filters.
 -- It replaced L009-keymap's generator on 2026-10-09.
 -- Hammerspoon's hotkeys go to the census on stdin: a run that Hammerspoon starts must not call back
 -- into Hammerspoon over IPC (a stuck hs CLI has crashed it before).
@@ -18,6 +19,7 @@ local PYTHON = "/opt/homebrew/bin/python3"  -- native arm64, no Rosetta needed
 local RCMD_PLIST = os.getenv("HOME") ..
   "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
 local BEAR = "net.shinyfrog.bear"
+local FILTER_ICONS = {"com.hegenberg.BetterTouchTool", "com.raycast.macos"}  -- the page's BTT and Raycast filters
 local EVERY = 15 * 60
 
 M._watchers = {}       -- module scope, so they aren't collected
@@ -42,11 +44,12 @@ local function rcmdSignature()
   return table.concat(parts, ",")
 end
 
--- The page shows each rcmd app's icon and Bear's; saved once per app, as bear-hud.lua does for live slots
+-- The page shows each rcmd app's icon, Bear's, and BTT's and Raycast's on its filters; saved once per
+-- app, as bear-hud.lua does for live slots
 local function saveIcons()
   local census = hs.json.read(CENSUS_JSON)
   if not census then return end
-  local wanted = {BEAR}
+  local wanted = {BEAR, table.unpack(FILTER_ICONS)}
   for _, r in ipairs(census.rcmd and census.rcmd.keys or {}) do table.insert(wanted, r.bundleID) end
   hs.fs.mkdir(iconDir)
   for _, bundleID in ipairs(wanted) do

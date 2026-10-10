@@ -9,8 +9,9 @@
 // The two bracketed options are for tests: watch ⌘ plus another key, and take another
 // app's window at the switcher's level as the switcher.
 //
-// Both event taps are listen-only, so they can neither delay nor drop a key. They see
+// Its three event taps are listen-only, so they can neither delay nor drop a key. They see
 // every key-down, but only Tab pressed with ⌘ is looked at, and nothing typed is kept.
+// When another app's tap holds the key, the watcher names that app (see "Holds" below).
 
 import AppKit
 import ApplicationServices
@@ -235,19 +236,41 @@ func bit(_ type: CGEventType) -> CGEventMask { CGEventMask(1) << type.rawValue }
 
 func microseconds(_ x: Float) -> Int { x.isFinite ? Int(x) : -1 }
 
-// Every event tap on key events, as in inputprobe.swift, plus how slow each one is
-func tapCensus() -> [[String: Any]] {
+// Every event tap on key events, as in inputprobe.swift
+func tapList() -> [CGEventTapInformation] {
   var count: UInt32 = 0
   guard CGGetEventTapList(0, nil, &count) == .success else { return [] }
   var list = [CGEventTapInformation](repeating: CGEventTapInformation(), count: Int(count))
   guard CGGetEventTapList(count, &list, &count) == .success else { return [] }
   let keyEvents = bit(.keyDown) | bit(.keyUp) | bit(.flagsChanged)
+  return list.prefix(Int(count)).filter { $0.eventsOfInterest & keyEvents != 0 }
+}
+
+func pointName(_ tap: CGEventTapInformation) -> String {
+  let point = Int(tap.tapPoint.rawValue)
   let points = ["hid", "session", "annotated"]
-  return list.prefix(Int(count)).filter { $0.eventsOfInterest & keyEvents != 0 }.map { tap in
-    let point = Int(tap.tapPoint.rawValue)
-    return [
+  return point < points.count ? points[point] : "point \(point)"
+}
+
+// The taps that can hold a key before the session's end: other apps' enabled filters at the
+// HID and session points (annotated taps come after it)
+func filtersAhead(enabledOnly: Bool = true) -> [CGEventTapInformation] {
+  let me = getpid()
+  return tapList().filter { tap in
+    tap.options != .listenOnly && tap.tappingProcess != me && (tap.enabled || !enabledOnly) &&
+      ["hid", "session"].contains(pointName(tap))
+  }
+}
+
+// Each tap and how slow macOS says it is. Those figures can't name a stalled app: after a
+// stall they jump on every tap at once, upstream of it too (Siri's read 3.1 s at 15:12 on
+// 2026-10-09, while Hammerspoon alone was frozen). The "Holds" section below can.
+func tapCensus() -> [[String: Any]] {
+  tapList().map { tap in
+    [
       "process": processName(tap.tappingProcess),
-      "point": point < points.count ? points[point] : "point \(point)",
+      "pid": Int(tap.tappingProcess),
+      "point": pointName(tap),
       "listenOnly": tap.options == .listenOnly,
       "enabled": tap.enabled,
       "avgLatencyUs": microseconds(tap.avgUsecLatency),
@@ -462,11 +485,226 @@ func excerptAltTabLog(pressedAt: Date, judgedAt: Date, episodeStarted: String, d
   }
 }
 
+// MARK: - Holds: which app kept the key
+
+// A filtering event tap holds every key until its callback returns, so one stalled app delays
+// or kills ⌘⇥ for everyone. Each watched press is followed through the watcher's three taps:
+// the HID tap (first of all), the session's first tap (once the HID filters let it go) and the
+// session's last. One still on its way after 0.1 s gets every app with a filter ahead of the
+// session's end asked, every 0.1 s, whether its main thread is free: their taps run there, and
+// so do Accessibility requests, which a free main thread answers in a few milliseconds. The app
+// that answers late or not at all, among the filters where the key waits, is the one holding it.
+
+let heldAfter = 0.3           // a key this late at the session's end counts as held
+let askTimeout: Float = 0.25
+let busyAfter = 0.1           // a free main thread answers in 0.1–0.3 ms, once asked before (see warmUp)
+
+// The watcher's own taps, by where they sit (made under "Taps and startup")
+enum TapPlace: Int {
+  case hid = 1, sessionHead, sessionTail
+  var name: String {
+    switch self {
+    case .hid: return "hid"
+    case .sessionHead: return "session head"
+    case .sessionTail: return "session end"
+    }
+  }
+}
+struct OwnTap { let port: CFMachPort; let source: CFRunLoopSource }
+var taps: [TapPlace: OwnTap] = [:]
+
+// One watched press on its way, matched at each tap by the timestamp the event carries
+final class Transit {
+  let stamp: CGEventTimestamp
+  var hidAt: TimeInterval?
+  var sessionHeadAt: TimeInterval?
+  var arrivedAt: TimeInterval?   // at the session's end
+  var restamped = false          // came on with a new timestamp, matched by order
+  var askedFrom: TimeInterval?
+  var asked: [pid_t: Asked] = [:]
+  var verdict: String?           // its gesture's, once judged: "dead", "worked" or "cut short"
+  init(_ stamp: CGEventTimestamp) { self.stamp = stamp }
+  func waited(_ now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> TimeInterval {
+    guard let start = hidAt else { return 0 }
+    return (arrivedAt ?? now) - start
+  }
+}
+
+// One app with a filter ahead of the session's end, and how it answered while the key waited
+final class Asked {
+  let name: String
+  var points: Set<String>
+  var quick = 0, busy = 0, unaskable = 0
+  var busyFrom: TimeInterval?, busyTo: TimeInterval?
+  init(_ name: String, _ point: String) { self.name = name; points = [point] }
+  var busyFor: TimeInterval { busyFrom.flatMap { from in busyTo.map { $0 - from } } ?? 0 }
+}
+
+var transits: [Transit] = []  // the latest few, newest last
+
+// The press a sighting belongs to: the one with its timestamp. A filter that holds a key past
+// its turn hands on a copy with a new timestamp (a test tap holding F20 1.5 s, 2026-10-09), so
+// failing that, by order: the oldest press from the last 10 s not yet seen at this tap. Made
+// here when the HID tap's sighting hasn't been handled yet.
+func transit(for s: Seen, create: Bool) -> Transit? {
+  if let t = transits.last(where: { $0.stamp == s.stamp }) { return t }
+  if s.place != .hid, let t = transits.first(where: { t in
+    guard let start = t.hidAt, s.at - start < 10, t.stamp < s.stamp else { return false }
+    return s.place == .sessionHead ? t.sessionHeadAt == nil : t.arrivedAt == nil
+  }) {
+    t.restamped = true
+    return t
+  }
+  guard create else { return nil }
+  let t = Transit(s.stamp)
+  transits.append(t)
+  if transits.count > 20 { transits.removeFirst() }
+  return t
+}
+
+func ask(_ pid: pid_t) -> (start: TimeInterval, end: TimeInterval, error: AXError) {
+  let app = AXUIElementCreateApplication(pid)
+  AXUIElementSetMessagingTimeout(app, askTimeout)
+  var value: CFTypeRef?
+  let start = ProcessInfo.processInfo.systemUptime
+  let error = AXUIElementCopyAttributeValue(app, kAXRoleAttribute as CFString, &value)
+  return (start, ProcessInfo.processInfo.systemUptime, error)
+}
+
+// The first question to an app takes 17–66 ms (measured 2026-10-09, all six filter apps),
+// which would read as busy; so each is asked once whenever the watcher's taps are made
+func warmUp() {
+  for pid in Set(filtersAhead().map { $0.tappingProcess }) {
+    DispatchQueue.global(qos: .utility).async { _ = ask(pid) }
+  }
+}
+
+func startAsking(_ t: Transit) {
+  guard t.arrivedAt == nil, t.askedFrom == nil else { return }
+  t.askedFrom = ProcessInfo.processInfo.systemUptime
+  for tap in filtersAhead() {
+    if let a = t.asked[tap.tappingProcess] {
+      a.points.insert(pointName(tap))
+    } else {
+      t.asked[tap.tappingProcess] = Asked(processName(tap.tappingProcess), pointName(tap))
+    }
+  }
+  askRound(t)
+}
+
+// Every app at once, off the main thread; again 0.1 s after the round, until the key gets
+// through or 4 s have passed
+func askRound(_ t: Transit) {
+  let group = DispatchGroup()
+  let lock = NSLock()
+  var answers: [(pid: pid_t, start: TimeInterval, end: TimeInterval, error: AXError)] = []
+  for pid in t.asked.keys {
+    DispatchQueue.global(qos: .userInitiated).async(group: group) {
+      let a = ask(pid)
+      lock.lock()
+      answers.append((pid, a.start, a.end, a.error))
+      lock.unlock()
+    }
+  }
+  group.notify(queue: .main) {
+    for a in answers {
+      guard let app = t.asked[a.pid] else { continue }
+      if a.end - a.start >= busyAfter {
+        app.busy += 1
+        app.busyFrom = app.busyFrom ?? a.start
+        app.busyTo = a.end
+      } else if a.error == .success {
+        app.quick += 1
+      } else {
+        app.unaskable += 1  // no Accessibility in it
+      }
+    }
+    if t.arrivedAt == nil, t.waited() < 4 {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { askRound(t) }
+    }
+  }
+}
+
+struct Hold {
+  let waited: TimeInterval
+  let arrived: Bool
+  let segment: String?  // "hid" or "session": the filters the key waited in, as the session's first tap tells
+  let named: [Asked]    // who held it
+  let inferred: Bool    // named as the one app there that couldn't be asked, every other answering
+  let cleared: [Asked]  // answered at once every time
+  let fields: [String: Any]
+}
+
+func seconds(_ t: TimeInterval) -> String { String(format: "%.1f s", t) }
+
+func analyze(_ t: Transit) -> Hold {
+  let now = ProcessInfo.processInfo.systemUptime
+  var segment: String?
+  if taps[.sessionHead] != nil, let start = t.hidAt {
+    if let head = t.sessionHeadAt {
+      segment = head - start >= (t.arrivedAt ?? now) - head ? "hid" : "session"
+    } else {
+      segment = "hid"
+    }
+  }
+  let all = t.asked.values.sorted { $0.name < $1.name }
+  let here = all.filter { a in segment.map { a.points.contains($0) } ?? true }
+  var named = here.filter { $0.busy > 0 }.sorted { $0.busyFor > $1.busyFor }
+  var inferred = false
+  if named.isEmpty {
+    let unanswered = here.filter { $0.quick == 0 }
+    if unanswered.count == 1 {
+      named = unanswered
+      inferred = true
+    }
+  }
+  let cleared = here.filter { $0.busy == 0 && $0.quick > 0 }
+  var fields: [String: Any] = [
+    "waitedMs": Int(t.waited(now) * 1000), "arrived": t.arrivedAt != nil, "segment": orNull(segment),
+    "named": named.map { $0.name }, "inferred": inferred, "restamped": t.restamped,
+  ]
+  if let start = t.hidAt {
+    fields["sessionHeadMs"] = orNull(t.sessionHeadAt.map { Int(($0 - start) * 1000) })
+    fields["askedAfterMs"] = orNull(t.askedFrom.map { Int(($0 - start) * 1000) })
+  }
+  fields["asked"] = all.map { a -> [String: Any] in
+    ["process": a.name, "points": a.points.sorted(), "quick": a.quick, "busy": a.busy,
+     "busyMs": Int(a.busyFor * 1000), "unaskable": a.unaskable]
+  }
+  return Hold(waited: t.waited(now), arrived: t.arrivedAt != nil, segment: segment, named: named,
+              inferred: inferred, cleared: cleared, fields: fields)
+}
+
+// The gesture's first press whose key waited, if any
+func hold(_ g: Gesture) -> Hold? {
+  g.transits.first { $0.waited() >= heldAfter }.map(analyze)
+}
+
+func heldWords(_ h: Hold) -> (detail: String, alert: String) {
+  let place = ["hid": "in the HID taps", "session": "in the session taps"][h.segment ?? ""] ?? "in the taps"
+  let waited = h.arrived ? "waited \(seconds(h.waited)) \(place)" : "was still waiting \(place) after \(seconds(h.waited))"
+  let cleared = h.cleared.map { $0.name }
+  let others = cleared.isEmpty ? "" : "; the other apps there answered at once (\(cleared.joined(separator: ", ")))"
+  if h.named.count == 1, let who = h.named.first {
+    let why = h.inferred ? "it is the one app there that couldn't be asked\(others)"
+                         : "its main thread was stuck for \(seconds(who.busyFor))\(others)"
+    return ("\(who.name) held the key: it \(waited), and \(why)", "\(who.name) held the key \(seconds(h.waited))")
+  }
+  if h.named.count > 1 {
+    let list = h.named.map { "\($0.name) \(seconds($0.busyFor))" }.joined(separator: ", ")
+    return ("the key \(waited), and more than one app there was stuck: \(list)",
+            "held by \(h.named.map { $0.name }.joined(separator: " or "))")
+  }
+  let asked = cleared.isEmpty ? "" : " (\(cleared.joined(separator: ", ")))"
+  return ("the key \(waited), but every app with a filter there answered at once\(asked): a background thread in one of them, or the window server",
+          "the key waited \(seconds(h.waited)) \(place)")
+}
+
 // MARK: - Watching presses
 
 // One hold of ⌘ with one or more ⇥ in it
 final class Gesture {
-  let started = ProcessInfo.processInfo.systemUptime
+  let started: TimeInterval
   let front: Front
   let atPress: Overlay  // what AltTab's Exposé check read when the key went down
   let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName
@@ -475,7 +713,9 @@ final class Gesture {
   var strippedTabs = 0  // ⇥ that reached the session without the ⌘ the HID tap saw
   var strippedFlags: CGEventFlags?
   var releasedAt: TimeInterval?
-  init(_ windows: [WindowInfo]) {
+  var transits: [Transit] = []
+  init(_ windows: [WindowInfo], at: TimeInterval) {
+    started = at
     front = frontmost(windows)
     atPress = overlay(windows)
   }
@@ -488,14 +728,13 @@ final class Episode {
   var alerted = false
 }
 
-var hidTap: CFMachPort?
-var sessionTap: CFMachPort?
 var gesture: Gesture?
 var gestureTimer: Timer?
 var episode: Episode?
-var okPresses = 0, deadPresses = 0, cutShort = 0
+var okPresses = 0, deadPresses = 0, cutShort = 0, latePresses = 0
 
-func tabPressed(atHID: Bool, flags: CGEventFlags) {
+// at: when the tap saw it, which a busy main thread doesn't change
+func tabPressed(atHID: Bool, flags: CGEventFlags, at: TimeInterval) {
   // ⇥ after ⌘ came up is the next gesture (⌘⇥ ⌘⇥ to flip back and forth). Judged now,
   // the last one is proven only by a change already visible; without one it isn't judged
   // at all, since a dead ⌘⇥ pressed again and again still gets its last press judged.
@@ -503,14 +742,14 @@ func tabPressed(atHID: Bool, flags: CGEventFlags) {
     if let how = proof(g, onScreenWindows()) {
       conclude(g, worked: how)
     } else {
-      endGesture()
+      endGesture("cut short")
       cutShort += 1
     }
   }
   if gesture == nil {
     // ⌘⇧⇥ only means something once the switcher is up
     guard !flags.contains(.maskShift), isTest || running(altTabBundle) != nil else { return }
-    gesture = Gesture(onScreenWindows())
+    gesture = Gesture(onScreenWindows(), at: at)
     gestureTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in tick() }
   }
   guard let g = gesture else { return }
@@ -523,10 +762,10 @@ func tabPressed(atHID: Bool, flags: CGEventFlags) {
   }
 }
 
-// ⌘ coming up, from the session tap, so a quick ⌘⇥ ⌘⇥ isn't read as one long hold
-func flagsChanged(_ flags: CGEventFlags) {
+// ⌘ coming up, from the session's last tap, so a quick ⌘⇥ ⌘⇥ isn't read as one long hold
+func flagsChanged(_ flags: CGEventFlags, at: TimeInterval) {
   if let g = gesture, g.releasedAt == nil, !flags.contains(.maskCommand) {
-    g.releasedAt = ProcessInfo.processInfo.systemUptime
+    g.releasedAt = at
   }
 }
 
@@ -554,15 +793,25 @@ func tick() {
   if now - g.started >= 6 { conclude(g, worked: nil, stillHeld: true) }
 }
 
-func endGesture() {
+// Its presses keep the verdict: a key that comes through after it starts no gesture of its own
+func endGesture(_ verdict: String) {
+  for t in gesture?.transits ?? [] where t.verdict == nil { t.verdict = verdict }
   gestureTimer?.invalidate()
   gestureTimer = nil
   gesture = nil
 }
 
 func conclude(_ g: Gesture, worked how: String?, stillHeld: Bool = false) {
-  endGesture()
+  endGesture(how == nil ? "dead" : "worked")
   if let how { pressWorked(g, how) } else { pressWasDead(g, stillHeld: stillHeld) }
+}
+
+// A key held up at the session's end after its press was judged dead
+func cameThroughLate(_ t: Transit) {
+  guard t.verdict == "dead", t.waited() >= heldAfter else { return }
+  let h = analyze(t)
+  record("held-arrived", ["hold": h.fields,
+                          "summary": "the dead \(chord) came through \(seconds(h.waited)) late · \(heldWords(h).detail)"])
 }
 
 func pressWorked(_ g: Gesture, _ how: String) {
@@ -570,6 +819,10 @@ func pressWorked(_ g: Gesture, _ how: String) {
   if isTest {
     record("worked", ["how": how, "frontBefore": orNull(g.frontApp),
                       "frontNow": orNull(NSWorkspace.shared.frontmostApplication?.localizedName)])
+  }
+  if let h = hold(g) {
+    latePresses += 1
+    record("late", ["hold": h.fields, "summary": "\(chord) worked, late · \(heldWords(h).detail)"])
   }
   guard let e = episode else { return }
   episode = nil
@@ -593,6 +846,7 @@ struct Scene {
   let frontApp: NSRunningApplication?
   let modifiers: [String: Any]
   let taps: [[String: Any]]
+  let hold: Hold?
   var ax: [String: Any]?
   var fullscreen: Bool?
   var exception: String?
@@ -614,7 +868,7 @@ func diagnose(_ s: Scene) -> Suspect {
   let flags: CGEventFlags = g.sessionFlags ?? g.hidFlags ?? []
   let keys = s.modifiers["hidKeysDown"] as? [String] ?? []
   let held = keys.isEmpty ? "nothing" : keys.joined(separator: " ")
-  let unseen = hidTap != nil && g.hidTabs > 0 && g.sessionTabs == 0
+  let unseen = taps[.hid] != nil && g.hidTabs > 0 && g.sessionTabs == 0
   if blocksAltTab(g.atPress.verdict) {
     return gestureSuspect(g.atPress, when: "as the key went down", unseen: unseen)
   }
@@ -623,6 +877,12 @@ func diagnose(_ s: Scene) -> Suspect {
     return Suspect(code: "modifier",
                    detail: "⌘ was taken off the key between the HID tap and the session's end: it arrived as \(arrived == "none" ? "plain" : arrived) ⇥",
                    alert: "⌘ was stripped off the key before any app saw it")
+  }
+  // Still held when judged, or held a second or more: the app holding it is the cause. (A key
+  // through sooner still reached AltTab with ⌘ on it; that is only noted.)
+  if let hold = s.hold, !hold.arrived || hold.waited >= 1 {
+    let words = heldWords(hold)
+    return Suspect(code: "held", detail: words.detail, alert: words.alert)
   }
   if unseen {
     // Filtering taps at the HID point, or at the session point ahead of ours (we are last there)
@@ -682,7 +942,8 @@ func pressFields(_ g: Gesture, stillHeld: Bool) -> [String: Any] {
   press["heldMs"] = Int((end - g.started) * 1000)
   press["stillHeld"] = stillHeld
   press["tabs"] = max(g.hidTabs, g.sessionTabs)
-  press["seenAtHID"] = hidTap == nil ? NSNull() : NSNumber(value: g.hidTabs > 0)
+  press["seenAtHID"] = taps[.hid] == nil ? NSNull() : NSNumber(value: g.hidTabs > 0)
+  press["waitedMs"] = g.transits.map { Int($0.waited() * 1000) }  // from the HID tap to the session's end, per ⇥
   press["reachedSession"] = g.sessionTabs > 0
   press["hidFlags"] = g.hidFlags.map { modifiers($0) } ?? "unseen"
   press["sessionFlags"] = g.sessionFlags.map { modifiers($0) } ?? "unseen"
@@ -711,6 +972,7 @@ func sceneFields(_ s: Scene) -> [String: Any] {
   fields["front"] = front
   fields["modifiers"] = s.modifiers
   fields["taps"] = s.taps
+  fields["hold"] = orNull(s.hold?.fields)
   fields["displays"] = displayList()
   fields["stageManager"] = stageManager()
   fields["secureInput"] = secureInput()
@@ -733,7 +995,8 @@ func pressWasDead(_ g: Gesture, stillHeld: Bool) {
   let altTabWindows: [[String: Any]] = windows.filter { owner($0) == altTab?.processIdentifier }.map { describe($0) }
   let judged = Scene(gesture: g, stillHeld: stillHeld, seen: overlay(windows), altTab: altTab,
                      altTabWindows: altTabWindows, frontApp: NSWorkspace.shared.frontmostApplication,
-                     modifiers: modifierState(), taps: tapCensus(), ax: nil, fullscreen: nil, exception: nil)
+                     modifiers: modifierState(), taps: tapCensus(), hold: hold(g), ax: nil, fullscreen: nil,
+                     exception: nil)
   // Accessibility answers can take up to their timeout: off the main thread
   let altTabPid: pid_t? = altTab?.processIdentifier
   let frontPid: pid_t? = judged.frontApp?.processIdentifier
@@ -758,7 +1021,9 @@ func pressWasDead(_ g: Gesture, stillHeld: Bool) {
       if alertNow { e.alerted = true }
       fields["alertNow"] = alertNow
       let place = e.dead == 1 ? "starts an episode" : "#\(e.dead) of this episode"
-      fields["summary"] = "dead \(chord) (\(place)) · \(suspect.detail)"
+      var late = ""
+      if let h = scene.hold, suspect.code != "held" { late = " · its key came through late too: \(heldWords(h).detail)" }
+      fields["summary"] = "dead \(chord) (\(place)) · \(suspect.detail)\(late)"
       record("dead", fields)
       if e.dead == 1, let altTabPid { sampleAltTab(altTabPid, episodeStarted: started) }
       excerptAltTabLog(pressedAt: pressedAt, judgedAt: judgedAt, episodeStarted: started, deadInEpisode: e.dead)
@@ -811,49 +1076,153 @@ var tapsChecked = false
 // Once per run, after some typing (synthetic keys posted to the session never pass the HID tap)
 func checkTapsOnce() {
   tapsChecked = true
-  let verdict = hidTap != nil && hidKeyDowns == 0 ? "the HID tap saw none: a swallowed key can't be told apart" : "both taps see typing"
+  let verdict = taps[.hid] != nil && hidKeyDowns == 0 ? "the HID tap saw none: a swallowed key can't be told apart" : "both taps see typing"
   record("taps-live", ["hidKeyDowns": hidKeyDowns, "sessionKeyDowns": sessionKeyDowns,
                        "summary": "first key-downs: HID \(hidKeyDowns), session \(sessionKeyDowns) · \(verdict)"])
 }
 
+// What a tap saw, noted on the tap thread and handled on main
+struct Seen {
+  let type: CGEventType
+  let place: TapPlace
+  let at: TimeInterval
+  let flags: CGEventFlags
+  let stamp: CGEventTimestamp
+  let keycode: Int64
+  let autorepeat: Bool
+}
+
+func handle(_ s: Seen) {
+  if s.type == .flagsChanged {
+    if s.place == .sessionTail { flagsChanged(s.flags, at: s.at) }
+    return
+  }
+  if s.place == .hid { hidKeyDowns += 1 }
+  if s.place == .sessionTail {
+    sessionKeyDowns += 1
+    if !tapsChecked, sessionKeyDowns >= 20 { checkTapsOnce() }
+  }
+  guard s.keycode == watchedKey, !s.autorepeat else { return }
+  let command = s.flags.contains(.maskCommand)
+  switch s.place {
+  case .hid:
+    guard command, let t = transit(for: s, create: true) else { return }
+    t.hidAt = s.at
+    tabPressed(atHID: true, flags: s.flags, at: s.at)
+    guard let g = gesture else { return }  // AltTab not running, or ⌘⇧⇥ with no switcher up
+    g.transits.append(t)
+    // Not through by 0.1 s after the press: ask who is holding it
+    let wait = max(0, s.at + 0.1 - ProcessInfo.processInfo.systemUptime)
+    DispatchQueue.main.asyncAfter(deadline: .now() + wait) { startAsking(t) }
+  case .sessionHead:
+    transit(for: s, create: command)?.sessionHeadAt = s.at
+  case .sessionTail:
+    let t = transit(for: s, create: command)
+    t?.arrivedAt = s.at
+    // A press already judged dead, held until now: it starts no gesture of its own
+    if let t, t.verdict != nil { return cameThroughLate(t) }
+    if command {
+      tabPressed(atHID: false, flags: s.flags, at: s.at)
+    } else if let g = gesture, g.hidTabs > g.sessionTabs + g.strippedTabs {
+      // The HID tap saw ⌘ on this ⇥, the session's end doesn't: a tap in between took ⌘ away
+      g.strippedTabs += 1
+      g.strippedFlags = g.strippedFlags ?? s.flags
+    }
+  }
+}
+
+func reenable(_ place: TapPlace, why: String) {
+  // An enabled tap here means the call came from one seatTaps retired
+  guard let tap = taps[place], !CGEvent.tapIsEnabled(tap: tap.port) else { return }
+  CGEvent.tapEnable(tap: tap.port, enable: true)
+  if Date().timeIntervalSince(lastReenableRecord) > 600 {
+    lastReenableRecord = Date()
+    record("tap-reenabled", ["tap": place.name, "why": why,
+                             "summary": "macOS switched the \(place.name) tap off (\(why)); switched back on"])
+  }
+}
+
 let tapCallback: CGEventTapCallBack = { _, type, event, refcon in
-  let atHID = refcon != nil  // only the HID tap carries a refcon
+  let at = ProcessInfo.processInfo.systemUptime
+  let place = TapPlace(rawValue: Int(bitPattern: refcon)) ?? .sessionTail
   switch type {
-  case .flagsChanged:
-    if !atHID { flagsChanged(event.flags) }
-  case .keyDown:
-    if atHID { hidKeyDowns += 1 } else { sessionKeyDowns += 1 }
-    if !atHID, !tapsChecked, sessionKeyDowns >= 20 { checkTapsOnce() }
-    if event.getIntegerValueField(.keyboardEventKeycode) == watchedKey,
-       event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
-      if event.flags.contains(.maskCommand) {
-        tabPressed(atHID: atHID, flags: event.flags)
-      } else if !atHID, let g = gesture, g.hidTabs > g.sessionTabs + g.strippedTabs {
-        // The HID tap saw ⌘ on this ⇥, the session doesn't: a tap in between took ⌘ away
-        g.strippedTabs += 1
-        g.strippedFlags = g.strippedFlags ?? event.flags
-      }
-    }
+  case .keyDown, .flagsChanged:
+    let seen = Seen(type: type, place: place, at: at, flags: event.flags, stamp: event.timestamp,
+                    keycode: event.getIntegerValueField(.keyboardEventKeycode),
+                    autorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0)
+    DispatchQueue.main.async { handle(seen) }
   case .tapDisabledByTimeout, .tapDisabledByUserInput:
-    if let tap = atHID ? hidTap : sessionTap { CGEvent.tapEnable(tap: tap, enable: true) }
-    if Date().timeIntervalSince(lastReenableRecord) > 600 {
-      lastReenableRecord = Date()
-      record("tap-reenabled", ["tap": atHID ? "hid" : "session",
-                               "why": type == .tapDisabledByTimeout ? "timeout" : "user input"])
-    }
+    let why = type == .tapDisabledByTimeout ? "timeout" : "user input"
+    DispatchQueue.main.async { reenable(place, why: why) }
   default:
     break
   }
   return Unmanaged.passUnretained(event)
 }
 
-func makeTap(_ point: CGEventTapLocation, _ place: CGEventTapPlacement, _ refcon: UnsafeMutableRawPointer?) -> CFMachPort? {
-  guard let tap = CGEvent.tapCreate(tap: point, place: place, options: .listenOnly,
-                                    eventsOfInterest: bit(.keyDown) | bit(.flagsChanged),
-                                    callback: tapCallback, userInfo: refcon) else { return nil }
-  CFRunLoopAddSource(CFRunLoopGetMain(), CFMachPortCreateRunLoopSource(nil, tap, 0), .commonModes)
-  CGEvent.tapEnable(tap: tap, enable: true)
-  return tap
+// The taps run on a thread of their own, so a busy main thread (reading AltTab's log, listing
+// windows) can't make a key look late: each callback notes the time and hands the rest to main
+var tapLoop: CFRunLoop?
+let tapLoopReady = DispatchSemaphore(value: 0)
+let tapThread = Thread {
+  tapLoop = CFRunLoopGetCurrent()
+  // A timer that never fires keeps the loop running while it has no tap
+  CFRunLoopAddTimer(tapLoop, CFRunLoopTimerCreateWithHandler(nil, .greatestFiniteMagnitude, 0, 0, 0) { _ in }, .commonModes)
+  tapLoopReady.signal()
+  CFRunLoopRun()
+}
+tapThread.qualityOfService = .userInteractive
+tapThread.start()
+tapLoopReady.wait()
+
+func makeTap(_ point: CGEventTapLocation, _ placement: CGEventTapPlacement, _ place: TapPlace) -> OwnTap? {
+  guard let port = CGEvent.tapCreate(tap: point, place: placement, options: .listenOnly,
+                                     eventsOfInterest: bit(.keyDown) | bit(.flagsChanged), callback: tapCallback,
+                                     userInfo: UnsafeMutableRawPointer(bitPattern: place.rawValue)),
+        let source = CFMachPortCreateRunLoopSource(nil, port, 0) else { return nil }
+  CFRunLoopAddSource(tapLoop, source, .commonModes)
+  CGEvent.tapEnable(tap: port, enable: true)
+  CFRunLoopWakeUp(tapLoop)
+  return OwnTap(port: port, source: source)
+}
+
+var seatedAmong: Set<UInt32> = []  // the other apps' filters ahead when ours were made
+var filterApps: Set<String> = []   // every app seen with one, so only a newcomer is logged
+
+// The HID tap sees a press first, the session's first tap once the HID filters let it go, its
+// last after every other tap had its turn. A filter made later may sit ahead of the first two
+// or behind the last, so then all three are made again: after an app's update or relaunch,
+// and whenever stepper's mousemove.lua remakes its flags tap (after 10 s without its events).
+func seatTaps() {
+  for tap in taps.values {
+    CFRunLoopRemoveSource(tapLoop, tap.source, .commonModes)
+    CFMachPortInvalidate(tap.port)
+  }
+  taps = [:]
+  taps[.hid] = makeTap(.cghidEventTap, .headInsertEventTap, .hid)
+  taps[.sessionHead] = makeTap(.cgSessionEventTap, .headInsertEventTap, .sessionHead)
+  taps[.sessionTail] = makeTap(.cgSessionEventTap, .tailAppendEventTap, .sessionTail)
+  let filters = filtersAhead(enabledOnly: false)
+  seatedAmong = Set(filters.map { $0.eventTapID })
+  filterApps.formUnion(filters.map { processName($0.tappingProcess) })
+  warmUp()
+}
+
+// Between gestures, from the 2 s poll
+func reseatIfNeeded() {
+  guard gesture == nil else { return }
+  let filters = filtersAhead(enabledOnly: false)
+  let added = filters.filter { !seatedAmong.contains($0.eventTapID) }
+  guard !added.isEmpty else {
+    seatedAmong = Set(filters.map { $0.eventTapID })  // gone ones don't move ours
+    return
+  }
+  let newcomers = Set(added.map { processName($0.tappingProcess) }).subtracting(filterApps).sorted()
+  seatTaps()
+  if !newcomers.isEmpty {
+    record("taps-reseated", ["new": newcomers,
+                             "summary": "a key filter from \(newcomers.joined(separator: ", ")), new this run: the watcher's taps were made again, to stay first and last"])
+  }
 }
 
 // One watcher at a time: a Hammerspoon reload starts a new one, which retires the old
@@ -869,17 +1238,15 @@ func retirePrevious() -> Int? {
 let replaced = retirePrevious()
 try? "\(getpid())\n".write(toFile: pidPath, atomically: true, encoding: .utf8)
 
-// The HID tap sees a press first, the session tap after every other tap had its turn:
-// a press seen only by the first was swallowed in between
-hidTap = makeTap(.cghidEventTap, .headInsertEventTap, UnsafeMutableRawPointer(bitPattern: 1))
-sessionTap = makeTap(.cgSessionEventTap, .tailAppendEventTap, nil)
-guard hidTap != nil || sessionTap != nil else {
+// A press seen by the HID tap and never by the session's end was swallowed in between
+seatTaps()
+guard taps[.hid] != nil || taps[.sessionTail] != nil else {
   record("error", ["summary": "no event tap could be created: Hammerspoon needs Accessibility (or Input Monitoring)"])
   exit(3)
 }
 
 let altTabAtStart = running(altTabBundle)
-let tapNames = [hidTap != nil ? "hid" : nil, sessionTap != nil ? "session" : nil].compactMap { $0 }.joined(separator: "+")
+let tapNames = [TapPlace.hid, .sessionHead, .sessionTail].filter { taps[$0] != nil }.map { $0.name }.joined(separator: " + ")
 let altTabLogging: Bool? = altTabAtStart.map { altTabRunsWithLog($0.processIdentifier) }
 let loggingNote = altTabLogging == true ? "its own log on" : altTabLogging == false ? "its own log off" : "-"
 record("start", [
@@ -893,15 +1260,19 @@ record("start", [
 DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"),
                                                     object: nil, queue: .main) { _ in lastUnlock = Date() }
 
-Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in pollOverlay() }
+Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+  pollOverlay()
+  reseatIfNeeded()
+}
 
 // An hourly heartbeat while the keyboard is in use
 Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in
   guard sessionKeyDowns + hidKeyDowns > 0 else { return }
-  record("tally", ["ok": okPresses, "dead": deadPresses, "cutShort": cutShort,
+  record("tally", ["ok": okPresses, "late": latePresses, "dead": deadPresses, "cutShort": cutShort,
                    "hidKeyDowns": hidKeyDowns, "sessionKeyDowns": sessionKeyDowns,
-                   "summary": "past hour: \(okPresses) \(chord) worked, \(deadPresses) dead, \(cutShort) cut short by the next · key-downs seen: HID \(hidKeyDowns), session \(sessionKeyDowns)"])
+                   "summary": "past hour: \(okPresses) \(chord) worked (\(latePresses) late), \(deadPresses) dead, \(cutShort) cut short by the next · key-downs seen: HID \(hidKeyDowns), session \(sessionKeyDowns)"])
   okPresses = 0
+  latePresses = 0
   deadPresses = 0
   cutShort = 0
   hidKeyDowns = 0

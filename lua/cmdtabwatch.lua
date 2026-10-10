@@ -1,8 +1,9 @@
 -- Dead ⌘⇥ forensics for the AltTab trial. Now and then ⌘⇥ does nothing at all: no
 -- AltTab switcher, no switch, while the rest of the Mac is fine. cmdtabwatch.swift
 -- watches every ⌘⇥ through listen-only taps and logs each press that did nothing,
--- with the evidence that tells the suspects apart. This module builds it, keeps it
--- running, and puts its findings in the console (and an alert per episode).
+-- with the evidence that tells the suspects apart; when another app's event tap held
+-- the key, it names that app ("Hammerspoon held the key 1.2 s"). This module builds it,
+-- keeps it running, and puts its findings in the console (and an alert per episode).
 -- Notes: https://fleet.internal/features/F040-tiptop-software-infrastructure/subfeatures/AltTab/
 
 local M = {}
