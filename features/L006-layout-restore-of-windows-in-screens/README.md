@@ -64,6 +64,8 @@ Every save ([layout.lua](../../lua/layout.lua) `M.save()`) captures:
 
 **Filters:** Ghost windows (tooltips, popovers, find bars) are excluded via `isGhostWindow()` — see [ghost windows deep dive](2026-03-22-fix-ghost-windows.md).
 
+**Off the main thread:** ==🟢[layoutsnap.swift](../../lua/layoutsnap.swift) reads the windows in its own process==, apps in parallel, each Accessibility call capped at 1 s, so a busy app can't stall stepper's hotkeys. Hammerspoon's main thread only files the result (6–12 ms). An app that doesn't answer keeps its last saved windows (`save-kept`). A save that would write what the file already says writes nothing. The save before sleep reads in Hammerspoon instead, so it finishes before the system sleeps. `layout.saveStats()` shows how saves went since load. See [the changelog](../../changelog/2026-10-09-layout-saves-off-the-main-thread.md).
+
 **Position protection during save:** After a reconnection, if a window is still on the wrong screen (macOS hasn't been corrected yet), the save substitutes the ground-truth position from the protected entries instead of recording the wrong position.
 
 ### Restore pipeline
@@ -110,8 +112,8 @@ After reconnection or wake-with-drift, all saved entries become "ground truth" f
 ### Backup rings
 
 Two rotating backup rings in [data/layout-backups/](../../data/layout-backups/):
-- **1-minute ring**: 10 slots (~10 min history), rotated on every save
-- **10-minute ring**: 10 slots (~100 min history), rotated by separate timer
+- **1-minute ring**: 10 slots, rotated on every save that changed something (the last 10 changes, ~10 min when the layout changes every minute)
+- **10-minute ring**: 10 slots, rotated by separate timer, only if a save changed something since its last copy
 
 Plus a **pinned manual save** (`window-layout-manual.json`) that autosave never touches.
 
@@ -127,6 +129,7 @@ Plus a **pinned manual save** (`window-layout-manual.json`) that autosave never 
 | File | Role |
 |------|------|
 | [lua/layout.lua](../../lua/layout.lua) | Main module: save, restore, gather, screen watcher, retry, protection |
+| [lua/layoutsnap.swift](../../lua/layoutsnap.swift) | Reads the windows a save records, in its own process (binary built on first use, untracked) |
 | [lua/screenswitch.lua](../../lua/screenswitch.lua) | Screen identification by spatial position, `buildScreenMap()` |
 | [lua/stepper.lua](../../lua/stepper.lua) | Caffeinate watcher (sleep/wake), hotkey bindings, `triggerSave` calls |
 | [data/window-layout.json](../../data/window-layout.json) | Current autosave file |
@@ -139,6 +142,8 @@ Plus a **pinned manual save** (`window-layout-manual.json`) that autosave never 
 |----------|-------|-----|
 | `DEBOUNCE_DELAY` | 2s | Displays appear sequentially on reconnect |
 | `PERIODIC_SAVE_INTERVAL` | 60s | Frequent enough to capture Bear note moves |
+| `SNAP_AX_TIMEOUT` | 1s | Longest the helper waits for one app's Accessibility answer |
+| `SNAP_DEADLINE` | 4s | Apps still silent by then keep their last saved windows |
 | `SAVE_TRIGGER_DELAY` | 3s | Debounce for stepper-initiated moves |
 | `WAKE_SETTLE_DELAY` | 3s | Displays/windows stabilize after wake |
 | `RETRY_INTERVAL` | 3s | Polling for missing windows |
@@ -158,9 +163,10 @@ The module logs to Hammerspoon console (check with `~/bin/hs-console.sh`). A 10-
 
 | Event | Meaning |
 |-------|---------|
-| `save` | Autosave completed — shows window count and Bear window positions |
+| `save` | Autosave wrote a changed layout — shows window count and Bear window positions (unchanged saves log nothing) |
 | `save-protected` | A window's position was substituted with ground truth during save |
 | `save-skip-ghost` | A ghost window was filtered from save |
+| `save-kept` | An app didn't answer the helper; its windows were kept as last saved |
 | `restore` | Restore completed — shows restored/skipped counts |
 | `restore-bear` | Per-Bear-window restore detail: saved position, target screen, match tiers |
 | `restore-miss` | Window in save file not found in live windows |

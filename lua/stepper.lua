@@ -1256,7 +1256,7 @@ _G._stepper.sleepWatcher = hs.caffeinate.watcher.new(function(event)
   or event == hs.caffeinate.watcher.screensDidSleep then
     print("[stepper] Sleep/screen-off — saving Bear positions + layout")
     bear_hud.saveCurrentPosition()
-    layout.autoSave()
+    layout.autoSave({now = true})  -- before the system sleeps, not in the background
   elseif event == hs.caffeinate.watcher.screensDidWake then
     print("[stepper] Wake detected — checking displays")
     inputprobe.noteWake()

@@ -135,8 +135,10 @@ S1 misbehaved twice in full runs. The first time, the user pressed stepper keys 
 
 A `[stepper] lost key-up` line now tells its own story:
 
-- ==🟣`main thread stalled …` near the press== → this mechanism. Look at what Hammerspoon was doing then: the layout save, a slow AX app.
+- ==🟣`main thread stalled …` near the press== → this mechanism. Look at what Hammerspoon was doing then: a slow AX app, a restore (the layout save no longer stalls it, see below).
 - `main thread on time` → something else lost it; the tap list on the second line is where to look.
 - `modifiers at press none` on an fn+arrow key → the press itself was handled late.
 
 The trigger is still there: stepper's slow work on the main thread. The fix makes a lost release harmless (one step, then closed); it doesn't make releases stop getting lost. If they keep turning up, the next step is to shorten the stalls, starting with the layout save's AX sweep. Review due 2026-11-07 with the other lost key-up forensics.
+
+==🟢Done the same evening==: [layout saves now read the windows in a helper process](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/changelog/2026-10-09-layout-saves-off-the-main-thread.md), 6–12 ms of main thread per save, and screenmemory no longer takes 8.7 s to load at every reload. So a stall in a report after 2026-10-09 19:05 points at something other than the save.

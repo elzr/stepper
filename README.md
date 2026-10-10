@@ -89,7 +89,7 @@ Jump to adjacent screen, focusing the window closest to where you came from.
 
 ### Layout save/restore
 
-==🔵Automatic== save and restore of window positions across multi-display setups, handling sleep, screen lock, and display reconnection.
+==🔵Automatic== save and restore of window positions across multi-display setups, handling sleep, screen lock, and display reconnection. ==🟢Saves read the windows in a helper process== ([layoutsnap.swift](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/layoutsnap.swift)), so an app slow to answer never holds up the hotkeys, and a layout that hasn't changed isn't rewritten ([changelog](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/changelog/2026-10-09-layout-saves-off-the-main-thread.md)).
 
 - **Manual save**: ctrl+option+delete — pinned, survives autosave overwrites
 - **Manual restore**: ctrl+option+shift+delete — restores pinned save, falls back to autosave

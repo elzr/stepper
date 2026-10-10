@@ -11,6 +11,8 @@ window-layout-[0-9]*.json
 features/F010-sync-display-names-in-Lunar/display-arrange
 # built by inputprobe.lua from inputprobe.swift on first use
 lua/inputprobe
+# built by layout.lua from layoutsnap.swift on first use
+lua/layoutsnap
 lost-key-ups.log
 # built by hand from keypost.swift for the 2026-10-09 probes (swiftc -O -o keypost keypost.swift)
 case-studies/2026-10-09-lost-key-up-walked-note-down/keypost

@@ -15,6 +15,7 @@ stepper/
 │   ├── screenswitch.lua  # Move window to specific display by position
 │   ├── screenmemory.lua  # Per-screen window position memory (session + persistent)
 │   ├── layout.lua        # Window layout save/restore per display config; drives F010 + the guard
+│   ├── layoutsnap.swift  # Reads the windows a save records, off Hammerspoon's main thread (binary untracked)
 │   ├── displayguard.lua  # Puts the Samsung pair back in portrait after a hub re-enumeration
 │   ├── inputprobe.lua    # Context for "[stepper] lost key-up" lines: HID key state, event taps, wake times
 │   ├── inputprobe.swift  # Its helper, built on first use (binary untracked)

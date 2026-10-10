@@ -1,7 +1,9 @@
 -- =============================================================================
 -- Window layout save / restore / gather
 -- =============================================================================
--- layout.save()          — snapshot all visible window positions (+ rotate 1m backup ring)
+-- layout.save()          — snapshot all visible window positions (+ rotate 1m backup ring);
+--                          layoutsnap.swift reads the windows, off Hammerspoon's main thread
+-- layout.saveStats()     — how saves went since load, and what they cost the main thread
 -- layout.restore()       — restore from latest autosave
 -- layout.manualSave()    — pinned save (never overwritten by autosave)
 -- layout.manualRestore() — restore from pinned save (fallback to autosave)
@@ -112,6 +114,9 @@ end
 -- Ring buffer indices per config: [screenCount] = current slot
 local ring1mIndex = {}
 local ring10mIndex = {}
+-- The 10-minute ring copies the layout only when a save changed it since the last copy,
+-- so an unchanged layout doesn't push older ones out of the ring
+local changedSince10m = true
 
 -- Module references (set during init)
 local screenswitch = nil
@@ -179,13 +184,24 @@ end
 local MIN_WINDOW_WIDTH = 100
 local MIN_WINDOW_HEIGHT = 100
 
-local function isGhostWindow(win)
-  if not win:isStandard() then return true end
-  local f = win:frame()
-  if f.w < MIN_WINDOW_WIDTH or f.h < MIN_WINDOW_HEIGHT then return true end
-  local title = win:title()
-  if title and title:find("\n") then return true end
+-- w: a window as a snapshot records it ({app, title, subrole, x, y, w, h})
+local function isGhostWindow(w)
+  if w.subrole ~= "AXStandardWindow" then return true end
+  if w.w < MIN_WINDOW_WIDTH or w.h < MIN_WINDOW_HEIGHT then return true end
+  if w.title:find("\n") then return true end
   return false
+end
+
+local function readFile(path)
+  local fh = io.open(path, "r")
+  if not fh then return nil end
+  local data = fh:read("*a")
+  fh:close()
+  return data
+end
+
+local function oneLine(s)
+  return (tostring(s or ""):gsub("%s+", " ")):sub(1, 160)
 end
 
 -- Reverse lookup: screen ID -> position name using screenswitch.buildScreenMap()
@@ -297,8 +313,12 @@ end
 -- Backup ring rotation
 -- ---------------------------------------------------------------------------
 
+-- Once per load, with hs.fs: os.execute("mkdir -p") forked a shell on every save (5 ms)
+local backupDirReady = false
 local function ensureBackupDir()
-  os.execute("mkdir -p '" .. backupDir .. "'")
+  if backupDirReady then return end
+  hs.fs.mkdir(backupDir)
+  backupDirReady = true
 end
 
 local function copyFile(src, dst)
@@ -456,54 +476,214 @@ function M.syncLunarNames()
 end
 
 -- ---------------------------------------------------------------------------
--- M.save()
+-- Window snapshots — layoutsnap.swift reads what a save records
 -- ---------------------------------------------------------------------------
+-- Saves used to read every window through Accessibility on Hammerspoon's main thread,
+-- where stepper's hotkeys run: ~200 ms a minute with every app answering, and seconds
+-- when one was busy, since each call waits up to 6 s for an answer. A main thread stuck
+-- like that is what makes macOS drop hotkey releases
+-- (case-studies/2026-10-09-lost-key-up-walked-note-down.md). The helper reads the
+-- windows in its own process, apps in parallel, and the main thread only files the
+-- result. See changelog/2026-10-09-layout-saves-off-the-main-thread.md
 
-function M.save()
-  if not activeConfig then return end
-  local df = currentDataFile()
-  if not df then return end
+local SWIFTC = "/usr/bin/swiftc"                 -- Xcode Command Line Tools
+local snapSource = scriptPath .. "layoutsnap.swift"
+local snapBinary = scriptPath .. "layoutsnap"    -- built from snapSource on demand, not tracked
+local SNAP_AX_TIMEOUT = 1     -- seconds the helper waits for one Accessibility answer
+local SNAP_DEADLINE = 4       -- seconds before it reports the apps still silent
+local SNAP_KILL_AFTER = 10    -- seconds before a helper that hasn't exited is stopped
 
-  local windows = hs.window.orderedWindows()
-  local entries = {}
-  local idToPos = buildScreenIdToPosition()
+local snapWaiting = nil       -- callbacks waiting for the snapshot in flight
+local snapBroken = nil        -- why the helper can't be built or run: saves read windows here
 
-  for _, win in ipairs(windows) do
-    local app = win:application()
-    if not app then goto continue end
+-- For layout.saveStats(); main-thread times are in ms
+local stats = {written = 0, unchanged = 0, here = 0, helperMs = nil, mainMs = nil,
+               worstMainMs = 0, worstMainAt = nil, lastFailed = nil}
 
-    if isGhostWindow(win) then
-      logEvent("save-skip-ghost", string.format(
-        "%s '%s' %dx%d", app:name(), win:title(), win:frame().w, win:frame().h))
-      goto continue
-    end
-
-    local screen = win:screen()
-    local sf = screen:frame()
-    local f  = win:frame()
-    local rf = roundFrame(f)
-    local rsf = roundFrame(sf)
-
-    table.insert(entries, {
-      app            = app:name(),
-      title          = win:title(),
-      screenPosition = idToPos[screen:id()],
-      screenFrame    = rsf,
-      frame          = rf,
-      frameRel       = {
-        x = (f.x - sf.x) / sf.w,
-        y = (f.y - sf.y) / sf.h,
-        w = f.w / sf.w,
-        h = f.h / sf.h,
-      },
-    })
-
-    ::continue::
+local function noteMainMs(ms)
+  stats.mainMs = ms
+  if ms > stats.worstMainMs then
+    stats.worstMainMs = ms
+    stats.worstMainAt = os.date("%H:%M:%S")
   end
+end
+
+-- The old way, on the main thread: before sleep, and when the helper can't run
+local function readWindowsHere()
+  local windows = {}
+  for _, win in ipairs(hs.window.orderedWindows()) do
+    local app = win:application()
+    if app then
+      local f = win:frame()
+      table.insert(windows, {id = win:id(), app = app:name(), title = win:title() or "",
+        subrole = win:subrole(), x = f.x, y = f.y, w = f.w, h = f.h})
+    end
+  end
+  return {windows = windows, failed = {}}
+end
+
+-- callback(doc): doc.windows front to back ({id, app, title, subrole, x, y, w, h}) and
+-- doc.failed, the apps that didn't answer ({app, error}). Requests made while one is in
+-- flight share its result. opts.here reads the windows on the main thread, at once.
+local function snapshot(callback, opts)
+  if opts and opts.here then
+    local t0 = hs.timer.absoluteTime()
+    callback(readWindowsHere())
+    stats.here = stats.here + 1
+    noteMainMs((hs.timer.absoluteTime() - t0) / 1e6)
+    return
+  end
+  if snapWaiting then table.insert(snapWaiting, callback) return end
+  snapWaiting = {callback}
+
+  local function deliver(doc, t0, extraMs)
+    local waiting = snapWaiting or {}
+    snapWaiting = nil
+    if doc.failed and #doc.failed > 0 then
+      local names = {}
+      for _, f in ipairs(doc.failed) do table.insert(names, f.app .. " (" .. f.error .. ")") end
+      stats.lastFailed = os.date("%H:%M:%S ") .. table.concat(names, ", ")
+    end
+    for _, cb in ipairs(waiting) do
+      local ok, err = pcall(cb, doc)
+      if not ok then print("[layout.save] ERROR: " .. tostring(err)) end
+    end
+    noteMainMs((hs.timer.absoluteTime() - t0) / 1e6 + (extraMs or 0))
+  end
+
+  -- structural: the helper can't work until a reload, so stop trying it
+  local function fallBack(reason, structural)
+    if structural and not snapBroken then
+      snapBroken = reason
+      print("[layout.snap] " .. reason .. " — saves read windows in Hammerspoon until a reload")
+    elseif not structural then
+      print("[layout.snap] " .. reason .. " — this save reads windows in Hammerspoon")
+    end
+    stats.here = stats.here + 1
+    local t0 = hs.timer.absoluteTime()
+    deliver(readWindowsHere(), t0)
+  end
+
+  if snapBroken then return fallBack(snapBroken, true) end
+
+  local function launch()
+    local task, killer
+    local launchMs
+    task = hs.task.new(snapBinary, function(exitCode, stdout, stderr)
+      local t0 = hs.timer.absoluteTime()
+      pending[task] = nil
+      if killer then
+        killer:stop()
+        pending[killer] = nil
+      end
+      local ok, doc = pcall(hs.json.decode, stdout or "")
+      if ok and type(doc) == "table" and doc.ok then
+        stats.helperMs = doc.ms
+        return deliver(doc, t0, launchMs)
+      end
+      local why = (ok and type(doc) == "table" and doc.error)
+        or string.format("layoutsnap exit %d: %s", exitCode, oneLine(stderr))
+      fallBack(why, why == "no Accessibility access")
+    end, {tostring(SNAP_AX_TIMEOUT), tostring(SNAP_DEADLINE)})
+    if not task then return fallBack("couldn't create a task for " .. snapBinary, true) end
+    pending[task] = true
+    local t0 = hs.timer.absoluteTime()
+    if not task:start() then
+      pending[task] = nil
+      return fallBack("couldn't launch " .. snapBinary, true)
+    end
+    launchMs = (hs.timer.absoluteTime() - t0) / 1e6
+    killer = later(SNAP_KILL_AFTER, function()
+      if task:isRunning() then
+        task:terminate()  -- its callback then reads the windows here
+      else
+        -- It exited without calling back: don't leave every later save waiting on it
+        pending[task] = nil
+        fallBack("layoutsnap exited without a result", false)
+      end
+    end)
+  end
+
+  local bin, src = hs.fs.attributes(snapBinary), hs.fs.attributes(snapSource)
+  if bin and src and bin.modification >= src.modification then return launch() end
+  local builder
+  builder = hs.task.new(SWIFTC, function(exitCode, _, stderr)
+    pending[builder] = nil
+    if exitCode == 0 then
+      print("[layout.snap] built " .. snapBinary)
+      launch()
+    else
+      fallBack(string.format("swiftc exit %d: %s", exitCode, oneLine(stderr)), true)
+    end
+  end, {"-O", "-swift-version", "5", "-o", snapBinary, snapSource})
+  if not builder then return fallBack("couldn't create a task for " .. SWIFTC, true) end
+  pending[builder] = true
+  if not builder:start() then
+    pending[builder] = nil
+    fallBack("couldn't launch " .. SWIFTC, true)
+  end
+end
+
+-- What a save writes, from a snapshot; also the live window ids by "App\nTitle", for
+-- screenmemory, and the ghost windows left out
+local function entriesFromSnapshot(doc)
+  local idToPos = buildScreenIdToPosition()
+  local entries, liveIDs, ghosts = {}, {}, {}
+  for _, w in ipairs(doc.windows) do
+    if isGhostWindow(w) then
+      table.insert(ghosts, string.format("%s '%s' %dx%d",
+        w.app, w.title, math.floor(w.w), math.floor(w.h)))
+    else
+      local f = {x = w.x, y = w.y, w = w.w, h = w.h}
+      -- What win:screen() returns: the screen holding most of the window
+      local screen = hs.screen.find(f) or hs.screen.mainScreen()
+      local sf = screen:frame()
+      table.insert(entries, {
+        app            = w.app,
+        title          = w.title,
+        screenPosition = idToPos[screen:id()],
+        screenFrame    = roundFrame(sf),
+        frame          = roundFrame(f),
+        frameRel       = {
+          x = (f.x - sf.x) / sf.w,
+          y = (f.y - sf.y) / sf.h,
+          w = f.w / sf.w,
+          h = f.h / sf.h,
+        },
+      })
+      liveIDs[protectionKey(w.app, w.title)] = w.id
+    end
+  end
+  return entries, liveIDs, ghosts
+end
+
+-- ---------------------------------------------------------------------------
+-- fileSnapshot(doc) — write a snapshot to the active config's file
+-- ---------------------------------------------------------------------------
+-- Returns "written", "unchanged" (the file already says the same) or "empty".
+
+local function fileSnapshot(doc)
+  local df = currentDataFile()
+  if not df then return "empty" end
+  local entries, liveIDs, ghosts = entriesFromSnapshot(doc)
 
   if #entries == 0 then
     print("[layout.save] Skipping save — 0 windows found (display may still be waking)")
-    return
+    return "empty"
+  end
+
+  -- Apps that didn't answer keep their last saved windows instead of dropping out
+  local kept = {}
+  if doc.failed and #doc.failed > 0 then
+    local silent = {}
+    for _, f in ipairs(doc.failed) do silent[f.app] = true end
+    local ok, saved = pcall(hs.json.decode, readFile(df) or "[]")
+    for _, e in ipairs(ok and type(saved) == "table" and saved or {}) do
+      if silent[e.app] then
+        table.insert(entries, e)
+        table.insert(kept, string.format("%s '%s'", e.app, e.title))
+      end
+    end
   end
 
   -- Position protection: substitute saved positions for unverified windows
@@ -523,6 +703,26 @@ function M.save()
     end
   end
 
+  -- Nothing moved, opened, closed or retitled: no write, no ring copy, no log lines
+  local json = hs.json.encode(entries, true)
+  if json == readFile(df) then
+    stats.unchanged = stats.unchanged + 1
+    return "unchanged"
+  end
+  local fh, err = io.open(df, "w")
+  if not fh then
+    print("[layout.save] ERROR: could not write " .. df .. ": " .. tostring(err))
+    return "failed"
+  end
+  fh:write(json)
+  fh:close()
+  stats.written = stats.written + 1
+
+  for _, ghost in ipairs(ghosts) do logEvent("save-skip-ghost", ghost) end
+  if #kept > 0 then
+    logEvent("save-kept", "no answer, kept as last saved: " .. table.concat(kept, ", "))
+  end
+
   -- Build log summary: Bear windows and their screens
   local summary = {}
   for _, e in ipairs(entries) do
@@ -531,26 +731,51 @@ function M.save()
     end
   end
 
-  local json = hs.json.encode(entries, true)
-  local fh, err = io.open(df, "w")
-  if not fh then
-    print("[layout.save] ERROR: could not write " .. df .. ": " .. tostring(err))
-    return
-  end
-  fh:write(json)
-  fh:close()
-
   logEvent("save", string.format("%d windows (%s); Bear: %s",
     #entries, activeConfig.name, table.concat(summary, ", ")))
   print(string.format("[layout.save] Saved %d windows to %s", #entries, df))
 
   -- Rotate into 1-minute backup ring
   rotateRing1m()
+  changedSince10m = true
 
   -- Update per-screen position memory from saved entries
   if screenmemory then
-    screenmemory.updateFromLayout(entries)
+    screenmemory.updateFromLayout(entries, liveIDs)
   end
+  return "written"
+end
+
+-- ---------------------------------------------------------------------------
+-- M.save(onDone) — save now, without autosave's guards (manual save, retry heal)
+-- ---------------------------------------------------------------------------
+-- Asynchronous: onDone(status) gets fileSnapshot's status once the helper has read
+-- the windows.
+
+function M.save(onDone)
+  if not activeConfig then return end
+  local count = activeCount
+  snapshot(function(doc)
+    -- The config changed while the helper ran
+    local status = activeCount == count and fileSnapshot(doc) or "config changed"
+    if onDone then onDone(status) end
+  end)
+end
+
+-- How saves went since load, for checking by IPC: hs -c 'return layout.saveStats()'
+function M.saveStats()
+  local lines = {
+    snapBroken and ("windows read in Hammerspoon: " .. snapBroken)
+      or ("windows read by " .. snapBinary),
+    string.format("saves since load: %d written, %d unchanged, %d read in Hammerspoon",
+      stats.written, stats.unchanged, stats.here),
+    string.format("last: helper %s ms in its own process, main thread %.1f ms",
+      tostring(stats.helperMs or "?"), stats.mainMs or 0),
+    string.format("worst main thread: %.1f ms%s", stats.worstMainMs,
+      stats.worstMainAt and (" at " .. stats.worstMainAt) or ""),
+  }
+  if stats.lastFailed then table.insert(lines, "last apps that didn't answer: " .. stats.lastFailed) end
+  return table.concat(lines, "\n")
 end
 
 -- ---------------------------------------------------------------------------
@@ -579,16 +804,21 @@ end
 
 function M.manualSave()
   clearProtection("manual save")
-  M.save()  -- writes to currentDataFile() + 1m ring as usual
-  local df = currentDataFile()
-  local mf = currentManualFile()
-  if df and mf and copyFile(df, mf) then
-    logEvent("manual-save", mf)
-    print("[layout] Manual layout saved (pinned)")
-    hs.alert.show("Layout saved")
-  else
-    print("[layout] ERROR: could not write manual save")
+  if not activeConfig then
+    print("[layout] ERROR: could not write manual save (no active config)")
+    return
   end
+  M.save(function(status)  -- writes to currentDataFile() + 1m ring as usual
+    local df = currentDataFile()
+    local mf = currentManualFile()
+    if (status == "written" or status == "unchanged") and df and mf and copyFile(df, mf) then
+      logEvent("manual-save", mf)
+      print("[layout] Manual layout saved (pinned)")
+      hs.alert.show("Layout saved")
+    else
+      print("[layout] ERROR: could not write manual save (" .. status .. ")")
+    end
+  end)
 end
 
 -- ---------------------------------------------------------------------------
@@ -947,45 +1177,57 @@ function M.gather()
 end
 
 -- ---------------------------------------------------------------------------
--- M.autoSave() — guarded: only saves when at a known config
+-- M.autoSave(opts) — guarded: only saves when at a known config
 -- ---------------------------------------------------------------------------
+-- opts.now reads the windows on the main thread before returning, for the save
+-- before sleep: a helper still running when the system sleeps would finish after the
+-- wake, when macOS may have moved windows.
 
-function M.autoSave()
+local function autoSaveAllowed()
   local count = #hs.screen.allScreens()
   if not activeConfig or count ~= activeCount then
-    return
+    return false
   end
   if retryActive then
     logEvent("autosave-suppressed", "retry in progress")
-    return
+    return false
   end
   local sinceChange = hs.timer.secondsSinceEpoch() - lastScreenChange
   if sinceChange < AUTOSAVE_HOLDOFF then
     logEvent("autosave-held", string.format("%ds after a screen change, holding %ds",
       math.floor(sinceChange), AUTOSAVE_HOLDOFF))
-    return
+    return false
   end
+  return true
+end
 
-  -- Pre-check: are windows visible? (screen lock / display sleep → 0 windows)
-  local windows = hs.window.orderedWindows()
-  if #windows == 0 then
-    zeroWindowStreak = zeroWindowStreak + 1
-    print("[layout.save] Skipping save — 0 windows found (display may still be waking)")
-    return
-  end
+function M.autoSave(opts)
+  if not autoSaveAllowed() then return end
+  local count = activeCount
+  snapshot(function(doc)
+    -- The helper read the windows in the background: check again what may have changed
+    if activeCount ~= count or not autoSaveAllowed() then return end
 
-  -- Windows reappeared after zero-window streak (screen lock/wake, display sleep)
-  -- Treat as wake: check for drift and auto-restore instead of saving shuffled positions
-  if zeroWindowStreak > 0 then
-    logEvent("windows-reappeared", string.format(
-      "%d windows visible after %d zero-window cycles (~%ds)",
-      #windows, zeroWindowStreak, zeroWindowStreak * PERIODIC_SAVE_INTERVAL))
-    zeroWindowStreak = 0
-    M.onWake()
-    return
-  end
+    -- Are windows visible? (screen lock / display sleep → 0 windows)
+    if #doc.windows == 0 then
+      zeroWindowStreak = zeroWindowStreak + 1
+      print("[layout.save] Skipping save — 0 windows found (display may still be waking)")
+      return
+    end
 
-  M.save()
+    -- Windows reappeared after zero-window streak (screen lock/wake, display sleep)
+    -- Treat as wake: check for drift and auto-restore instead of saving shuffled positions
+    if zeroWindowStreak > 0 then
+      logEvent("windows-reappeared", string.format(
+        "%d windows visible after %d zero-window cycles (~%ds)",
+        #doc.windows, zeroWindowStreak, zeroWindowStreak * PERIODIC_SAVE_INTERVAL))
+      zeroWindowStreak = 0
+      M.onWake()
+      return
+    end
+
+    fileSnapshot(doc)
+  end, {here = opts and opts.now})
 end
 
 -- ---------------------------------------------------------------------------
@@ -1019,8 +1261,10 @@ local function startPeriodicSave()
     M.autoSave()
   end)
   if periodic10mTimer then periodic10mTimer:stop() end
+  changedSince10m = true  -- this config's file may be newer than its ring
   periodic10mTimer = hs.timer.doEvery(PERIODIC_10M_INTERVAL, function()
-    if activeConfig and #hs.screen.allScreens() == activeCount then
+    if activeConfig and #hs.screen.allScreens() == activeCount and changedSince10m then
+      changedSince10m = false
       rotateRing10m()
     end
   end)

@@ -6,12 +6,20 @@
 --
 -- Two-tier storage:
 --   Session memory (winID key)      — in-memory, all windows, lost on reload
---   Persistent memory (app+title)   — on disk, survives reload, 30-day expiry
+--   Persistent memory (app+title)   — on disk, survives reload, 30-day expiry,
+--                                     newest MAX_TITLES_PER_APP titles per app
 --
 -- screenmemory.saveDeparture(win, screenPos)   — record frame before moving away
 -- screenmemory.lookupArrival(win, screenPos)   — returns frameRel or nil
--- screenmemory.updateFromLayout(entries)       — bulk update from layout autosave
+-- screenmemory.updateFromLayout(entries, ids)  — bulk update from layout autosave
 -- screenmemory.seedFromRestore(win, pos, rel)  — seed session after layout restore
+--
+-- On disk the memory is one flat JSON object, "App\nTitle\nscreenPos" → "x y w h ts".
+-- hs.json.decode slows with the square of how many same-sized objects a document holds,
+-- and until 2026-10-09 this file kept one {frameRel = {x, y, w, h}, ts} per window and
+-- screen: its 2,881 entries took 8.7 s to load at every reload, all of it on
+-- Hammerspoon's main thread. Strings decode in linear time.
+-- See changelog/2026-10-09-layout-saves-off-the-main-thread.md
 
 local M = {}
 
@@ -20,6 +28,10 @@ local dataFile = scriptPath .. "../data/screen-memory.json"
 
 local PRUNE_AGE = 30 * 24 * 3600  -- 30 days in seconds
 local WRITE_DEBOUNCE = 5          -- seconds after last change
+-- Titles kept per app, newest first. Apps whose titles keep changing filled the memory
+-- otherwise: a Chrome tab with a clock in its title added a key every minute, 1,401
+-- Chrome titles by 2026-10-09.
+local MAX_TITLES_PER_APP = 200
 
 -- Session memory: winID → screenPos → {frameRel={x,y,w,h}, ts=epoch}
 local sessionMemory = {}
@@ -47,11 +59,60 @@ local function now()
 end
 
 -- ---------------------------------------------------------------------------
+-- Pruning: 30-day expiry, and each app's newest MAX_TITLES_PER_APP titles
+-- ---------------------------------------------------------------------------
+
+local function prune()
+  local cutoff = now() - PRUNE_AGE
+  local pruned = 0
+  local titlesByApp = {}  -- app → {{key, ts of its newest entry}, ...}
+  for key, screens in pairs(persistentMemory) do
+    local newest = 0
+    for pos, entry in pairs(screens) do
+      if entry.ts and entry.ts < cutoff then
+        screens[pos] = nil
+        pruned = pruned + 1
+      elseif (entry.ts or 0) > newest then
+        newest = entry.ts or 0
+      end
+    end
+    if not next(screens) then
+      persistentMemory[key] = nil
+    else
+      local app = key:match("^(.-)\n") or key
+      titlesByApp[app] = titlesByApp[app] or {}
+      table.insert(titlesByApp[app], {key = key, ts = newest})
+    end
+  end
+  for _, titles in pairs(titlesByApp) do
+    if #titles > MAX_TITLES_PER_APP then
+      table.sort(titles, function(a, b) return a.ts > b.ts end)
+      for i = MAX_TITLES_PER_APP + 1, #titles do
+        for _ in pairs(persistentMemory[titles[i].key]) do pruned = pruned + 1 end
+        persistentMemory[titles[i].key] = nil
+      end
+    end
+  end
+  return pruned
+end
+
+-- ---------------------------------------------------------------------------
 -- Disk I/O
 -- ---------------------------------------------------------------------------
 
 local function writeToDisk()
-  local json = hs.json.encode(persistentMemory, true)
+  prune()
+  local flat = {}
+  for key, screens in pairs(persistentMemory) do
+    for pos, entry in pairs(screens) do
+      local r = entry.frameRel
+      if r then
+        flat[key .. "\n" .. pos] = string.format("%.6f %.6f %.6f %.6f %d",
+          r.x, r.y, r.w, r.h, math.floor(entry.ts or 0))
+      end
+    end
+  end
+  local json = hs.json.encode(flat, true)
   local fh, err = io.open(dataFile, "w")
   if not fh then
     print("[screenmemory] ERROR: could not write " .. dataFile .. ": " .. tostring(err))
@@ -77,29 +138,26 @@ local function loadFromDisk()
   local json = fh:read("*a")
   fh:close()
   local ok, data = pcall(hs.json.decode, json)
-  if ok and type(data) == "table" then
-    persistentMemory = data
-  end
-end
-
-local function pruneOldEntries()
-  local cutoff = now() - PRUNE_AGE
-  local pruned = 0
-  for key, screens in pairs(persistentMemory) do
-    for pos, entry in pairs(screens) do
-      if entry.ts and entry.ts < cutoff then
-        screens[pos] = nil
-        pruned = pruned + 1
+  if not ok or type(data) ~= "table" then return end
+  local nested = false
+  for k, v in pairs(data) do
+    if type(v) == "string" then
+      local key, pos = k:match("^(.*)\n([^\n]*)$")
+      local x, y, w, h, ts = v:match("^(%S+) (%S+) (%S+) (%S+) (%S+)$")
+      if key and x then
+        persistentMemory[key] = persistentMemory[key] or {}
+        persistentMemory[key][pos] = {
+          frameRel = {x = tonumber(x), y = tonumber(y), w = tonumber(w), h = tonumber(h)},
+          ts = tonumber(ts),
+        }
       end
-    end
-    if not next(screens) then
-      persistentMemory[key] = nil
+    elseif type(v) == "table" then
+      persistentMemory[k] = v  -- the nested shape from before 2026-10-09
+      nested = true
     end
   end
-  if pruned > 0 then
-    print(string.format("[screenmemory] Pruned %d entries older than 30 days", pruned))
-    scheduleDiskWrite()
-  end
+  -- Store it flat right away, so the next load is quick
+  if nested then scheduleDiskWrite() end
 end
 
 -- ---------------------------------------------------------------------------
@@ -108,7 +166,12 @@ end
 
 function M.init()
   loadFromDisk()
-  pruneOldEntries()
+  local pruned = prune()
+  if pruned > 0 then
+    print(string.format("[screenmemory] Pruned %d entries (older than 30 days, or past %d titles per app)",
+      pruned, MAX_TITLES_PER_APP))
+    scheduleDiskWrite()
+  end
   local count = 0
   for _ in pairs(persistentMemory) do count = count + 1 end
   print(string.format("[screenmemory] Loaded %d persistent entries from disk", count))
@@ -207,20 +270,24 @@ end
 -- ---------------------------------------------------------------------------
 -- Bulk update from layout.save() data. Each entry has app, title,
 -- screenPosition, frameRel. Called after position-protection substitution,
--- so entries reflect correct (not macOS-shuffled) positions.
+-- so entries reflect correct (not macOS-shuffled) positions. liveIDs maps
+-- "App\nTitle" to the live window id; layout passes the ones its snapshot read.
 
-function M.updateFromLayout(entries)
+function M.updateFromLayout(entries, liveIDs)
   if not entries then return end
 
   local ts = now()
 
   -- Build live winID lookup for session memory updates
-  local titleToWinID = {}
-  for _, win in ipairs(hs.window.orderedWindows()) do
-    local app = win:application()
-    if app then
-      local key = persistKey(app:name(), win:title())
-      titleToWinID[key] = win:id()
+  local titleToWinID = liveIDs
+  if not titleToWinID then
+    titleToWinID = {}
+    for _, win in ipairs(hs.window.orderedWindows()) do
+      local app = win:application()
+      if app then
+        local key = persistKey(app:name(), win:title())
+        titleToWinID[key] = win:id()
+      end
     end
   end
 
