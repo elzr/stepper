@@ -1,0 +1,5 @@
+{"t":0,"i":0,"note":"session start @ 20260420-093908"}
+{"t":3.923,"note":"MARK RUN_BEGIN"}
+{"t":4.370,"note":"MARK ABORT at beginScenarios: focused Bear window is 'w16thoughts 13-19apr2026', not 'test of Bear images'"}
+{"t":4.370,"note":"MARK ABORTED"}
+{"note":"session stop after 0 fires"}

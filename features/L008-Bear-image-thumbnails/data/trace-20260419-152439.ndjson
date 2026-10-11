@@ -1,0 +1,38 @@
+{"t":0,"i":0,"note":"session start @ 20260419-152439"}
+{"t":5.704,"note":"MARK RUN_BEGIN"}
+{"t":6.151,"note":"MARK focus verified — starting scenarios"}
+{"t":6.778,"note":"MARK setup: move caret to end-of-note"}
+{"t":6.786,"i":1,"role":"AXTextArea","len":23,"ffc":1,"caret":21,"selLen":0,"clipImg":true,"clipCnt":179,"taSwitched":true}
+{"t":7.175,"note":"MARK setup: insert test run separator"}
+{"t":7.194,"i":2,"role":"AXTextArea","len":24,"ffc":1,"dLen":1,"dFfc":0,"caret":22,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.204,"i":3,"role":"AXTextArea","len":30,"ffc":1,"dLen":6,"dFfc":0,"caret":28,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.217,"i":4,"role":"AXTextArea","len":30,"ffc":1,"dLen":0,"dFfc":0,"caret":28,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.219,"i":5,"role":"AXTextArea","len":30,"ffc":1,"dLen":0,"dFfc":0,"caret":28,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.221,"i":6,"role":"AXTextArea","len":30,"ffc":1,"dLen":0,"dFfc":0,"caret":28,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.223,"i":7,"role":"AXTextArea","len":30,"ffc":1,"dLen":0,"dFfc":0,"caret":28,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.225,"i":8,"role":"AXTextArea","len":30,"ffc":1,"dLen":0,"dFfc":0,"caret":28,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.776,"note":"MARK A: paste image (clean)"}
+{"t":7.809,"i":9,"role":"AXTextArea","len":33,"ffc":2,"dLen":3,"dFfc":1,"caret":29,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.868,"i":10,"role":"AXTextArea","len":33,"ffc":2,"dLen":0,"dFfc":0,"caret":29,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":7.915,"i":11,"role":"AXTextArea","len":33,"ffc":2,"dLen":0,"dFfc":0,"caret":29,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":9.276,"note":"MARK B: Enter x3 after image"}
+{"t":9.285,"i":12,"role":"AXTextArea","len":36,"ffc":2,"dLen":3,"dFfc":0,"caret":32,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":9.297,"i":13,"role":"AXTextArea","len":36,"ffc":2,"dLen":0,"dFfc":0,"caret":32,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":9.306,"i":14,"role":"AXTextArea","len":36,"ffc":2,"dLen":0,"dFfc":0,"caret":32,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":10.278,"note":"MARK C: type hello world"}
+{"t":10.293,"i":15,"role":"AXTextArea","len":41,"ffc":2,"dLen":5,"dFfc":0,"caret":37,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":10.306,"i":16,"role":"AXTextArea","len":41,"ffc":2,"dLen":0,"dFfc":0,"caret":37,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":10.308,"i":17,"role":"AXTextArea","len":41,"ffc":2,"dLen":0,"dFfc":0,"caret":37,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":10.31,"i":18,"role":"AXTextArea","len":41,"ffc":2,"dLen":0,"dFfc":0,"caret":37,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":10.312,"i":19,"role":"AXTextArea","len":41,"ffc":2,"dLen":0,"dFfc":0,"caret":37,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":11.277,"note":"MARK D: newline then paste image"}
+{"t":11.282,"i":20,"role":"AXTextArea","len":45,"ffc":3,"dLen":4,"dFfc":1,"caret":39,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":11.384,"i":21,"role":"AXTextArea","len":45,"ffc":3,"dLen":0,"dFfc":0,"caret":39,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":11.386,"i":22,"role":"AXTextArea","len":45,"ffc":3,"dLen":0,"dFfc":0,"caret":39,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":11.388,"i":23,"role":"AXTextArea","len":45,"ffc":3,"dLen":0,"dFfc":0,"caret":39,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":12.776,"note":"MARK D: cmd+left, prepend '> '"}
+{"t":12.78,"i":24,"role":"AXTextArea","len":45,"ffc":3,"dLen":0,"dFfc":0,"caret":38,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":13.773,"note":"MARK E: Enter, '> plain text' (no image)"}
+{"t":13.783,"i":25,"role":"AXTextArea","len":46,"ffc":3,"dLen":1,"dFfc":0,"caret":39,"selLen":0,"clipImg":true,"clipCnt":179}
+{"t":14.773,"note":"MARK RUN_END"}
+{"note":"session stop after 25 fires"}

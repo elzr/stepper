@@ -136,7 +136,8 @@ local function jsonVal(v)
   local t = type(v)
   if v == nil then return "null"
   elseif t == "boolean" then return v and "true" or "false"
-  elseif t == "number" then return string.format("%.4g", v)
+  elseif t == "number" then  -- %.4g alone turned pid 80078 into 8.008e+04
+    return math.type(v) == "integer" and string.format("%d", v) or string.format("%.4g", v)
   else return jsonStr(v) end
 end
 
@@ -174,6 +175,9 @@ end
 local function openLogFile()
   if logFile then return end
   pcall(function()
+    -- Make data/ if it's missing: it was gone for an unknown stretch before
+    -- 2026-10-10, and the log silently went console-only all that time.
+    if not hs.fs.attributes(LOG_DIR, "mode") then hs.fs.mkdir(LOG_DIR) end
     local attrs = hs.fs.attributes(LOG_PATH)
     if attrs and attrs.size and attrs.size > LOG_CAP_BYTES then
       os.remove(LOG_PATH_PREV)

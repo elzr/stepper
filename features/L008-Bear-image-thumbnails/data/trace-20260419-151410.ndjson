@@ -1,0 +1,7 @@
+{"t":0,"i":0,"note":"session start @ 20260419-151410"}
+{"t":52.958,"i":1,"role":"AXTextArea","len":4790,"ffc":27,"caret":4736,"selLen":0,"clipImg":false,"clipCnt":174,"taSwitched":true}
+{"t":53.004,"i":2,"role":"AXTextArea","len":4790,"ffc":27,"dLen":0,"dFfc":0,"caret":4736,"selLen":0,"clipImg":false,"clipCnt":174}
+{"t":53.146,"i":3,"role":"AXTextArea","len":4790,"ffc":27,"dLen":0,"dFfc":0,"caret":4736,"selLen":0,"clipImg":false,"clipCnt":174}
+{"t":53.221,"i":4,"role":"AXTextArea","len":4790,"ffc":27,"dLen":0,"dFfc":0,"caret":4736,"selLen":0,"clipImg":false,"clipCnt":174}
+{"t":54.52,"i":5,"role":"AXTextArea","len":23,"ffc":1,"caret":21,"selLen":0,"clipImg":false,"clipCnt":174,"taSwitched":true}
+{"note":"session stop after 5 fires"}
