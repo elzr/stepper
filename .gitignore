@@ -10,6 +10,8 @@ window-layout-[0-9]*.json
 # L006/screenmaps' data, written by lua/screenmaps.lua with each save that changes something
 screenmap-*.json
 screenmaps-now.json
+# its symlink to the live Chrome tablog (reading's F030/Chrome-tablogs now/chrome.jsonc)
+data/chrome-now.jsonc
 # built by displayguard.lua from display-arrange.swift on first use
 features/F010-sync-display-names-in-Lunar/display-arrange
 # built by inputprobe.lua from inputprobe.swift on first use

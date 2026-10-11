@@ -197,20 +197,38 @@ a.win { cursor: pointer; }
 }
 .win.dim { opacity: 0.25; }
 .win.hit { border-color: var(--hit); box-shadow: 0 0 0 2px var(--hit), 0 2px 7px rgba(0, 0, 0, 0.2); }
+/* the title bar: the whole title, wrapped to three lines at most; bigger in 3D, where the
+   turned plane is drawn smaller */
 .win-head {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 17px;
-  padding: 0 4px;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 3px 5px;
   background: hsl(var(--hue) 40% 91%);
-  font-size: 10.5px;
-  line-height: 17px;
-  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.25;
 }
-.win-head img, .win-head .letter { width: 12px; height: 12px; flex-shrink: 0; }
-.win-title { overflow: hidden; text-overflow: ellipsis; }
-.win.tiny .win-head { padding: 0 2px; }
+.win-head img, .win-head .letter { width: 14px; height: 14px; flex-shrink: 0; margin-top: 0.5px; }
+.win-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.three-d .win-head { font-size: 15px; padding: 4px 6px; gap: 6px; }
+.three-d .win-head img, .three-d .win-head .letter { width: 17px; height: 17px; }
+/* a Chrome window: its logo on top, a rule, its tabs' favicons from the live tablog */
+.win-tabs { padding: 5px 6px; text-align: center; }
+.win-logo { display: block; width: 20px; height: 20px; margin: 0 auto; opacity: 0.75; }
+.win-tabs hr { border: none; border-top: 1px solid hsl(var(--hue) 25% 80%); margin: 5px 4px 6px; }
+.tab-favs { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.tab-fav { width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0; }
+.tab-fav.front-tab { outline: 1.5px solid var(--front); outline-offset: 1px; }
+.three-d .win-logo { width: 26px; height: 26px; }
+.three-d .tab-fav { width: 20px; height: 20px; }
+.three-d .tab-favs { gap: 6px; }
+.win.tiny .win-head { padding: 1px 2px; }
 .win.tiny .win-title { display: none; }
 .win-mark {   /* its app's icon, faded, in the middle of a big enough window */
   position: absolute;
@@ -222,6 +240,41 @@ a.win { cursor: pointer; }
   opacity: 0.28;
   pointer-events: none;
 }
+
+/* Free 3D: a camera you move (screenmaps.js initFreeDrag), its presets top left */
+.map-stage.free {
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 6px;
+  background: linear-gradient(#f9fafb, #eef1f5);
+}
+.map-stage.free.dragging, .map-stage.free.dragging * { cursor: grabbing; }
+.free-controls {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+.free-controls button {
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 1px 8px;
+  color: var(--grey);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.free-controls button:hover { color: var(--text); }
+.free-controls button.active { color: var(--active-text); background: var(--active-bg); border-color: var(--active-bg); }
+.free-hint { margin-left: 6px; color: var(--grey); font-size: 0.7rem; }
 
 /* Minimized windows, after a rule under the displays (the tablogs' minimized windows) */
 .map-divider { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--grey); font-size: 0.78rem; }
@@ -375,3 +428,4 @@ a.min-chip:hover { border-color: var(--link); }
 .pop-line.act { color: var(--link); }
 .pop-list { margin: 5px 0 0 23px; padding-left: 14px; }
 .pop-list li { margin: 2px 0; }
+.pop-list li.front-tab { font-weight: 600; }

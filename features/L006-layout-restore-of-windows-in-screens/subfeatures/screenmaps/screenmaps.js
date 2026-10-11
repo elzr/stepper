@@ -21,6 +21,15 @@ const POSITIONS = {
 // A click brings the window forward through Hammerspoon, so only on the Mac itself
 // (an iPad reports MacIntel too, but with touch points)
 const ON_MAC = /Mac/.test(navigator.platform) && navigator.maxTouchPoints === 0;
+// Clicking a window to bring it forward works, but lags a little, and the map is for seeing
+// what's where: off since 2026-10-11. true turns the links back on (screenmaps.lua still
+// answers hammerspoon://screenmaps?focus=).
+const FOCUS_ON_CLICK = false;
+const CAN_FOCUS = FOCUS_ON_CLICK && ON_MAC;
+// The live Chrome tablog (reading's F030/Chrome-tablogs now/chrome.jsonc), through a
+// symlink in data/ so it's same-origin: its windows' tabs go on the map's Chrome windows
+const CHROME_NOW = DATA + 'chrome-now.jsonc';
+const FAVICONS = 'https://reading.internal/features/F030-tablogs/favicons/';
 
 const $ = id => document.getElementById(id);
 const state = {
@@ -31,6 +40,9 @@ const state = {
   chosen: null,     // the config picked by hand during this visit
   view: localStorage.getItem('screenmaps.view') === 'days' ? 'days' : 'map',
   filter: null,     // {label, keys}: the windows a day or app in Days picked out
+  chrome: null,     // the live Chrome tablog: {taken, windows}
+  chromeSig: '',
+  cams: {},         // config name → free 3D's camera (freeCam)
 };
 
 const list = v => (Array.isArray(v) ? v : []);   // hs.json.encode writes an empty table as {}
@@ -46,6 +58,63 @@ async function fetchJSON(path) {
 }
 
 // --- Data ---------------------------------------------------------------------
+
+// The live Chrome tablog, comments stripped (it's JSONC: a few // lines on top)
+async function fetchChrome() {
+  try {
+    const res = await fetch(CHROME_NOW + '?raw=1', {cache: 'no-store'});
+    if (!res.ok) return null;
+    const text = (await res.text()).split('\n').filter(l => !l.startsWith('//')).join('\n');
+    return JSON.parse(text);
+  } catch (e) {
+    return null;
+  }
+}
+
+// The live config's Chrome windows → their tabs in the tablog: the tablog window whose
+// bounds (Chrome's session file, the same points as the saves) match the frame, else the
+// one whose front tab's title the window's title starts with. Each tablog window once.
+function chromeTabs(map) {
+  const out = new Map();
+  const tws = state.chrome ? list(state.chrome.windows).filter(t => !t.minimized && list(t.tabs).length) : [];
+  const mine = map.windows.filter(w => w.app === 'Google Chrome' || w.bundle === 'com.google.Chrome');
+  if (!tws.length || !mine.length) return out;
+  const used = new Set();
+  const pairs = [];
+  for (const w of mine) {
+    for (const t of tws) {
+      if (!Array.isArray(t.bounds)) continue;
+      const [x, y, bw, bh] = t.bounds, f = w.frame;
+      const dist = Math.abs(x - f.x) + Math.abs(y - f.y) + Math.abs(bw - f.w) + Math.abs(bh - f.h);
+      if (dist <= 40) pairs.push({w, t, dist});
+    }
+  }
+  for (const {w, t} of pairs.sort((a, b) => a.dist - b.dist)) {
+    if (out.has(w) || used.has(t)) continue;
+    out.set(w, t.tabs);
+    used.add(t);
+  }
+  for (const w of mine) {
+    if (out.has(w)) continue;
+    const title = cleanTitle(w);
+    const t = tws.find(t => !used.has(t) && list(t.tabs).some(tab => tab.front && tab.title && title.startsWith(tab.title)));
+    if (t) { out.set(w, t.tabs); used.add(t); }
+  }
+  return out;
+}
+
+function faviconEl(tab) {
+  const img = el('img', 'tab-fav' + (tab.front ? ' front-tab' : ''));
+  img.alt = '';
+  img.loading = 'lazy';
+  img.src = FAVICONS + encodeURIComponent(tab.fav || tab.root_domain || '') + '.png';
+  img.onerror = () => {
+    const s = el('span', 'tab-fav letter' + (tab.front ? ' front-tab' : ''), (tab.root_domain || '?').charAt(0).toUpperCase());
+    s.style.setProperty('--hue', hue(tab.root_domain));
+    img.replaceWith(s);
+  };
+  return img;
+}
 
 // Twins share a size: displays of one model ("LG HDR 4K (1)" and "(2)") at the same
 // resolution are the same panel, but an EDID can misreport it. The Middle Center LG's says
@@ -302,7 +371,7 @@ function iconEl(w, cls) {
 
 // A window's title as a link that brings it forward (the config in use, on the Mac), or text
 function titleEl(w, live, cls) {
-  const clickable = live && w.id != null && ON_MAC;
+  const clickable = live && w.id != null && CAN_FOCUS;
   const t = el(clickable ? 'a' : 'span', cls, cleanTitle(w));
   if (clickable) t.href = `hammerspoon://screenmaps?focus=${w.id}`;
   return t;
@@ -338,7 +407,7 @@ function onHover(node, build) {
 }
 
 // A window's popup: its whole title, app, size and display, and its times
-function windowPop(map, w, z, live) {
+function windowPop(map, w, z, live, tabs) {
   const head = el('div', 'pop-title');
   head.append(iconEl(w), el('span', null, w.title || w.app));
   const nodes = [head];
@@ -355,7 +424,13 @@ function windowPop(map, w, z, live) {
   if (w.moved && w.seen && w.moved > w.seen) notes.push(`moved ${when(w.moved)}`);
   if (w.used) notes.push(`last used ${when(w.used)}`);
   if (notes.length) nodes.push(el('div', 'pop-line', notes.join(' · ')));
-  if (live && w.id != null && ON_MAC) {
+  if (tabs && tabs.length) {   // a Chrome window's tabs, from the live tablog
+    const ul = el('ul', 'pop-list');
+    for (const t of tabs.slice(0, 10)) ul.append(el('li', t.front ? 'front-tab' : null, t.title || t.url));
+    if (tabs.length > 10) ul.append(el('li', null, `and ${tabs.length - 10} more`));
+    nodes.push(el('div', 'pop-line', `${tabs.length} tab${tabs.length === 1 ? '' : 's'}`), ul);
+  }
+  if (live && w.id != null && CAN_FOCUS) {
     nodes.push(el('div', 'pop-line act', z == null ? 'Click to bring it back from the Dock' : 'Click to bring it forward'));
   }
   return nodes;
@@ -456,11 +531,47 @@ function renderAppFilters(map) {
 // .three-d .plane holds the same angles). Depth then runs left to right: the display at
 // the back on the left, each window a step to the right of the one behind it.
 const TURN = 42 * Math.PI / 180;
+// Free 3D: a camera you turn by dragging, zoom by pinching and pan by ⌃-dragging. Its
+// presets: the plane upright as the displays stand (Turned, the 3D view's angles), or
+// lying on the ground with each stack rising from it (On the ground). yaw turns the scene
+// about the vertical, pitch tilts it toward you (negative: seen from above).
+const PRESETS = {
+  turned: {label: 'Turned', base: 'upright', yaw: 42, pitch: -12},
+  ground: {label: 'On the ground', base: 'ground', yaw: -32, pitch: -38},
+};
+
+// The shown config's free 3D camera: its preset's angles, or where you left them (kept
+// per config), at the zoom and pan of this visit
+function freeCam(name) {
+  if (!state.cams[name]) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(`screenmaps.free.${name}`) || 'null'); } catch (e) { saved = null; }
+    const p = PRESETS[saved && saved.preset] || PRESETS.turned;
+    state.cams[name] = {
+      preset: saved && PRESETS[saved.preset] ? saved.preset : 'turned', base: p.base,
+      yaw: saved && Number.isFinite(saved.yaw) ? saved.yaw : p.yaw,
+      pitch: saved && Number.isFinite(saved.pitch) ? saved.pitch : p.pitch,
+      zoom: 1, panX: 0, panY: 0, fit: null,
+    };
+  }
+  return state.cams[name];
+}
+
+function saveCam(name, cam) {
+  try {
+    localStorage.setItem(`screenmaps.free.${name}`, JSON.stringify({preset: cam.preset, yaw: cam.yaw, pitch: cam.pitch}));
+  } catch (e) { /* private window: the camera lasts the visit */ }
+}
+
+// The plane's transform: the camera's tilt and turn, after laying the plane down for the
+// ground (its top edge away from you, the stacks' depth pointing up)
+const camTransform = cam => `rotateX(${cam.pitch}deg) rotateY(${cam.yaw}deg)` + (cam.base === 'ground' ? ' rotateX(90deg)' : '');
 
 // The map's displays and windows sit on a plane. Flat, it's the stage; in 3D it stands
 // upright and turned, each window one layer in front of the one behind it on its display
-// (the stack the saves record front to back), its title still on it.
-function renderMap(map, live, depth) {
+// (the stack the saves record front to back), its title still on it; free 3D puts the
+// same plane under a camera you move.
+function renderMap(map, live, depth, name) {
   const box = $('map');
   box.textContent = '';
   const ds = map.displays;
@@ -468,7 +579,10 @@ function renderMap(map, live, depth) {
     box.append(el('p', 'empty', 'No displays saved for this config.'));
     return;
   }
-  const threeD = depth === '3d';
+  const free = depth === 'free';
+  const threeD = depth === '3d' || free;
+  const cam = free ? freeCam(name) : null;
+  const ground = free && cam.base === 'ground';
   const rects = physicalRects(ds);
   const rs = [...rects.values()];
   const minX = Math.min(...rs.map(r => r.x)), minY = Math.min(...rs.map(r => r.y));
@@ -477,36 +591,41 @@ function renderMap(map, live, depth) {
   const room = Math.max(320, window.innerHeight * 0.68);
   const by = windowsByDisplay(map);
   const total = map.windows.length;
+  const tabsOf = live ? chromeTabs(map) : new Map();
   // 3D layers: wide apart, since depth runs across the page, where tall portrait displays
   // leave room; closer in a tall stack
   const tallest = Math.max(1, ...[...by.values()].map(wins => wins.length));
-  const layer = Math.max(24, Math.min(72, 640 / tallest));
-  // 3D: each column of displays moves right by the depth of the stacks before it, so a
-  // stack stands clear of the next display instead of running through it
+  // On the ground the steps rise toward you instead: closer, or the stacks float off it
+  const layer = Math.max(24, Math.min(72, 640 / tallest)) * (ground ? 0.35 : 1);
+  // 3D, upright: each column of displays moves right by the depth of the stacks before it,
+  // so a stack stands clear of the next display instead of running through it (on the
+  // ground the stacks rise instead, clear of each other)
   const shift = new Map();
-  if (threeD) {
+  if (threeD && !ground) {
     let x = 0;
     for (const col of displayColumns(ds)) {
       for (const d of col) shift.set(d, x);
       x += Math.max(...col.map(d => by.get(d).length)) * layer * Math.tan(TURN) + 24;
     }
   }
-  const spread = threeD ? Math.max(0, ...shift.values()) : 0;   // px the shifts add
-  // Flat: the arrangement fills the width, or the room. 3D: the room's height; fitInStage
+  const spread = shift.size ? Math.max(0, ...shift.values()) : 0;   // px the shifts add
+  // Flat: the arrangement fills the width, or the room. 3D: the room's height; the fit
   // shrinks it if, turned and stacked, it's too wide
   const scale = threeD
     ? room / (maxY - minY)
     : Math.min(width / (maxX - minX), room / (maxY - minY));
   const left = threeD ? 0 : (width - (maxX - minX) * scale) / 2;   // flat: centred
   const planeHeight = Math.ceil((maxY - minY) * scale);
-  const stage = el('div', 'map-stage' + (threeD ? ' three-d' : ''));
+  const planeWidth = threeD ? Math.ceil((maxX - minX) * scale + spread) : width;
+  const stage = el('div', 'map-stage' + (threeD ? ' three-d' : '') + (free ? ' free' : ''));
   const fit = el('div', 'fit');
   const plane = el('div', 'plane');
-  plane.style.width = `${threeD ? Math.ceil((maxX - minX) * scale + spread) : width}px`;
+  plane.style.width = `${planeWidth}px`;
   plane.style.height = `${planeHeight}px`;
+  if (free) plane.style.transform = camTransform(cam);
   fit.append(plane);
   stage.append(fit);
-  stage.style.height = `${planeHeight}px`;
+  stage.style.height = `${free ? Math.round(room) : planeHeight}px`;
   box.append(stage);
 
   for (const d of ds) {
@@ -526,7 +645,7 @@ function renderMap(map, live, depth) {
     }
     const wins = by.get(d);
     wins.forEach(({w, z}, i) => {
-      const clickable = live && w.id != null && ON_MAC;
+      const clickable = live && w.id != null && CAN_FOCUS;
       const we = el(clickable ? 'a' : 'div', 'win');
       if (clickable) we.href = `hammerspoon://screenmaps?focus=${w.id}`;
       tagWindow(we, w, d);
@@ -545,9 +664,20 @@ function renderMap(map, live, depth) {
       const head = el('div', 'win-head');
       head.append(iconEl(w), el('span', 'win-title', cleanTitle(w)));
       we.append(head);
-      // Big enough: its app's icon, faded, in the middle, to tell the apps apart at a glance
-      if (ww >= 70 && wh >= 64) we.append(iconEl(w, 'win-mark'));
-      onHover(we, () => windowPop(map, w, z, live));
+      const tabs = tabsOf.get(w);
+      if (tabs && ww >= 48 && wh >= 48) {
+        // A Chrome window: its logo on top, a rule, and its tabs' favicons in tab order
+        const body = el('div', 'win-tabs');
+        body.append(iconEl(w, 'win-logo'), el('hr'));
+        const favs = el('div', 'tab-favs');
+        for (const t of tabs) favs.append(faviconEl(t));
+        body.append(favs);
+        we.append(body);
+      } else if (ww >= 70 && wh >= 64) {
+        // Big enough: its app's icon, faded, in the middle, to tell the apps apart at a glance
+        we.append(iconEl(w, 'win-mark'));
+      }
+      onHover(we, () => windowPop(map, w, z, live, tabs));
       de.append(we);
       if (threeD) {
         // The display's front window nearest: i is its place in this display's stack
@@ -561,7 +691,13 @@ function renderMap(map, live, depth) {
     de.append(label);
     plane.append(de);
   }
-  if (threeD) {
+  if (free) {
+    const key = `${width}x${Math.round(room)}:${planeWidth}x${planeHeight}:${cam.base}`;
+    if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, room)};
+    applyView(fit, cam);
+    stage.append(freeControls(name, cam));
+    initFreeDrag(stage, fit, plane, name, cam);
+  } else if (threeD) {
     fitInStage(stage, fit, width);
   }
 
@@ -570,7 +706,7 @@ function renderMap(map, live, depth) {
     box.append(el('div', 'map-divider', `Minimized windows · ${map.minimized.length}`));
     const strip = el('div', 'min-strip');
     for (const w of map.minimized) {
-      const clickable = live && w.id != null && ON_MAC;
+      const clickable = live && w.id != null && CAN_FOCUS;
       const chip = el(clickable ? 'a' : 'div', 'min-chip');
       if (clickable) chip.href = `hammerspoon://screenmaps?focus=${w.id}`;
       tagWindow(chip, w);
@@ -583,32 +719,161 @@ function renderMap(map, live, depth) {
   }
 }
 
-// The tilted plane's projection spills out of its box: measure what its displays and windows
-// cover on screen, then centre it in the stage (and shrink it if it's too wide; a tall
-// stack just makes the stage taller)
-function fitInStage(stage, fit, maxWidth) {
+// What the plane's displays and windows cover on screen, relative to the stage, with the
+// fit wrapper untransformed
+function projectedBox(stage, fit) {
+  fit.style.transform = '';
   const sr = stage.getBoundingClientRect();
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const n of stage.querySelectorAll('.display, .win')) {
     const r = n.getBoundingClientRect();
-    x0 = Math.min(x0, r.left);
-    y0 = Math.min(y0, r.top);
-    x1 = Math.max(x1, r.right);
-    y1 = Math.max(y1, r.bottom);
+    x0 = Math.min(x0, r.left - sr.left);
+    y0 = Math.min(y0, r.top - sr.top);
+    x1 = Math.max(x1, r.right - sr.left);
+    y1 = Math.max(y1, r.bottom - sr.top);
   }
-  const w = x1 - x0, h = y1 - y0;
+  return {x0, y0, w: x1 - x0, h: y1 - y0};
+}
+
+// The tilted plane's projection spills out of its box: measure it, then centre it in the
+// stage (and shrink it if it's too wide; a tall stack just makes the stage taller)
+function fitInStage(stage, fit, maxWidth) {
+  const {x0, y0, w, h} = projectedBox(stage, fit);
   if (!(w > 0 && h > 0)) return;
   const s = Math.min(1, maxWidth / w), pad = 12;
-  fit.style.transform = `translate(${(maxWidth - w * s) / 2 - (x0 - sr.left) * s}px, ` +
-    `${pad - (y0 - sr.top) * s}px) scale(${s})`;
+  fit.style.transform = `translate(${(maxWidth - w * s) / 2 - x0 * s}px, ${pad - y0 * s}px) scale(${s})`;
   stage.style.height = `${Math.ceil(h * s) + 2 * pad}px`;
 }
 
-// Flat or 3D, per config. 3D by default for the laptop alone, whose mostly maximized
-// windows hide each other on a flat map
+// Free 3D: the scale and offset that centre the scene in the stage at its preset's
+// angles; kept while you turn it, so turning doesn't pump the zoom
+function measureFit(stage, fit, width, height) {
+  const {x0, y0, w, h} = projectedBox(stage, fit);
+  if (!(w > 0 && h > 0)) return {tx: 0, ty: 0, s: 1};
+  const s = Math.min(width / w, height / h) * 0.9;
+  return {tx: (width - w * s) / 2 - x0 * s, ty: (height - h * s) / 2 - y0 * s, s};
+}
+
+// Your pan and zoom on top of the fit
+function applyView(fit, cam) {
+  const f = cam.fit || {tx: 0, ty: 0, s: 1};
+  fit.style.transform = `translate(${cam.panX}px, ${cam.panY}px) scale(${cam.zoom}) ` +
+    `translate(${f.tx}px, ${f.ty}px) scale(${f.s})`;
+}
+
+// Zoom by k about a point of the stage, which stays put
+function zoomAt(fit, cam, k, x, y) {
+  const z = Math.min(8, Math.max(0.2, cam.zoom * k));
+  const r = z / cam.zoom;
+  cam.panX = x - r * (x - cam.panX);
+  cam.panY = y - r * (y - cam.panY);
+  cam.zoom = z;
+  applyView(fit, cam);
+}
+
+// The presets, in the stage's top-left corner
+function freeControls(name, cam) {
+  const bar = el('div', 'free-controls');
+  for (const [key, p] of Object.entries(PRESETS)) {
+    const b = el('button', key === cam.preset && cam.yaw === p.yaw && cam.pitch === p.pitch ? 'active' : null, p.label);
+    b.type = 'button';
+    b.onclick = () => {
+      state.cams[name] = {preset: key, base: p.base, yaw: p.yaw, pitch: p.pitch, zoom: 1, panX: 0, panY: 0, fit: null};
+      saveCam(name, state.cams[name]);
+      render();
+    };
+    bar.append(b);
+  }
+  bar.append(el('span', 'free-hint', 'drag to turn · pinch to zoom · ⌃-drag to pan'));
+  // the buttons are the stage's too: don't start a drag on them
+  bar.addEventListener('pointerdown', ev => ev.stopPropagation());
+  return bar;
+}
+
+// Free 3D's hands: drag turns the scene, ⌃-drag (or a right or ⇧ drag) pans it, a
+// trackpad pinch (a ⌃-wheel to the browser, or Safari's gesture events) or two fingers on
+// a touch screen zoom it. A plain wheel still scrolls the page.
+function initFreeDrag(stage, fit, plane, name, cam) {
+  const pointers = new Map();
+  let mode = null, last = null, pinch = null;
+  const at = ev => {
+    const r = stage.getBoundingClientRect();
+    return {x: ev.clientX - r.left, y: ev.clientY - r.top};
+  };
+  const twoFingers = () => {
+    const [a, b] = [...pointers.values()];
+    return {d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2};
+  };
+  stage.addEventListener('contextmenu', ev => ev.preventDefault());   // ⌃-click is a right click
+  stage.addEventListener('pointerdown', ev => {
+    hidePop();
+    try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* a synthetic pointer */ }
+    pointers.set(ev.pointerId, at(ev));
+    if (pointers.size === 2) {
+      mode = 'pinch';
+      pinch = twoFingers();
+    } else {
+      mode = ev.ctrlKey || ev.shiftKey || ev.button === 2 ? 'pan' : 'turn';
+      last = at(ev);
+    }
+    stage.classList.add('dragging');
+    ev.preventDefault();
+  });
+  stage.addEventListener('pointermove', ev => {
+    if (!pointers.has(ev.pointerId)) return;
+    const p = at(ev);
+    pointers.set(ev.pointerId, p);
+    if (mode === 'pinch' && pointers.size === 2) {
+      const now = twoFingers();
+      cam.panX += now.x - pinch.x;
+      cam.panY += now.y - pinch.y;
+      zoomAt(fit, cam, now.d / pinch.d, now.x, now.y);
+      pinch = now;
+    } else if (mode === 'turn') {
+      cam.yaw += (p.x - last.x) * 0.35;
+      cam.pitch = Math.max(-90, Math.min(90, cam.pitch - (p.y - last.y) * 0.35));
+      plane.style.transform = camTransform(cam);
+      last = p;
+    } else if (mode === 'pan') {
+      cam.panX += p.x - last.x;
+      cam.panY += p.y - last.y;
+      applyView(fit, cam);
+      last = p;
+    }
+  });
+  const end = ev => {
+    pointers.delete(ev.pointerId);
+    if (pointers.size) return;
+    if (mode === 'turn') {
+      saveCam(name, cam);
+      for (const b of stage.querySelectorAll('.free-controls button')) b.classList.remove('active');
+    }
+    mode = null;
+    stage.classList.remove('dragging');
+  };
+  stage.addEventListener('pointerup', end);
+  stage.addEventListener('pointercancel', end);
+  stage.addEventListener('wheel', ev => {
+    if (!ev.ctrlKey) return;   // a plain wheel scrolls the page
+    ev.preventDefault();
+    const p = at(ev);
+    zoomAt(fit, cam, Math.exp(-ev.deltaY * 0.01), p.x, p.y);
+  }, {passive: false});
+  let gestureZoom = 1;   // Safari's trackpad pinch
+  stage.addEventListener('gesturestart', ev => { ev.preventDefault(); gestureZoom = 1; });
+  stage.addEventListener('gesturechange', ev => {
+    ev.preventDefault();
+    const p = at(ev);
+    zoomAt(fit, cam, ev.scale / gestureZoom, p.x, p.y);
+    gestureZoom = ev.scale;
+  });
+}
+
+// Flat, 3D or free 3D, per config. 3D by default for the laptop alone, whose mostly
+// maximized windows hide each other on a flat map
 function depthOf(name) {
   const picked = localStorage.getItem(`screenmaps.depth.${name}`);
-  if (picked === 'flat' || picked === '3d') return picked;
+  if (picked === 'flat' || picked === '3d' || picked === 'free') return picked;
   const c = list(state.now.configs).find(c => c.name === name);
   return c && c.screens === 1 ? '3d' : 'flat';
 }
@@ -810,7 +1075,7 @@ function render() {
     b.classList.toggle('active', b.dataset.depth === depth);
   }
   renderAppFilters(map);
-  if (state.view === 'map') renderMap(map, live, depth);
+  if (state.view === 'map') renderMap(map, live, depth, name);
   else renderDays(map, live);
   renderList(map, live);
   applyFilter();
@@ -831,10 +1096,17 @@ async function refresh() {
     return;
   }
   const sig = JSON.stringify(now);
-  if (sig === state.nowSig) return;
+  const chrome = await fetchChrome();
+  const chromeSig = chrome ? String(chrome.taken) : '';
+  if (sig === state.nowSig && chromeSig === state.chromeSig) return;
+  const mapsChanged = sig !== state.nowSig;
   state.nowSig = sig;
   state.now = now;
-  await loadMaps();
+  state.chrome = chrome;
+  state.chromeSig = chromeSig;
+  if (mapsChanged) await loadMaps();
+  // mid-drag in free 3D, wait for the next poll
+  if (document.querySelector('.map-stage.dragging')) { state.chromeSig = ''; state.nowSig = ''; return; }
   render();
 }
 
@@ -848,7 +1120,9 @@ for (const b of document.querySelectorAll('#depth button')) {
 document.addEventListener('keydown', ev => {
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
   if (ev.key === '3' && state.now && state.view === 'map') {
-    setDepth(depthOf(shownConfig()) === '3d' ? 'flat' : '3d');
+    setDepth(depthOf(shownConfig()) === 'flat' ? '3d' : 'flat');
+  } else if (ev.key === 'f' && state.now && state.view === 'map') {
+    setDepth('free');
   }
   if (ev.key === 'm') setView('map');
   else if (ev.key === 'd') setView('days');
