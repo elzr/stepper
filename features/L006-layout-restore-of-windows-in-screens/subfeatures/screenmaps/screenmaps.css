@@ -103,22 +103,14 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .fit { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .plane { position: relative; }
 
-/* 3D: the plane at an isometric angle (renderMap, then fitInStage), each window a layer
-   above the one behind it; their names stand upright in a column beside (placeNames) */
-.three-d .plane { transform-style: preserve-3d; transform: rotateX(56deg) rotateZ(-36deg); }
+/* 3D: the plane stands upright, turned so its right edge is the farther one and seen a
+   little from above (renderMap's TURN, then fitInStage); each window a layer in front of
+   the one behind it, so depth runs left to right. Their names in a column beside (placeNames) */
+.three-d .plane { transform-style: preserve-3d; transform: rotateX(-12deg) rotateY(42deg); }
 .three-d .display { overflow: visible; transform-style: preserve-3d; background: #dde3ea; }
 .three-d .win { background: hsl(var(--hue) 50% 98% / 0.94); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22); }
 .three-d .win-head { display: none; }
-.corner { position: absolute; width: 1px; height: 1px; pointer-events: none; }
 .names { position: absolute; inset: 0; pointer-events: none; }
-.name-lines { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
-.name-lines line { stroke: #9aa5b4; stroke-width: 1; }
-.name-lines circle { fill: #64748b; }
-/* several displays: a name's line only while the name is hovered */
-.name-lines .on-hover { visibility: hidden; }
-.name-lines .on-hover.shown { visibility: visible; }
-.name-lines line.on-hover.shown { stroke: var(--link); stroke-width: 1.5; }
-.name-lines circle.on-hover.shown { fill: var(--link); }
 .name-group {
   position: absolute;
   height: 18px;
@@ -149,6 +141,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .layer-name img, .layer-name .letter { width: 13px; height: 13px; flex-shrink: 0; }
 a.layer-name:hover { color: var(--link); }
 .layer-name.focused { color: var(--front); font-weight: 600; }
+.layer-name.lit { font-weight: 700; }
 .layer-name.dim { opacity: 0.3; }
 .layer-name.hit { background: #fef3c7; }
 .display {
@@ -197,6 +190,8 @@ a.win { cursor: pointer; }
 .win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
 .win.focused { border-color: var(--front); box-shadow: 0 0 0 1.5px var(--front), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win:hover { border-color: var(--link); }
+/* a window and its name hovered (litTogether): the window's own tint, deeper */
+.win.lit, .three-d .win.lit { background: hsl(var(--hue) 46% 84%); border-color: var(--link); }
 .win.dim { opacity: 0.25; }
 .win.hit { border-color: var(--hit); box-shadow: 0 0 0 2px var(--hit), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win-head {

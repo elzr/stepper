@@ -366,9 +366,14 @@ function applyFilter() {
 // --- Map --------------------------------------------------------------------------
 
 const TAG_ROOM = 240;   // 3D: px left of the stacks for the column of window names
+// 3D: the plane stands upright like the displays, turned about its vertical axis so its
+// right edge is the farther one, and seen a little from above (screenmaps.css's
+// .three-d .plane holds the same angles). Depth then runs left to right: the display at
+// the back on the left, each window a step to the right of the one behind it.
+const TURN = 42 * Math.PI / 180;
 
-// The map's displays and windows sit on a plane. Flat, it's the stage; in 3D it's tilted
-// to an isometric angle, each window one layer above the one behind it on its display
+// The map's displays and windows sit on a plane. Flat, it's the stage; in 3D it stands
+// upright and turned, each window one layer in front of the one behind it on its display
 // (the stack the saves record front to back), with the windows' names in a column beside.
 function renderMap(map, live, depth) {
   const box = $('map');
@@ -385,34 +390,46 @@ function renderMap(map, live, depth) {
   const maxX = Math.max(...rs.map(r => r.x + r.w)), maxY = Math.max(...rs.map(r => r.y + r.h));
   const width = box.clientWidth || 1000;
   const room = Math.max(320, window.innerHeight * 0.68);
-  // Flat: the arrangement fills the width, or the room. 3D: a plane small enough that,
-  // tilted and stacked, it fits beside the names at full size
+  const by = windowsByDisplay(map);
+  const total = map.windows.length;
+  // 3D layers: wide apart, since depth runs across the page, where tall portrait displays
+  // leave room; closer in a tall stack
+  const tallest = Math.max(1, ...[...by.values()].map(wins => wins.length));
+  const layer = Math.max(24, Math.min(72, 640 / tallest));
+  // 3D: each column of displays moves right by the depth of the stacks before it, so a
+  // stack stands clear of the next display instead of running through it
+  const shift = new Map();
+  if (threeD) {
+    let x = 0;
+    for (const col of displayColumns(ds)) {
+      for (const d of col) shift.set(d, x);
+      x += Math.max(...col.map(d => by.get(d).length)) * layer * Math.tan(TURN) + 24;
+    }
+  }
+  const spread = threeD ? Math.max(0, ...shift.values()) : 0;   // px the shifts add
+  // Flat: the arrangement fills the width, or the room. 3D: the room's height; fitInStage
+  // shrinks it if, turned and stacked, it's too wide beside the names
   const scale = threeD
-    ? ((width - TAG_ROOM) * 0.7) / (maxX - minX)
+    ? room / (maxY - minY)
     : Math.min(width / (maxX - minX), room / (maxY - minY));
   const left = threeD ? 0 : (width - (maxX - minX) * scale) / 2;   // flat: centred
   const planeHeight = Math.ceil((maxY - minY) * scale);
   const stage = el('div', 'map-stage' + (threeD ? ' three-d' : ''));
   const fit = el('div', 'fit');
   const plane = el('div', 'plane');
-  plane.style.width = `${threeD ? Math.ceil((maxX - minX) * scale) : width}px`;
+  plane.style.width = `${threeD ? Math.ceil((maxX - minX) * scale + spread) : width}px`;
   plane.style.height = `${planeHeight}px`;
   fit.append(plane);
   stage.append(fit);
   stage.style.height = `${planeHeight}px`;
   box.append(stage);
 
-  const by = windowsByDisplay(map);
-  const total = map.windows.length;
-  // 3D layers: far enough apart for a name between two, closer in a tall stack
-  const tallest = Math.max(1, ...[...by.values()].map(wins => wins.length));
-  const layer = Math.max(10, Math.min(20, 480 / tallest));
-  const corners = [];   // 3D: each window's corner that its name points at
+  const layers = [];   // 3D: each window, for the column of names
   for (const d of ds) {
     const r = rects.get(d);
     const sx = (r.w / d.full.w) * scale, sy = (r.h / d.full.h) * scale;   // px per point here
     const de = el('div', 'display' + (isBuiltin(d) ? ' builtin' : ''));
-    de.style.left = `${left + (r.x - minX) * scale + GAP / 2}px`;
+    de.style.left = `${left + (r.x - minX) * scale + (shift.get(d) || 0) + GAP / 2}px`;
     de.style.top = `${(r.y - minY) * scale + GAP / 2}px`;
     de.style.width = `${r.w * scale - GAP}px`;
     de.style.height = `${r.h * scale - GAP}px`;
@@ -448,17 +465,9 @@ function renderMap(map, live, depth) {
       onHover(we, () => windowPop(map, w, z, live));
       de.append(we);
       if (threeD) {
-        // The display's front window on top: i is its place in this display's stack
-        const lift = `translateZ(${(wins.length - i) * layer}px)`;
-        we.style.transform = lift;
-        // Its top-left corner: the plane's tilt makes it the layer's leftmost point,
-        // the nearest to the names
-        const corner = el('i', 'corner');
-        corner.style.left = `${wl}px`;
-        corner.style.top = `${wt}px`;
-        corner.style.transform = lift;
-        de.append(corner);
-        corners.push({corner, w, z, clickable, d, rank: i});
+        // The display's front window nearest: i is its place in this display's stack
+        we.style.transform = `translateZ(${(wins.length - i) * layer}px)`;
+        layers.push({w, z, clickable, d, rank: i});
       }
     });
     const label = el('div', 'display-label', displayName(d));
@@ -470,7 +479,7 @@ function renderMap(map, live, depth) {
   }
   if (threeD) {
     fitInStage(stage, fit, width - TAG_ROOM, TAG_ROOM);
-    placeNames(map, stage, corners, live);
+    placeNames(map, stage, layers, live);
     centreComposition(stage, fit);
   }
 
@@ -528,70 +537,68 @@ function centreComposition(stage, fit) {
   stage.querySelector('.names').style.transform = `translateX(${dx}px)`;
 }
 
-// 3D: the windows' names upright in a column left of the stacks, read as the stacks are:
-// display by display (as the list lays them out), each front to back, with a hairline from
-// each name to its window's top-left corner. With several displays the lines would cross
-// the whole map, so the column gets a heading per display and a name's line shows while
-// it's hovered. The names take the windows' hover, click and Days picks.
-function placeNames(map, stage, corners, live) {
+// 3D: the windows' names in a column left of the stacks, read as the stacks are: display
+// by display (as the list lays them out), each front to back, with a heading per display
+// when there are several. A name and its window light up together on hover (litTogether),
+// and the names take the windows' hover, click and Days picks.
+function placeNames(map, stage, layers, live) {
   const sr = stage.getBoundingClientRect();
-  const layerEl = el('div', 'names');
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.classList.add('name-lines');
-  layerEl.append(svg);
-  stage.append(layerEl);
+  const column = el('div', 'names');
+  stage.append(column);
   const order = displayColumns(map.displays).flat();
-  const points = corners.map(c => {
-    const r = c.corner.getBoundingClientRect();
-    return {...c, x: r.left - sr.left, y: r.top - sr.top};
-  }).sort((p, q) => order.indexOf(p.d) - order.indexOf(q.d) || p.rank - q.rank);
+  const names = [...layers].sort((p, q) => order.indexOf(p.d) - order.indexOf(q.d) || p.rank - q.rank);
+  let x0 = Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const n of stage.querySelectorAll('.display, .win')) {
+    const r = n.getBoundingClientRect();
+    x0 = Math.min(x0, r.left - sr.left);
+    y0 = Math.min(y0, r.top - sr.top);
+    y1 = Math.max(y1, r.bottom - sr.top);
+  }
   const LINE = 18, GROUP_GAP = 10;
-  const groups = new Set(points.map(p => p.d)).size;
+  const groups = new Set(names.map(p => p.d)).size;
   const several = groups > 1;
-  const columnHeight = (points.length + (several ? groups : 0)) * LINE + (groups - 1) * GROUP_GAP;
-  const ys = points.map(p => p.y);
-  // Centred on the corners it points at
-  let next = Math.max(4, (Math.min(...ys) + Math.max(...ys)) / 2 - columnHeight / 2);
-  const columnRight = Math.min(...points.map(p => p.x)) - 16;
-  const svgEl = tag => document.createElementNS('http://www.w3.org/2000/svg', tag);
-  points.forEach((p, k) => {
-    const firstOfDisplay = k === 0 || p.d !== points[k - 1].d;
+  const columnHeight = (names.length + (several ? groups : 0)) * LINE + (groups - 1) * GROUP_GAP;
+  // Centred on the stacks, right up against their left side
+  let next = Math.max(4, (y0 + y1) / 2 - columnHeight / 2);
+  const right = `${sr.width - (x0 - 16)}px`;
+  names.forEach((p, k) => {
+    const firstOfDisplay = k === 0 || p.d !== names[k - 1].d;
     if (k > 0 && firstOfDisplay) next += GROUP_GAP;
     if (several && firstOfDisplay) {
       const heading = el('div', 'name-group', displayName(p.d) + (p.d.mm ? ` ${inches(p.d)}` : ''));
       heading.style.top = `${next}px`;
-      heading.style.right = `${sr.width - columnRight}px`;
-      layerEl.append(heading);
+      heading.style.right = right;
+      column.append(heading);
       next += LINE;
     }
-    const top = next;
-    next += LINE;
     const name = el(p.clickable ? 'a' : 'div', 'layer-name' + (p.z === 0 ? ' focused' : ''));
     if (p.clickable) name.href = `hammerspoon://screenmaps?focus=${p.w.id}`;
     name.dataset.key = keyOf(p.w);
-    name.style.top = `${top}px`;
-    name.style.right = `${sr.width - columnRight}px`;
+    name.style.top = `${next}px`;
+    name.style.right = right;
     name.append(iconEl(p.w), el('span', null, cleanTitle(p.w)));
     onHover(name, () => windowPop(map, p.w, p.z, live));
-    layerEl.append(name);
-    const line = svgEl('line');
-    line.setAttribute('x1', columnRight + 4);
-    line.setAttribute('y1', top + LINE / 2);
-    line.setAttribute('x2', p.x);
-    line.setAttribute('y2', p.y);
-    const dot = svgEl('circle');
-    dot.setAttribute('cx', p.x);
-    dot.setAttribute('cy', p.y);
-    dot.setAttribute('r', 2);
-    if (several) {
-      line.classList.add('on-hover');
-      dot.classList.add('on-hover');
-      name.addEventListener('mouseenter', () => { line.classList.add('shown'); dot.classList.add('shown'); });
-      name.addEventListener('mouseleave', () => { line.classList.remove('shown'); dot.classList.remove('shown'); });
-    }
-    svg.append(line, dot);
+    column.append(name);
+    next += LINE;
   });
   if (next + 12 > sr.height) stage.style.height = `${Math.ceil(next + 12)}px`;
+}
+
+// Hovering a window or its name lights both: the window's tint deepens, the name turns bold
+function litTogether(box) {
+  const light = (key, on) => {
+    for (const n of box.querySelectorAll('[data-key]')) {
+      if (n.dataset.key === key) n.classList.toggle('lit', on);
+    }
+  };
+  box.addEventListener('mouseover', ev => {
+    const n = ev.target.closest('[data-key]');
+    if (n) light(n.dataset.key, true);
+  });
+  box.addEventListener('mouseout', ev => {
+    const n = ev.target.closest('[data-key]');
+    if (n && !(ev.relatedTarget && n.contains(ev.relatedTarget))) light(n.dataset.key, false);
+  });
 }
 
 // Flat or 3D, per config. 3D by default for the laptop alone, whose mostly maximized
@@ -802,7 +809,7 @@ function render() {
   $('hint').textContent = state.view === 'days'
     ? 'Click a day or an app to pick out its windows in the list below'
     : depth === '3d'
-      ? `Each window a layer above the one behind it, the front one on top; hover a window or its name for its title${action}`
+      ? `The displays upright, each window a layer in front of the one behind it, the front one rightmost; hover a window or its name to light both${action}`
       : `Each display at its real size, where it sits, each window where it was; hover one for its title${action}`;
   if (state.view === 'map') renderMap(map, live, depth);
   else renderDays(map, live);
@@ -835,6 +842,7 @@ async function refresh() {
 for (const b of document.querySelectorAll('.panel-views button')) {
   b.addEventListener('click', () => setView(b.dataset.view));
 }
+litTogether($('map'));
 for (const b of document.querySelectorAll('#depth button')) {
   b.addEventListener('click', () => setDepth(b.dataset.depth));
 }
