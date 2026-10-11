@@ -120,7 +120,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 
 /* Map: each display at its real size where it sits, its windows where they sit, back to front */
 .screen-map { margin-top: 6px; }
-.map-stage { position: relative; }
+.map-stage { position: relative; isolation: isolate; }   /* its z-indexes stay under the popup */
 .fit { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .plane { position: relative; }
 
@@ -434,3 +434,7 @@ a.min-chip:hover { border-color: var(--link); }
 .pop-list { margin: 5px 0 0 23px; padding-left: 14px; }
 .pop-list li { margin: 2px 0; }
 .pop-list li.front-tab { font-weight: 600; }
+.pop-tabs { list-style: none; padding-left: 0; }
+.pop-tabs li { display: flex; align-items: flex-start; gap: 6px; }
+.pop-tabs .tab-fav { width: 14px; height: 14px; margin-top: 1px; }
+.pop-tabs .tab-fav.front-tab { outline-width: 1px; }

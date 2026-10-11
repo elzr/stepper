@@ -425,8 +425,12 @@ function windowPop(map, w, z, live, tabs) {
   if (w.used) notes.push(`last used ${when(w.used)}`);
   if (notes.length) nodes.push(el('div', 'pop-line', notes.join(' · ')));
   if (tabs && tabs.length) {   // a Chrome window's tabs, from the live tablog
-    const ul = el('ul', 'pop-list');
-    for (const t of tabs.slice(0, 10)) ul.append(el('li', t.front ? 'front-tab' : null, t.title || t.url));
+    const ul = el('ul', 'pop-list pop-tabs');   // each tab with its favicon for a bullet
+    for (const t of tabs.slice(0, 10)) {
+      const li = el('li', t.front ? 'front-tab' : null);
+      li.append(faviconEl(t), el('span', null, t.title || t.url));
+      ul.append(li);
+    }
     if (tabs.length > 10) ul.append(el('li', null, `and ${tabs.length - 10} more`));
     nodes.push(el('div', 'pop-line', `${tabs.length} tab${tabs.length === 1 ? '' : 's'}`), ul);
   }
@@ -695,7 +699,6 @@ function renderMap(map, live, depth, name) {
     const label = el('div', 'display-label', displayName(d));
     if (d.mm) label.append(el('span', 'size', ` ${inches(d)}`));
     label.append(el('span', 'count', ` · ${wins.length}`));
-    de.title = monitorText(d);
     de.append(label);
     plane.append(de);
   }
