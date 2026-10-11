@@ -94,6 +94,27 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .map-modes button:hover { color: var(--text); }
 .map-modes button.active { background: var(--active-bg); color: var(--active-text); }
 .panel-hint { color: var(--grey); font-size: 0.75rem; }
+/* The app filters, in the map's top-right corner: an app with several windows, its count */
+.app-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px 4px; margin-left: auto; }
+.app-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 6px 0 4px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--badge-text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.app-filter img, .app-filter .letter { width: 16px; height: 16px; border-radius: 2px; }
+.app-filter:hover { border-color: var(--link); }
+.app-filter.active { border-color: var(--active-bg); box-shadow: inset 0 0 0 1px var(--active-bg); background: #eff6ff; }
 .nav-panel:not(.show-days) .days, .nav-panel.show-days .screen-map { display: none; }
 .empty { color: var(--grey); font-size: 0.9rem; padding: 20px 0; }
 
@@ -105,45 +126,12 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 
 /* 3D: the plane stands upright, turned so its right edge is the farther one and seen a
    little from above (renderMap's TURN, then fitInStage); each window a layer in front of
-   the one behind it, so depth runs left to right. Their names in a column beside (placeNames) */
+   the one behind it, so depth runs left to right, its title still on it */
 .three-d .plane { transform-style: preserve-3d; transform: rotateX(-12deg) rotateY(42deg); }
 .three-d .display { overflow: visible; transform-style: preserve-3d; background: #dde3ea; }
+/* its label just off the display's face: coplanar, Chrome sometimes drew its pill without the text */
+.three-d .display-label { transform: translateZ(1px); }
 .three-d .win { background: hsl(var(--hue) 50% 98% / 0.94); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22); }
-.three-d .win-head { display: none; }
-.names { position: absolute; inset: 0; pointer-events: none; }
-.name-group {
-  position: absolute;
-  height: 18px;
-  padding: 0 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 18px;
-  color: #64748b;
-  white-space: nowrap;
-}
-.layer-name {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 220px;
-  height: 17px;
-  padding: 0 4px;
-  font-size: 0.74rem;
-  line-height: 17px;
-  color: var(--text);
-  text-decoration: none;
-  white-space: nowrap;
-  border-radius: 4px;
-  pointer-events: auto;
-}
-.layer-name span { overflow: hidden; text-overflow: ellipsis; }
-.layer-name img, .layer-name .letter { width: 13px; height: 13px; flex-shrink: 0; }
-a.layer-name:hover { color: var(--link); }
-.layer-name.focused { color: var(--front); font-weight: 600; }
-.layer-name.lit { font-weight: 700; }
-.layer-name.dim { opacity: 0.3; }
-.layer-name.hit { background: #fef3c7; }
 .display {
   position: absolute;
   background: #e9edf2;
@@ -152,6 +140,9 @@ a.layer-name:hover { color: var(--link); }
   overflow: hidden;
 }
 .display.builtin { border-radius: 6px 6px 10px 10px; }
+/* the display of the window hovered, on the map or in the list (hoverWindow) */
+.display { transition: background-color 0.2s, border-color 0.2s; }
+.display.near, .three-d .display.near { background: #dde5ef; border-color: #7c93b3; }
 .display .menubar { position: absolute; left: 0; right: 0; top: 0; background: rgba(15, 23, 42, 0.08); }
 .display-label {
   position: absolute;
@@ -190,8 +181,20 @@ a.win { cursor: pointer; }
 .win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
 .win.focused { border-color: var(--front); box-shadow: 0 0 0 1.5px var(--front), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win:hover { border-color: var(--link); }
-/* a window and its name hovered (litTogether): the window's own tint, deeper */
-.win.lit, .three-d .win.lit { background: hsl(var(--hue) 46% 84%); border-color: var(--link); }
+/* the window hovered, on the map or in the list (hoverWindow): its own tint, deeper, at
+   once; the other windows of its app (kin) a lighter tint, fading in a moment later */
+.win { transition: background-color 0.15s, border-color 0.15s; }
+.win.kin, .three-d .win.kin {
+  background: hsl(var(--hue) 50% 91%);
+  border-color: hsl(var(--hue) 40% 58%);
+  transition: background-color 0.7s ease 0.2s, border-color 0.7s ease 0.2s;
+}
+.win.lit, .three-d .win.lit {
+  background: hsl(var(--hue) 46% 84%);
+  border-color: var(--link);
+  box-shadow: 0 0 0 1.5px var(--link), 0 2px 7px rgba(0, 0, 0, 0.2);
+  transition: none;
+}
 .win.dim { opacity: 0.25; }
 .win.hit { border-color: var(--hit); box-shadow: 0 0 0 2px var(--hit), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win-head {
@@ -242,6 +245,9 @@ a.min-chip:hover { border-color: var(--link); }
 .min-chip img, .min-chip .letter { width: 14px; height: 14px; flex-shrink: 0; }
 .min-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .min-chip.dim { opacity: 0.3; }
+.min-chip { transition: background-color 0.15s, border-color 0.15s; }
+.min-chip.kin { background: hsl(var(--hue) 50% 91%); transition: background-color 0.7s ease 0.2s; }
+.min-chip.lit { background: hsl(var(--hue) 46% 84%); border-color: var(--link); transition: none; }
 .min-chip.hit { border-color: var(--hit); box-shadow: inset 0 0 0 1px var(--hit); }
 
 /* Days: opened and last used side by side, a row per day, each app once with its count */
@@ -330,7 +336,11 @@ a.min-chip:hover { border-color: var(--link); }
 .screen-list h3 .count { color: var(--grey); font-weight: 400; font-size: 0.8rem; }
 .screen-list .monitor { color: var(--grey); font-size: 0.75rem; margin-bottom: 3px; }
 .screen-list ul { list-style: disc; padding-left: 20px; }
-.screen-list li { margin: 1px 0; font-size: 0.88rem; border-radius: 4px; }
+.screen-list { margin: 0 -6px; padding: 2px 6px 4px; border-radius: 6px; transition: background-color 0.2s; }
+.screen-list.near { background: #eef2f7; }
+.screen-list li { margin: 1px 0; font-size: 0.88rem; border-radius: 4px; transition: background-color 0.15s; }
+.screen-list li.kin { background: #f1f5f9; transition: background-color 0.7s ease 0.2s; }
+.screen-list li.lit { background: #dbeafe; transition: none; }
 .screen-list li::marker { color: #b8bec7; }
 .screen-list li.focused::marker { color: var(--front); }
 .screen-list li.dim { opacity: 0.35; }

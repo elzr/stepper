@@ -47,10 +47,27 @@ async function fetchJSON(path) {
 
 // --- Data ---------------------------------------------------------------------
 
+// Twins share a size: displays of one model ("LG HDR 4K (1)" and "(2)") at the same
+// resolution are the same panel, but an EDID can misreport it. The Middle Center LG's says
+// 598 × 341 mm, a 27″ panel, where its twin above says 702 × 400, the 32″ both are.
+// The larger reading wins; mmReported keeps the one the display gave.
+function twinSizes(displays) {
+  const model = d => `${(d.name || '').replace(/\s*\(\d+\)$/, '')}|${[d.full.w, d.full.h].sort().join('x')}`;
+  const area = mm => (mm ? mm.w * mm.h : 0);
+  const biggest = new Map();
+  for (const d of displays) {
+    if (d.name && d.mm && area(d.mm) > area(biggest.get(model(d)))) biggest.set(model(d), d.mm);
+  }
+  return displays.map(d => {
+    const mm = d.name && biggest.get(model(d));
+    return mm && area(mm) > area(d.mm) ? {...d, mm, mmReported: d.mm} : d;
+  });
+}
+
 function fromScreenmap(doc) {
   return {
     name: doc.config, saved: doc.saved, since: doc.since, rebuilt: false,
-    displays: list(doc.displays),
+    displays: twinSizes(list(doc.displays)),
     windows: list(doc.windows).filter(w => w.frame),
     minimized: list(doc.minimized).filter(w => w.frame),
   };
@@ -105,6 +122,7 @@ async function loadMaps() {
 const bundleOf = w => w.bundle || state.appBundles[w.app];
 // A window's identity on the page, across the map, the days and the list
 const keyOf = w => (w.id != null ? `id:${w.id}` : `at:${w.app}\n${w.title}`);
+const screenId = d => d.position || `${d.full.x},${d.full.y}`;
 
 // The config in use, unless that's the laptop alone: on the go, the desk layout you
 // last left is the one worth seeing. A config picked by hand wins.
@@ -170,6 +188,14 @@ function physicalRects(displays) {
   for (const b of [...displays].sort((p, q) => p.full.y - q.full.y)) {
     const aboves = displays.filter(a => a !== b && Math.abs(a.full.y + a.full.h - b.full.y) <= TOL && overlapX(a, b));
     if (aboves.length) rects.get(b).y = Math.max(...aboves.map(a => rects.get(a).y + rects.get(a).h));
+  }
+  // The laptop sits centred under the display above it. macOS has it at that display's
+  // left edge only so the pointer crosses where it should; on the desk it's in the middle.
+  for (const b of displays.filter(isBuiltin)) {
+    const aboves = displays.filter(a => a !== b && Math.abs(a.full.y + a.full.h - b.full.y) <= TOL && overlapX(a, b));
+    if (aboves.length !== 1) continue;
+    const a = rects.get(aboves[0]), r = rects.get(b);
+    r.x = a.x + (a.w - r.w) / 2;
   }
   return rects;
 }
@@ -248,6 +274,7 @@ function monitorText(d) {
   const parts = [];
   if (d.name) parts.push(d.name);
   if (d.mm) parts.push(`${inches(d)} (${d.mm.w} × ${d.mm.h} mm)`);
+  if (d.mmReported) parts.push(`its EDID says ${d.mmReported.w} × ${d.mmReported.h} mm`);
   parts.push(`${d.full.w}×${d.full.h}`);
   if (d.rotation) parts.push(`turned ${d.rotation}°`);
   return parts.join(' · ');
@@ -334,10 +361,11 @@ function windowPop(map, w, z, live) {
   return nodes;
 }
 
-// --- Filter: the windows a day or an app in Days picked out, the rest dimmed ---------
+// --- Filter: the windows a day or an app in Days, or an app filter, picked out ---------
 
-function setFilter(label, keys) {
-  state.filter = state.filter && state.filter.label === label ? null : {label, keys: new Set(keys)};
+// mark: false only dims the rest (the app filters), without outlining the picked windows
+function setFilter(label, keys, {mark = true} = {}) {
+  state.filter = state.filter && state.filter.label === label ? null : {label, keys: new Set(keys), mark};
   applyFilter();
 }
 
@@ -356,16 +384,73 @@ function applyFilter() {
   for (const node of document.querySelectorAll('[data-key]')) {
     const hit = !!f && f.keys.has(node.dataset.key);
     node.classList.toggle('dim', !!f && !hit);
-    node.classList.toggle('hit', hit);
+    node.classList.toggle('hit', hit && f.mark);
   }
   for (const node of document.querySelectorAll('[data-filter]')) {
     node.classList.toggle('active', !!f && node.dataset.filter === f.label);
   }
 }
 
+// --- Map and list together -----------------------------------------------------------
+
+// A window's node, on the map or in the list: its key, its app and its display
+function tagWindow(node, w, d) {
+  node.dataset.key = keyOf(w);
+  node.dataset.app = w.app || '';
+  if (d) node.dataset.on = screenId(d);
+}
+
+// Hovering a window, on the map or in the list, lights it in both (lit), its display
+// on the map and its section in the list (near), and, a moment later, every other
+// window of its app (kin: the slow fade is screenmaps.css's)
+let hovered = null;
+function hoverWindow(node) {
+  const key = node ? node.dataset.key : null;
+  if (key === hovered) return;
+  hovered = key;
+  for (const n of document.querySelectorAll('.lit, .kin, .near')) n.classList.remove('lit', 'kin', 'near');
+  if (!node) return;
+  const {app, on} = node.dataset;
+  for (const n of document.querySelectorAll('#map [data-key], #list [data-key]')) {
+    if (n.dataset.key === key) n.classList.add('lit');
+    else if (app && n.dataset.app === app) n.classList.add('kin');
+  }
+  if (on) {
+    for (const n of document.querySelectorAll('[data-screen]')) {
+      if (n.dataset.screen === on) n.classList.add('near');
+    }
+  }
+}
+
+function initHoverLinks() {
+  document.addEventListener('mouseover', ev => hoverWindow(ev.target.closest('#map [data-key], #list [data-key]')));
+  document.documentElement.addEventListener('mouseleave', () => hoverWindow(null));
+}
+
+// The apps with several windows, most first, in the map's top-right corner: a click dims
+// every other window, on the map and in the list
+function renderAppFilters(map) {
+  const box = $('apps');
+  box.textContent = '';
+  const byApp = new Map();
+  for (const w of [...map.windows, ...map.minimized]) {
+    if (!byApp.has(w.app)) byApp.set(w.app, []);
+    byApp.get(w.app).push(w);
+  }
+  const apps = [...byApp.entries()].filter(([, ws]) => ws.length > 1).sort((a, b) => b[1].length - a[1].length);
+  for (const [app, ws] of apps) {
+    const b = el('button', 'app-filter');
+    b.type = 'button';
+    b.dataset.filter = app;
+    b.title = `Only ${app}'s ${ws.length} windows`;
+    b.append(iconEl(ws[0]), el('span', null, String(ws.length)));
+    b.onclick = () => setFilter(app, ws.map(keyOf), {mark: false});
+    box.append(b);
+  }
+}
+
 // --- Map --------------------------------------------------------------------------
 
-const TAG_ROOM = 240;   // 3D: px left of the stacks for the column of window names
 // 3D: the plane stands upright like the displays, turned about its vertical axis so its
 // right edge is the farther one, and seen a little from above (screenmaps.css's
 // .three-d .plane holds the same angles). Depth then runs left to right: the display at
@@ -374,7 +459,7 @@ const TURN = 42 * Math.PI / 180;
 
 // The map's displays and windows sit on a plane. Flat, it's the stage; in 3D it stands
 // upright and turned, each window one layer in front of the one behind it on its display
-// (the stack the saves record front to back), with the windows' names in a column beside.
+// (the stack the saves record front to back), its title still on it.
 function renderMap(map, live, depth) {
   const box = $('map');
   box.textContent = '';
@@ -408,7 +493,7 @@ function renderMap(map, live, depth) {
   }
   const spread = threeD ? Math.max(0, ...shift.values()) : 0;   // px the shifts add
   // Flat: the arrangement fills the width, or the room. 3D: the room's height; fitInStage
-  // shrinks it if, turned and stacked, it's too wide beside the names
+  // shrinks it if, turned and stacked, it's too wide
   const scale = threeD
     ? room / (maxY - minY)
     : Math.min(width / (maxX - minX), room / (maxY - minY));
@@ -424,11 +509,11 @@ function renderMap(map, live, depth) {
   stage.style.height = `${planeHeight}px`;
   box.append(stage);
 
-  const layers = [];   // 3D: each window, for the column of names
   for (const d of ds) {
     const r = rects.get(d);
     const sx = (r.w / d.full.w) * scale, sy = (r.h / d.full.h) * scale;   // px per point here
     const de = el('div', 'display' + (isBuiltin(d) ? ' builtin' : ''));
+    de.dataset.screen = screenId(d);
     de.style.left = `${left + (r.x - minX) * scale + (shift.get(d) || 0) + GAP / 2}px`;
     de.style.top = `${(r.y - minY) * scale + GAP / 2}px`;
     de.style.width = `${r.w * scale - GAP}px`;
@@ -444,7 +529,7 @@ function renderMap(map, live, depth) {
       const clickable = live && w.id != null && ON_MAC;
       const we = el(clickable ? 'a' : 'div', 'win');
       if (clickable) we.href = `hammerspoon://screenmaps?focus=${w.id}`;
-      we.dataset.key = keyOf(w);
+      tagWindow(we, w, d);
       if (z === 0) we.classList.add('focused');
       if (i === 0) we.classList.add('front');
       // Inside its display, which clips it the way macOS does
@@ -467,7 +552,6 @@ function renderMap(map, live, depth) {
       if (threeD) {
         // The display's front window nearest: i is its place in this display's stack
         we.style.transform = `translateZ(${(wins.length - i) * layer}px)`;
-        layers.push({w, z, clickable, d, rank: i});
       }
     });
     const label = el('div', 'display-label', displayName(d));
@@ -478,9 +562,7 @@ function renderMap(map, live, depth) {
     plane.append(de);
   }
   if (threeD) {
-    fitInStage(stage, fit, width - TAG_ROOM, TAG_ROOM);
-    placeNames(map, stage, layers, live);
-    centreComposition(stage, fit);
+    fitInStage(stage, fit, width);
   }
 
   // The minimized windows after a rule, as the tablogs show minimized Chrome windows
@@ -491,7 +573,7 @@ function renderMap(map, live, depth) {
       const clickable = live && w.id != null && ON_MAC;
       const chip = el(clickable ? 'a' : 'div', 'min-chip');
       if (clickable) chip.href = `hammerspoon://screenmaps?focus=${w.id}`;
-      chip.dataset.key = keyOf(w);
+      tagWindow(chip, w);
       chip.style.setProperty('--hue', hue(bundleOf(w) || w.app));
       chip.append(iconEl(w), el('span', 'min-title', cleanTitle(w)));
       onHover(chip, () => windowPop(map, w, null, live));
@@ -502,9 +584,9 @@ function renderMap(map, live, depth) {
 }
 
 // The tilted plane's projection spills out of its box: measure what its displays and windows
-// cover on screen, then move it beside the names' column (and shrink it if it's too wide;
-// a tall stack just makes the stage taller, so the names keep their size)
-function fitInStage(stage, fit, maxWidth, leftPad) {
+// cover on screen, then centre it in the stage (and shrink it if it's too wide; a tall
+// stack just makes the stage taller)
+function fitInStage(stage, fit, maxWidth) {
   const sr = stage.getBoundingClientRect();
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const n of stage.querySelectorAll('.display, .win')) {
@@ -517,88 +599,9 @@ function fitInStage(stage, fit, maxWidth, leftPad) {
   const w = x1 - x0, h = y1 - y0;
   if (!(w > 0 && h > 0)) return;
   const s = Math.min(1, maxWidth / w), pad = 12;
-  fit.style.transform = `translate(${leftPad + (maxWidth - w * s) / 2 - (x0 - sr.left) * s}px, ` +
+  fit.style.transform = `translate(${(maxWidth - w * s) / 2 - (x0 - sr.left) * s}px, ` +
     `${pad - (y0 - sr.top) * s}px) scale(${s})`;
   stage.style.height = `${Math.ceil(h * s) + 2 * pad}px`;
-}
-
-// 3D: centre the names and the stacks together in the stage
-function centreComposition(stage, fit) {
-  const sr = stage.getBoundingClientRect();
-  let x0 = Infinity, x1 = -Infinity;
-  for (const n of stage.querySelectorAll('.display, .win, .layer-name')) {
-    const r = n.getBoundingClientRect();
-    x0 = Math.min(x0, r.left);
-    x1 = Math.max(x1, r.right);
-  }
-  const dx = (sr.width - (x1 - x0)) / 2 - (x0 - sr.left);
-  if (!Number.isFinite(dx)) return;
-  fit.style.transform = `translateX(${dx}px) ${fit.style.transform}`;
-  stage.querySelector('.names').style.transform = `translateX(${dx}px)`;
-}
-
-// 3D: the windows' names in a column left of the stacks, read as the stacks are: display
-// by display (as the list lays them out), each front to back, with a heading per display
-// when there are several. A name and its window light up together on hover (litTogether),
-// and the names take the windows' hover, click and Days picks.
-function placeNames(map, stage, layers, live) {
-  const sr = stage.getBoundingClientRect();
-  const column = el('div', 'names');
-  stage.append(column);
-  const order = displayColumns(map.displays).flat();
-  const names = [...layers].sort((p, q) => order.indexOf(p.d) - order.indexOf(q.d) || p.rank - q.rank);
-  let x0 = Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const n of stage.querySelectorAll('.display, .win')) {
-    const r = n.getBoundingClientRect();
-    x0 = Math.min(x0, r.left - sr.left);
-    y0 = Math.min(y0, r.top - sr.top);
-    y1 = Math.max(y1, r.bottom - sr.top);
-  }
-  const LINE = 18, GROUP_GAP = 10;
-  const groups = new Set(names.map(p => p.d)).size;
-  const several = groups > 1;
-  const columnHeight = (names.length + (several ? groups : 0)) * LINE + (groups - 1) * GROUP_GAP;
-  // Centred on the stacks, right up against their left side
-  let next = Math.max(4, (y0 + y1) / 2 - columnHeight / 2);
-  const right = `${sr.width - (x0 - 16)}px`;
-  names.forEach((p, k) => {
-    const firstOfDisplay = k === 0 || p.d !== names[k - 1].d;
-    if (k > 0 && firstOfDisplay) next += GROUP_GAP;
-    if (several && firstOfDisplay) {
-      const heading = el('div', 'name-group', displayName(p.d) + (p.d.mm ? ` ${inches(p.d)}` : ''));
-      heading.style.top = `${next}px`;
-      heading.style.right = right;
-      column.append(heading);
-      next += LINE;
-    }
-    const name = el(p.clickable ? 'a' : 'div', 'layer-name' + (p.z === 0 ? ' focused' : ''));
-    if (p.clickable) name.href = `hammerspoon://screenmaps?focus=${p.w.id}`;
-    name.dataset.key = keyOf(p.w);
-    name.style.top = `${next}px`;
-    name.style.right = right;
-    name.append(iconEl(p.w), el('span', null, cleanTitle(p.w)));
-    onHover(name, () => windowPop(map, p.w, p.z, live));
-    column.append(name);
-    next += LINE;
-  });
-  if (next + 12 > sr.height) stage.style.height = `${Math.ceil(next + 12)}px`;
-}
-
-// Hovering a window or its name lights both: the window's tint deepens, the name turns bold
-function litTogether(box) {
-  const light = (key, on) => {
-    for (const n of box.querySelectorAll('[data-key]')) {
-      if (n.dataset.key === key) n.classList.toggle('lit', on);
-    }
-  };
-  box.addEventListener('mouseover', ev => {
-    const n = ev.target.closest('[data-key]');
-    if (n) light(n.dataset.key, true);
-  });
-  box.addEventListener('mouseout', ev => {
-    const n = ev.target.closest('[data-key]');
-    if (n && !(ev.relatedTarget && n.contains(ev.relatedTarget))) light(n.dataset.key, false);
-  });
 }
 
 // Flat or 3D, per config. 3D by default for the laptop alone, whose mostly maximized
@@ -709,13 +712,14 @@ function daysColumn(map, items, title, field, hint) {
 
 function displaySection(map, d, wins, live) {
   const sec = el('section', 'screen-list');
+  sec.dataset.screen = screenId(d);
   const h = el('h3', null, displayName(d) + ' ');
   h.append(el('span', 'count', String(wins.length)));
   sec.append(h, el('div', 'monitor', monitorText(d)));
   const ul = el('ul');
   for (const {w, z} of wins) {
     const li = el('li', z === 0 ? 'focused' : null);
-    li.dataset.key = keyOf(w);
+    tagWindow(li, w, d);
     li.append(iconEl(w), titleEl(w, live), ' ', el('span', 'app', w.app));
     onHover(li, () => windowPop(map, w, z, live));
     ul.append(li);
@@ -745,7 +749,7 @@ function renderList(map, live) {
     const ul = el('ul');
     for (const w of map.minimized) {
       const li = el('li');
-      li.dataset.key = keyOf(w);
+      tagWindow(li, w);
       const d = displayOf(map, w);
       li.append(iconEl(w), titleEl(w, live), ' ', el('span', 'app', `${w.app}${d ? ', from ' + displayName(d) : ''}`));
       onHover(li, () => windowPop(map, w, null, live));
@@ -805,12 +809,7 @@ function render() {
   for (const b of document.querySelectorAll('#depth button')) {
     b.classList.toggle('active', b.dataset.depth === depth);
   }
-  const action = live && ON_MAC ? '; click one to bring it forward' : '';
-  $('hint').textContent = state.view === 'days'
-    ? 'Click a day or an app to pick out its windows in the list below'
-    : depth === '3d'
-      ? `The displays upright, each window a layer in front of the one behind it, the front one rightmost; hover a window or its name to light both${action}`
-      : `Each display at its real size, where it sits, each window where it was; hover one for its title${action}`;
+  renderAppFilters(map);
   if (state.view === 'map') renderMap(map, live, depth);
   else renderDays(map, live);
   renderList(map, live);
@@ -842,7 +841,7 @@ async function refresh() {
 for (const b of document.querySelectorAll('.panel-views button')) {
   b.addEventListener('click', () => setView(b.dataset.view));
 }
-litTogether($('map'));
+initHoverLinks();
 for (const b of document.querySelectorAll('#depth button')) {
   b.addEventListener('click', () => setDepth(b.dataset.depth));
 }
