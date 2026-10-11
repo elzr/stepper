@@ -81,6 +81,7 @@ local pasteWatchStartedAt = nil      -- if set, a ⌘⇧Space from Bear is open;
 local inserting = false              -- guard against self-induced notifications
 local boundPid = nil                 -- PID the observer/tap are bound to; compared against the live Bear PID to spot a stale binding
 local lastFireAt = nil               -- timestamp of the most recent observer fire (liveness: proves the observer is still delivering)
+local axReadStats = { n = 0, total = 0, max = 0, last = 0, bytes = 0 }  -- ms per AXValue read; see onObserverFire
 local ensureHealthy = nil            -- forward decl: the event-driven reconciler (assigned after setupHooks below)
 local logger = hs.logger.new("bear-paste", "info")
 
@@ -223,8 +224,16 @@ local function onObserverFire(_obs, el, _notif)
     return
   end
 
+  local t0 = hs.timer.absoluteTime()
   local value = el:attributeValue("AXValue") or ""
   local curCount = countObjRepl(value)
+  -- Each read blocks Bear's main thread too; a slow one can push a ⌘V past
+  -- BTT's ~60 ms clipboard restore (zday pasting the old image, 2026-10-11).
+  axReadStats.last = (hs.timer.absoluteTime() - t0) / 1e6
+  axReadStats.n = axReadStats.n + 1
+  axReadStats.total = axReadStats.total + axReadStats.last
+  if axReadStats.last > axReadStats.max then axReadStats.max = axReadStats.last end
+  axReadStats.bytes = #value
 
   -- New textarea? Just snapshot the baseline and return. NOTE: if a paste is the
   -- VERY FIRST selection-change fire on a freshly-focused note (e.g. you reached
@@ -597,6 +606,9 @@ function M.health()
     recentCmdVAgo  = recentCmdVAt and (now - recentCmdVAt) or nil,
     pasteWatchOpen = pasteWatchStartedAt ~= nil,
     logOpen        = logFile ~= nil,
+    axReadMs       = { n = axReadStats.n, last = axReadStats.last, max = axReadStats.max,
+                       avg = axReadStats.n > 0 and axReadStats.total / axReadStats.n or nil,
+                       bytes = axReadStats.bytes },
     logPath        = LOG_PATH,
   }
   logger.i("health: " .. (hs.inspect(h):gsub("%s+", " ")))
