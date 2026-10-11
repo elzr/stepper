@@ -477,13 +477,15 @@ function tagWindow(node, w, d) {
 
 // Hovering a window, on the map or in the list, lights it in both (lit), its display
 // on the map and its section in the list (near), and, a moment later, every other
-// window of its app (kin: the slow fade is screenmaps.css's)
+// window of its app (kin: the slow fade is screenmaps.css's). The window comes to the
+// top: on the flat map by z-index (screenmaps.css), in 3D, where moving it forward would
+// pull it from under the pointer, by veiling the windows in front of it on its display.
 let hovered = null;
 function hoverWindow(node) {
   const key = node ? node.dataset.key : null;
   if (key === hovered) return;
   hovered = key;
-  for (const n of document.querySelectorAll('.lit, .kin, .near')) n.classList.remove('lit', 'kin', 'near');
+  for (const n of document.querySelectorAll('.lit, .kin, .near, .veil')) n.classList.remove('lit', 'kin', 'near', 'veil');
   if (!node) return;
   const {app, on} = node.dataset;
   for (const n of document.querySelectorAll('#map [data-key], #list [data-key]')) {
@@ -493,6 +495,11 @@ function hoverWindow(node) {
   if (on) {
     for (const n of document.querySelectorAll('[data-screen]')) {
       if (n.dataset.screen === on) n.classList.add('near');
+    }
+  }
+  for (const w of document.querySelectorAll('#map .three-d .win.lit')) {
+    for (const o of w.parentElement.querySelectorAll('.win')) {
+      if (Number(o.dataset.rank) < Number(w.dataset.rank)) o.classList.add('veil');
     }
   }
 }
@@ -537,7 +544,7 @@ const TURN = 42 * Math.PI / 180;
 // about the vertical, pitch tilts it toward you (negative: seen from above).
 const PRESETS = {
   turned: {label: 'Turned', base: 'upright', yaw: 42, pitch: -12},
-  ground: {label: 'On the ground', base: 'ground', yaw: -32, pitch: -38},
+  ground: {label: 'On the ground', base: 'ground', yaw: 26, pitch: -40},
 };
 
 // The shown config's free 3D camera: its preset's angles, or where you left them (kept
@@ -649,6 +656,7 @@ function renderMap(map, live, depth, name) {
       const we = el(clickable ? 'a' : 'div', 'win');
       if (clickable) we.href = `hammerspoon://screenmaps?focus=${w.id}`;
       tagWindow(we, w, d);
+      we.dataset.rank = String(i);   // its place in its display's stack, 0 at the front
       if (z === 0) we.classList.add('focused');
       if (i === 0) we.classList.add('front');
       // Inside its display, which clips it the way macOS does
@@ -697,7 +705,20 @@ function renderMap(map, live, depth, name) {
     applyView(fit, cam);
     stage.append(freeControls(name, cam));
     initFreeDrag(stage, fit, plane, name, cam);
-  } else if (threeD) {
+    // Tab's stops: all the displays, then each as the list reads them
+    const order = displayColumns(ds).flat();
+    state.fly = {stage, fit, cam, stops: [
+      {label: 'All displays', nodes: () => [...stage.querySelectorAll('.display, .win')]},
+      ...order.map(d => {
+        const de = [...stage.querySelectorAll('.display')].find(n => n.dataset.screen === screenId(d));
+        return {label: displayName(d), nodes: () => [de, ...de.querySelectorAll('.win')]};
+      }),
+    ], boxes: null};
+    if (cam.stop != null) showStop(cam.stop);
+  } else {
+    state.fly = null;
+  }
+  if (!free && threeD) {
     fitInStage(stage, fit, width);
   }
 
@@ -784,7 +805,8 @@ function freeControls(name, cam) {
     };
     bar.append(b);
   }
-  bar.append(el('span', 'free-hint', 'drag to turn · pinch to zoom · ⌃-drag to pan'));
+  bar.append(el('span', 'free-hint', 'drag to turn · pinch to zoom · ⌃-drag to pan · tab flies display to display'),
+    el('span', 'free-where'));
   // the buttons are the stage's too: don't start a drag on them
   bar.addEventListener('pointerdown', ev => ev.stopPropagation());
   return bar;
@@ -817,6 +839,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       last = at(ev);
     }
     stage.classList.add('dragging');
+    landFlight(fit);
     ev.preventDefault();
   });
   stage.addEventListener('pointermove', ev => {
@@ -833,8 +856,10 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       cam.yaw += (p.x - last.x) * 0.35;
       cam.pitch = Math.max(-90, Math.min(90, cam.pitch - (p.y - last.y) * 0.35));
       plane.style.transform = camTransform(cam);
+      if (state.fly) state.fly.boxes = null;   // turned: the stops' boxes are measured anew
       last = p;
     } else if (mode === 'pan') {
+      cam.stop = null;
       cam.panX += p.x - last.x;
       cam.panY += p.y - last.y;
       applyView(fit, cam);
@@ -867,6 +892,54 @@ function initFreeDrag(stage, fit, plane, name, cam) {
     zoomAt(fit, cam, ev.scale / gestureZoom, p.x, p.y);
     gestureZoom = ev.scale;
   });
+}
+
+// Free 3D's Tab: fly to the next stop (⇧Tab the one before), all the displays then each
+// display, zooming and panning just enough to fit it, without turning the scene. The
+// stops' boxes are measured at your zoom 1 and no pan, once per angle, so a Tab pressed
+// mid-flight aims right.
+function flyTo(step) {
+  const fly = state.fly;
+  if (!fly) return;
+  const {stage, fit, cam, stops} = fly;
+  if (!fly.boxes) {
+    const sr = stage.getBoundingClientRect();
+    fly.boxes = stops.map(stop => {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const n of stop.nodes()) {
+        const r = n.getBoundingClientRect();
+        x0 = Math.min(x0, r.left - sr.left);
+        y0 = Math.min(y0, r.top - sr.top);
+        x1 = Math.max(x1, r.right - sr.left);
+        y1 = Math.max(y1, r.bottom - sr.top);
+      }
+      // back to zoom 1, no pan: the screen box is pan + zoom × that
+      return {x0: (x0 - cam.panX) / cam.zoom, y0: (y0 - cam.panY) / cam.zoom,
+              x1: (x1 - cam.panX) / cam.zoom, y1: (y1 - cam.panY) / cam.zoom};
+    });
+  }
+  const n = stops.length;
+  cam.stop = ((cam.stop == null ? (step > 0 ? -1 : 0) : cam.stop) + step + n) % n;
+  const b = fly.boxes[cam.stop];
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const z = Math.min(8, Math.min(W / (b.x1 - b.x0), H / (b.y1 - b.y0)) * 0.9);
+  cam.zoom = z;
+  cam.panX = W / 2 - z * (b.x0 + b.x1) / 2;
+  cam.panY = H / 2 - z * (b.y0 + b.y1) / 2;
+  fit.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+  applyView(fit, cam);
+  clearTimeout(fly.landing);
+  fly.landing = setTimeout(() => landFlight(fit), 650);
+  showStop(cam.stop);
+}
+
+function landFlight(fit) {
+  fit.style.transition = '';
+}
+
+function showStop(i) {
+  const where = state.fly && state.fly.stage.querySelector('.free-where');
+  if (where && state.fly.stops[i]) where.textContent = `→ ${state.fly.stops[i].label}`;
 }
 
 // Flat, 3D or free 3D, per config. 3D by default for the laptop alone, whose mostly
@@ -1047,6 +1120,7 @@ function renderConfigs(shown) {
 
 function render() {
   hidePop();
+  hovered = null;   // the new nodes aren't lit yet: the next mouseover lights them
   const name = state.now && shownConfig();
   if (!name) {
     $('summary').textContent = 'No saved layouts yet.';
@@ -1123,6 +1197,9 @@ document.addEventListener('keydown', ev => {
     setDepth(depthOf(shownConfig()) === 'flat' ? '3d' : 'flat');
   } else if (ev.key === 'f' && state.now && state.view === 'map') {
     setDepth('free');
+  } else if (ev.key === 'Tab' && state.fly && state.view === 'map') {
+    ev.preventDefault();
+    flyTo(ev.shiftKey ? -1 : 1);
   }
   if (ev.key === 'm') setView('map');
   else if (ev.key === 'd') setView('days');

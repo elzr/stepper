@@ -189,6 +189,10 @@ a.win { cursor: pointer; }
   border-color: hsl(var(--hue) 40% 58%);
   transition: background-color 0.7s ease 0.2s, border-color 0.7s ease 0.2s;
 }
+/* the hovered window on top: flat, above everything on its display (labels included);
+   in 3D the windows in front of it fade and let the pointer through (hoverWindow) */
+.map-stage:not(.three-d) .win.lit { z-index: 100000 !important; }
+.three-d .win.veil { opacity: 0.12; pointer-events: none; }
 .win.lit, .three-d .win.lit {
   background: hsl(var(--hue) 46% 84%);
   border-color: var(--link);
@@ -275,6 +279,7 @@ a.win { cursor: pointer; }
 .free-controls button:hover { color: var(--text); }
 .free-controls button.active { color: var(--active-text); background: var(--active-bg); border-color: var(--active-bg); }
 .free-hint { margin-left: 6px; color: var(--grey); font-size: 0.7rem; }
+.free-where { margin-left: 4px; color: var(--text); font-size: 0.74rem; font-weight: 600; }
 
 /* Minimized windows, after a rule under the displays (the tablogs' minimized windows) */
 .map-divider { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--grey); font-size: 0.78rem; }
