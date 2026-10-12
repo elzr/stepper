@@ -657,11 +657,12 @@ function freeCam(name) {
 const faceOn = cam => cam.yaw === 0 && cam.pitch === 0 && cam.base === 'upright';
 
 // How turned the camera is, 0 face on to 1 at 20° and past: the windows go from see-through
-// to solid as it turns, and the labels sink from above the stacks to their displays
-// (screenmaps.css's --solid)
+// to solid as it turns, the labels sink from above the stacks to their displays, and the
+// holes' floors fade (screenmaps.css's --solid). Seen from behind counts as turned: a
+// floor between you and its windows lets them through.
 function solidity(cam) {
-  const facing = Math.abs(new DOMMatrix(camTransform(cam)).m33);   // the plane's normal toward you
-  return Math.min(1, Math.acos(Math.min(1, facing)) * 180 / Math.PI / 20).toFixed(3);
+  const facing = new DOMMatrix(camTransform(cam)).m33;   // the plane's normal toward you, -1 from behind
+  return Math.min(1, Math.acos(Math.max(-1, Math.min(1, facing))) * 180 / Math.PI / 20).toFixed(3);
 }
 
 // The plane's transform: the camera's tilt and turn, after laying the plane down for the

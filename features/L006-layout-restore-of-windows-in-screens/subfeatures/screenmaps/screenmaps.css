@@ -129,6 +129,10 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
    the one behind it, or below it when they're sunk in, its title still on it */
 .three-d .plane { transform-style: preserve-3d; }
 .three-d .display { overflow: visible; transform-style: preserve-3d; }
+/* the plane's own surface, at depth 0, lets the pointer through to what's behind it: the
+   windows sunk below it (Below), which it caught before (2026-10-11) */
+.three-d .plane { pointer-events: none; }
+.three-d .display, .three-d .win { pointer-events: auto; }
 /* its label just off the display's face (coplanar, Chrome sometimes drew its pill without
    the text); face on, above the pile (--lift), as a flat map's labels are above its
    windows, sinking to the display over the first 20° you turn it */
@@ -243,9 +247,13 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 }
 
 /* Below: each display a see-through hole as deep as its windows (holeParts), its face
-   open, the walls folded back from its edges, the floor under the back window */
+   open (the pointer passing through it to the windows), the walls folded back from its
+   edges, the floor under the back window */
 .display.hole, .display.hole.near { background: transparent; }
-.hole-wall, .hole-floor { position: absolute; pointer-events: none; }
+.three-d .display.hole { pointer-events: none; }
+.three-d .display.hole > .win, .three-d .display.hole > .hole-floor { pointer-events: auto; }
+.hole-wall, .hole-floor { position: absolute; }
+.hole-wall { pointer-events: none; }
 .hole-wall { background: rgba(148, 163, 184, 0.22); border: 1px solid rgba(100, 116, 139, 0.3); }
 .hole-wall.left, .hole-wall.right { top: 0; height: 100%; width: var(--deep); transform-origin: 0 50%; transform: rotateY(90deg); }
 .hole-wall.left { left: 0; }
@@ -253,8 +261,11 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .hole-wall.top, .hole-wall.bottom { left: 0; width: 100%; height: var(--deep); transform-origin: 50% 0; transform: rotateX(-90deg); }
 .hole-wall.top { top: 0; }
 .hole-wall.bottom { top: 100%; }
-.hole-floor { inset: 0; background: rgba(233, 237, 242, 0.88); border-radius: inherit; transition: background-color 0.2s; }
-.display.hole.near .hole-floor { background: rgba(221, 229, 239, 0.92); }
+.hole-floor { inset: 0; border: 1px solid rgba(100, 116, 139, 0.3); border-radius: inherit; transition: background-color 0.2s; }
+/* the floor: the display's background face on, so Below reads as the flat map, fading as
+   you turn the scene (--solid), so it hides nothing behind it, its outline left */
+.hole-floor { background: rgba(233, 237, 242, calc(0.88 * (1 - var(--solid, 0)))); }
+.display.hole.near .hole-floor { background: rgba(221, 229, 239, calc(0.92 * (1 - var(--solid, 0)))); }
 
 /* The canvas: a camera you move (screenmaps.js initFreeDrag) */
 .map-stage.free {   /* as wide as the viewport (renderMap), past the panel's sides */
@@ -309,7 +320,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 /* Minimized windows, after a rule under the displays (the tablogs' minimized windows) */
 .map-divider { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--grey); font-size: 0.78rem; }
 .map-divider::before, .map-divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
-.min-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.min-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
 .min-chip {
   display: inline-flex;
   align-items: center;
