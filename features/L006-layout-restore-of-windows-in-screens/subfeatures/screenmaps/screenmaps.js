@@ -674,9 +674,17 @@ function behindness(cam) {
   return Math.max(0, Math.min(1, (0.15 - facing) / 0.3)).toFixed(3);
 }
 
+// The line of sight in the plane's own coordinates, scaled to one px of depth (--sight-x,
+// --sight-y): a display's label lifted along it stays where it is on screen, as raise()'s
+// windows do. Until 2026-10-12 it rose straight off the plane, and drifted sideways and
+// back over the first 20° of a turn. Past 20° it sits on its display and needs none.
 function setCamVars(stage, cam) {
   stage.style.setProperty('--solid', solidity(cam));
   stage.style.setProperty('--behind', behindness(cam));
+  const sight = new DOMMatrix(camTransform(cam)).inverse().transformPoint(new DOMPoint(0, 0, 1, 0));
+  const ok = Math.abs(sight.z) > 0.1;
+  stage.style.setProperty('--sight-x', ok ? (sight.x / sight.z).toFixed(4) : '0');
+  stage.style.setProperty('--sight-y', ok ? (sight.y / sight.z).toFixed(4) : '0');
 }
 
 // The plane's transform: the camera's tilt and turn, after laying the plane down for the

@@ -140,8 +140,10 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .three-d .display.near { background: rgba(221, 229, 239, calc(1 - var(--behind, 0))); }
 /* its label just off the display's face (coplanar, Chrome sometimes drew its pill without
    the text); face on, above the pile (--lift), as a flat map's labels are above its
-   windows, sinking to the display over the first 20° you turn it */
-.three-d .display-label { transform: translateZ(calc(1px + var(--lift, 0px) * (1 - var(--solid, 1)))); }
+   windows, sinking to the display over the first 20° you turn it, along the line of sight
+   (--sight-x, --sight-y, screenmaps.js setCamVars), so it never moves on screen */
+.three-d .display-label { --rise: calc(var(--lift, 0px) * (1 - var(--solid, 1))); }
+.three-d .display-label { transform: translate3d(calc(var(--rise) * var(--sight-x, 0)), calc(var(--rise) * var(--sight-y, 0)), calc(1px + var(--rise))); }
 /* How solid a window is below its title bar (--a): see-through face on, so the windows
    under it show, as on a flat map, turning solid over the first 20° you turn the camera
    (--solid, renderMap's solidity) */
