@@ -24,6 +24,7 @@ const POSITIONS = {
 // where: forward is now the deliberate choice.
 const ON_MAC = /Mac/.test(navigator.platform) && navigator.maxTouchPoints === 0;
 const CAN_FOCUS = ON_MAC;
+const TOUCH = navigator.maxTouchPoints > 0;   // free 3D's drags read the canvas there
 // The live Chrome tablog (reading's F030/Chrome-tablogs now/chrome.jsonc), through a
 // symlink in data/ so it's same-origin: its windows' tabs go on the map's Chrome windows
 const CHROME_NOW = DATA + 'chrome-now.jsonc';
@@ -503,15 +504,16 @@ function tagWindow(node, w, d) {
 
 // Hovering a window, on the map or in the list, lights it in both (lit), its display
 // on the map and its section in the list (near), and, a moment later, every other
-// window of its app (kin: the slow fade is screenmaps.css's). The window comes to the
-// top: on the flat map by z-index (screenmaps.css), in 3D, where moving it forward would
-// pull it from under the pointer, by veiling the windows in front of it on its display.
+// window of its app (kin: the slow fade is screenmaps.css's). On the flat map the window
+// comes to the top (z-index, screenmaps.css); in the 3D views only while ⌘ is held (raise).
 let hovered = null;
+let cmdHeld = false;
 function hoverWindow(node) {
   const key = node ? node.dataset.key : null;
   if (key === hovered) return;
   hovered = key;
-  for (const n of document.querySelectorAll('.lit, .kin, .near, .veil')) n.classList.remove('lit', 'kin', 'near', 'veil');
+  raise(false);
+  for (const n of document.querySelectorAll('.lit, .kin, .near')) n.classList.remove('lit', 'kin', 'near');
   if (!node) return;
   const {app, on} = node.dataset;
   for (const n of document.querySelectorAll('#map [data-key], #list [data-key]')) {
@@ -523,16 +525,44 @@ function hoverWindow(node) {
       if (n.dataset.screen === on) n.classList.add('near');
     }
   }
+  raise(cmdHeld);
+}
+
+// 3D, with ⌘ held: the hovered window comes in front of every other, without the ones in
+// front of it fading. It slides straight toward you, along the line of sight: the views
+// have no perspective, so it stays exactly where it was on screen, under the pointer, and
+// only the depth order changes. The line of sight in the plane's own coordinates is the
+// plane's rotation undone on the screen's z; far enough is past the whole scene.
+function raise(on) {
+  for (const w of document.querySelectorAll('#map .three-d .win.raised')) {
+    w.classList.remove('raised');
+    w.style.transform = w.dataset.z;
+  }
+  if (!on) return;
   for (const w of document.querySelectorAll('#map .three-d .win.lit')) {
-    for (const o of w.parentElement.querySelectorAll('.win')) {
-      if (Number(o.dataset.rank) < Number(w.dataset.rank)) o.classList.add('veil');
-    }
+    const plane = w.closest('.plane');
+    const sight = new DOMMatrix(getComputedStyle(plane).transform).inverse().transformPoint(new DOMPoint(0, 0, 1, 0));
+    const far = 2 * (plane.offsetWidth + plane.offsetHeight) / Math.hypot(sight.x, sight.y, sight.z);
+    w.classList.add('raised');
+    w.style.transform = `${w.dataset.z} translate3d(${sight.x * far}px, ${sight.y * far}px, ${sight.z * far}px)`;
   }
 }
 
 function initHoverLinks() {
-  document.addEventListener('mouseover', ev => hoverWindow(ev.target.closest('#map [data-key], #list [data-key]')));
+  document.addEventListener('mouseover', ev => {
+    cmdHeld = ev.metaKey;
+    hoverWindow(ev.target.closest('#map [data-key], #list [data-key]'));
+  });
   document.documentElement.addEventListener('mouseleave', () => hoverWindow(null));
+  // ⌘ pressed or let go over a window raises it or puts it back
+  const cmd = ev => {
+    if (ev.key !== 'Meta' || ev.metaKey === cmdHeld) return;
+    cmdHeld = ev.metaKey;
+    raise(cmdHeld);
+  };
+  document.addEventListener('keydown', cmd);
+  document.addEventListener('keyup', cmd);
+  window.addEventListener('blur', () => { cmdHeld = false; raise(false); });
 }
 
 // The apps with several windows, most first, in the map's top-right corner: a click dims
@@ -659,7 +689,7 @@ function renderMap(map, live, depth, name) {
   if (free) plane.style.transform = camTransform(cam);
   fit.append(plane);
   stage.append(fit);
-  stage.style.height = `${free ? Math.round(room) : planeHeight}px`;
+  stage.style.height = `${free ? freeHeight() || Math.round(room) : planeHeight}px`;
   box.append(stage);
   if (free) {
     stage.style.width = `${width}px`;
@@ -689,7 +719,6 @@ function renderMap(map, live, depth, name) {
       focusable(we, w, live);
       tagWindow(we, w, d);
       we.dataset.rank = String(i);   // its place in its display's stack, 0 at the front
-      we.style.setProperty('--rank', String(i));   // flat: the farther back, the thicker its border
       if (z === 0) we.classList.add('focused');
       if (i === 0) we.classList.add('front');
       // Inside its display, which clips it the way macOS does
@@ -722,7 +751,8 @@ function renderMap(map, live, depth, name) {
       de.append(we);
       if (threeD) {
         // The display's front window nearest: i is its place in this display's stack
-        we.style.transform = `translateZ(${(wins.length - i) * layer}px)`;
+        we.dataset.z = `translateZ(${(wins.length - i) * layer}px)`;   // raise() adds to it
+        we.style.transform = we.dataset.z;
       }
     });
     const label = el('div', 'display-label', displayName(d));
@@ -732,11 +762,13 @@ function renderMap(map, live, depth, name) {
     plane.append(de);
   }
   if (free) {
-    const key = `${width}x${Math.round(room)}:${planeWidth}x${planeHeight}:${cam.base}`;
-    if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, room)};
+    // the canvas's height left out: setting it keeps the scene's size (initFreeResize)
+    const key = `${width}:${planeWidth}x${planeHeight}:${cam.base}`;
+    if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, stage.clientHeight)};
     applyView(fit, cam);
     stage.append(freeControls(name, cam));
     initFreeDrag(stage, fit, plane, name, cam);
+    initFreeResize(stage, fit, cam);
     // Tab's stops: all the displays, then each as the list reads them
     const order = displayColumns(ds).flat();
     state.fly = {stage, fit, cam, stops: [
@@ -836,17 +868,20 @@ function freeControls(name, cam) {
     };
     bar.append(b);
   }
-  bar.append(el('span', 'free-hint', 'drag a display to turn · drag around them to pan · pinch to zoom · tab flies display to display'),
+  bar.append(el('span', 'free-hint', TOUCH
+    ? 'drag a display to turn · drag around them to pan · pinch to zoom · tab flies display to display'
+    : 'drag to turn · right-drag to pan · pinch to zoom · tab flies display to display'),
     el('span', 'free-where'));
   // the buttons are the stage's too: don't start a drag on them
   bar.addEventListener('pointerdown', ev => ev.stopPropagation());
   return bar;
 }
 
-// Free 3D's hands: a drag on a display or a window turns the scene, a drag on the canvas
-// around them pans it (as a ⌃-drag, a right or ⇧ drag anywhere), a trackpad pinch (a
-// ⌃-wheel to the browser, or Safari's gesture events) or two fingers on a touch screen
-// zoom it. A plain wheel still scrolls the page; ⌘-click a window to bring it forward.
+// Free 3D's hands: a drag turns the scene, a right drag pans it (a ⌃ or ⇧ drag too); on
+// a touch screen, where there's no right drag, a finger on a display or a window turns it
+// and one on the canvas around them pans. A trackpad pinch (a ⌃-wheel to the browser, or
+// Safari's gesture events) or two fingers on a touch screen zoom it. A plain wheel still
+// scrolls the page; ⌘-click a window to bring it forward.
 function initFreeDrag(stage, fit, plane, name, cam) {
   const pointers = new Map();
   let mode = null, last = null, pinch = null;
@@ -868,8 +903,8 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       mode = 'pinch';
       pinch = twoFingers();
     } else {
-      const onScene = ev.target.closest('.display, .win');
-      mode = ev.ctrlKey || ev.shiftKey || ev.button === 2 || !onScene ? 'pan' : 'turn';
+      const offScene = ev.pointerType !== 'mouse' && !ev.target.closest('.display, .win');
+      mode = ev.ctrlKey || ev.shiftKey || ev.button === 2 || offScene ? 'pan' : 'turn';
       last = at(ev);
     }
     stage.classList.add('dragging');
@@ -890,6 +925,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       cam.yaw += (p.x - last.x) * 0.35;
       cam.pitch = Math.max(-90, Math.min(90, cam.pitch - (p.y - last.y) * 0.35));
       plane.style.transform = camTransform(cam);
+      if (cmdHeld) raise(true);   // the line of sight turned with it
       if (state.fly) state.fly.boxes = null;   // turned: the stops' boxes are measured anew
       last = p;
     } else if (mode === 'pan') {
@@ -926,6 +962,43 @@ function initFreeDrag(stage, fit, plane, name, cam) {
     zoomAt(fit, cam, ev.scale / gestureZoom, p.x, p.y);
     gestureZoom = ev.scale;
   });
+}
+
+// Free 3D's canvas is as tall as you drag its bottom edge, kept for every config (until
+// then 68% of the window's height). The scene keeps its size and stays centred.
+const FREE_HEIGHT = 'screenmaps.freeHeight';
+function freeHeight() {
+  try { return Number(localStorage.getItem(FREE_HEIGHT)) || 0; } catch (e) { return 0; }
+}
+
+function initFreeResize(stage, fit, cam) {
+  const edge = el('div', 'free-resize');
+  edge.title = 'Drag to set the canvas’s height';
+  stage.append(edge);
+  let start = null;
+  edge.addEventListener('pointerdown', ev => {
+    ev.stopPropagation();   // not a turn or a pan
+    ev.preventDefault();
+    hidePop();
+    try { edge.setPointerCapture(ev.pointerId); } catch (e) { /* a synthetic pointer */ }
+    start = {y: ev.clientY, h: stage.offsetHeight};
+    stage.classList.add('resizing');
+  });
+  edge.addEventListener('pointermove', ev => {
+    if (!start) return;
+    const h = Math.round(Math.max(240, Math.min(4000, start.h + ev.clientY - start.y)));
+    cam.panY += (h - stage.offsetHeight) / 2;
+    stage.style.height = `${h}px`;
+    applyView(fit, cam);
+  });
+  const end = () => {
+    if (!start) return;
+    start = null;
+    stage.classList.remove('resizing');
+    try { localStorage.setItem(FREE_HEIGHT, String(stage.offsetHeight)); } catch (e) { /* lasts the visit */ }
+  };
+  edge.addEventListener('pointerup', end);
+  edge.addEventListener('pointercancel', end);
 }
 
 // Free 3D's Tab: fly to the next stop (⇧Tab the one before), all the displays then each
@@ -1214,7 +1287,7 @@ async function refresh() {
   state.chromeSig = chromeSig;
   if (mapsChanged) await loadMaps();
   // mid-drag in free 3D, wait for the next poll
-  if (document.querySelector('.map-stage.dragging')) { state.chromeSig = ''; state.nowSig = ''; return; }
+  if (document.querySelector('.map-stage.dragging, .map-stage.resizing')) { state.chromeSig = ''; state.nowSig = ''; return; }
   render();
 }
 

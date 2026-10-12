@@ -177,12 +177,8 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   text-decoration: none;
   cursor: default;
 }
-/* Flat: each window see-through below its title bar, so the ones under it show, its border
-   thicker the farther back it is in its display's stack (--rank, 0 at the front) */
-.map-stage:not(.three-d) .win {
-  background: transparent;
-  border-width: calc(1px + min(var(--rank, 0), 6) * 1.5px);
-}
+/* Flat: each window see-through below its title bar, so the ones under it show */
+.map-stage:not(.three-d) .win { background: transparent; }
 .map-stage:not(.three-d) .win.kin { background: hsl(var(--hue) 50% 91% / 0.4); }
 .map-stage:not(.three-d) .win.lit { background: hsl(var(--hue) 46% 84% / 0.5); }
 .win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
@@ -197,9 +193,8 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   transition: background-color 0.7s ease 0.2s, border-color 0.7s ease 0.2s;
 }
 /* the hovered window on top: flat, above everything on its display (labels included);
-   in 3D the windows in front of it fade and let the pointer through (hoverWindow) */
+   in 3D only with ⌘ held, slid toward you along the line of sight (raise) */
 .map-stage:not(.three-d) .win.lit { z-index: 100000 !important; }
-.three-d .win.veil { opacity: 0.12; pointer-events: none; }
 .win.lit, .three-d .win.lit {
   background: hsl(var(--hue) 46% 84%);
   border-color: var(--link);
@@ -269,7 +264,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 /* Free 3D: a camera you move (screenmaps.js initFreeDrag), its presets top left */
 .map-stage.free {   /* as wide as the viewport (renderMap), past the panel's sides */
   overflow: hidden;
-  cursor: move;   /* the canvas pans */
+  cursor: grab;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -277,8 +272,34 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   border-bottom: 1px solid #d5dae1;
   background: linear-gradient(#f9fafb, #eef1f5);
 }
-.map-stage.free .display, .map-stage.free .win { cursor: grab; }   /* a display turns the scene */
+.map-stage.free .display, .map-stage.free .win { cursor: grab; }
 .map-stage.free.dragging, .map-stage.free.dragging * { cursor: grabbing; }
+/* its bottom edge sets its height (initFreeResize): a grip shows on hover */
+.free-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  height: 10px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.free-resize::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 44px;
+  height: 4px;
+  margin-left: -22px;
+  border-radius: 2px;
+  background: #b8c0cc;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.free-resize:hover::after, .map-stage.resizing .free-resize::after { opacity: 1; }
+.map-stage.free.resizing, .map-stage.free.resizing * { cursor: ns-resize; }
 .free-controls {
   position: absolute;
   top: 8px;
@@ -392,20 +413,29 @@ a.min-chip:hover { border-color: var(--link); }
 }
 .letter.win-mark { width: 30px; height: 30px; font-size: 15px; opacity: 0.35; }
 
-/* What a day or an app in Days picked out */
+/* What a day or an app picked out: a small notice floating at the bottom of the window, so
+   it comes and goes without moving the list under the pointer */
 .filter-banner {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 30000;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 14px 0 0;
-  padding: 6px 12px;
-  font-size: 0.85rem;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 4px 6px 4px 12px;
+  font-size: 0.8rem;
+  white-space: nowrap;
   background: #fffbeb;
   border: 1px solid #fde68a;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
+.filter-banner > span { overflow: hidden; text-overflow: ellipsis; }
 .filter-banner[hidden] { display: none; }
-.banner-clear { margin-left: auto; font: inherit; font-size: 0.8rem; color: var(--link); background: none; border: none; cursor: pointer; }
+.banner-clear { margin-left: auto; padding: 2px 6px; font: inherit; font-size: 0.78rem; color: var(--link); background: none; border: none; cursor: pointer; }
 .banner-clear:hover { text-decoration: underline; }
 
 /* List: a bulleted list per display, in columns as the displays stand */
