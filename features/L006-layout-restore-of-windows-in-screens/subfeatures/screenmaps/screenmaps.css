@@ -177,7 +177,14 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   text-decoration: none;
   cursor: default;
 }
-a.win { cursor: pointer; }
+/* Flat: each window see-through below its title bar, so the ones under it show, its border
+   thicker the farther back it is in its display's stack (--rank, 0 at the front) */
+.map-stage:not(.three-d) .win {
+  background: transparent;
+  border-width: calc(1px + min(var(--rank, 0), 6) * 1.5px);
+}
+.map-stage:not(.three-d) .win.kin { background: hsl(var(--hue) 50% 91% / 0.4); }
+.map-stage:not(.three-d) .win.lit { background: hsl(var(--hue) 46% 84% / 0.5); }
 .win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
 .win.focused { border-color: var(--front); box-shadow: 0 0 0 1.5px var(--front), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win:hover { border-color: var(--link); }
@@ -220,8 +227,22 @@ a.win { cursor: pointer; }
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-.three-d .win-head { font-size: 15px; padding: 4px 6px; gap: 6px; }
-.three-d .win-head img, .three-d .win-head .letter { width: 17px; height: 17px; }
+/* 3D: the app's icon three times the title bar's old one, in the window's top-left corner
+   and off the title bar, which stays as tall as its text (half again as big as it was) */
+.three-d .win-head { font-size: 22.5px; padding: 5px 8px 5px 66px; gap: 6px; min-height: 40px; }
+.three-d .win-head img, .three-d .win-head .letter {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  z-index: 1;
+  width: 51px;
+  height: 51px;
+  margin: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+}
+.three-d .win-head .letter { font-size: 26px; }
+.three-d .win.tiny .win-head { padding: 1px 2px; min-height: 0; }
+.three-d .win.tiny .win-head img, .three-d .win.tiny .win-head .letter { position: static; width: 17px; height: 17px; filter: none; }
 /* a Chrome window: its logo on top, a rule, its tabs' favicons from the live tablog */
 .win-tabs { padding: 5px 6px; text-align: center; }
 .win-logo { display: block; width: 20px; height: 20px; margin: 0 auto; opacity: 0.75; }
@@ -246,20 +267,22 @@ a.win { cursor: pointer; }
 }
 
 /* Free 3D: a camera you move (screenmaps.js initFreeDrag), its presets top left */
-.map-stage.free {
+.map-stage.free {   /* as wide as the viewport (renderMap), past the panel's sides */
   overflow: hidden;
-  cursor: grab;
+  cursor: move;   /* the canvas pans */
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  border-radius: 6px;
+  border-top: 1px solid #d5dae1;
+  border-bottom: 1px solid #d5dae1;
   background: linear-gradient(#f9fafb, #eef1f5);
 }
+.map-stage.free .display, .map-stage.free .win { cursor: grab; }   /* a display turns the scene */
 .map-stage.free.dragging, .map-stage.free.dragging * { cursor: grabbing; }
 .free-controls {
   position: absolute;
   top: 8px;
-  left: 8px;
+  left: calc(var(--inset, 0px) + 8px);
   z-index: 10;
   display: flex;
   align-items: center;
@@ -407,7 +430,21 @@ a.min-chip:hover { border-color: var(--link); }
 .screen-list li .letter { display: inline-flex; }
 .screen-list a { color: var(--link); text-decoration: none; }
 .screen-list a:hover { text-decoration: underline; }
-.screen-list .app { color: var(--grey); font-size: 0.78rem; }
+.screen-list .from { color: var(--grey); font-size: 0.78rem; margin-left: -4px; }
+/* the app's name: a toggle (appToggle), which shows itself as one on hover */
+.screen-list .app {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--grey);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0 4px;
+  margin-left: -2px;
+  cursor: pointer;
+}
+.screen-list .app:hover { color: var(--text); background: #fff; border-color: #cbd5e1; }
+.screen-list .app.active { color: var(--active-bg); background: #eff6ff; border-color: var(--active-bg); }
 .screen-list .none { color: var(--grey); font-size: 0.82rem; list-style: none; margin-left: -20px; }
 .minimized-list { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
 

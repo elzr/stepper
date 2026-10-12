@@ -18,14 +18,12 @@ const POSITIONS = {
   left: '←Left', top: '↑Top Center', center: '⊙Middle Center',
   bottom: '↓Bottom Center', right: 'Right→',
 };
-// A click brings the window forward through Hammerspoon, so only on the Mac itself
-// (an iPad reports MacIntel too, but with touch points)
+// ⌘-click brings a window forward through Hammerspoon (hammerspoon://screenmaps?focus=),
+// so only on the Mac itself (an iPad reports MacIntel too, but with touch points). A plain
+// click did it until 2026-10-11, but lagged a little, and the map is for seeing what's
+// where: forward is now the deliberate choice.
 const ON_MAC = /Mac/.test(navigator.platform) && navigator.maxTouchPoints === 0;
-// Clicking a window to bring it forward works, but lags a little, and the map is for seeing
-// what's where: off since 2026-10-11. true turns the links back on (screenmaps.lua still
-// answers hammerspoon://screenmaps?focus=).
-const FOCUS_ON_CLICK = false;
-const CAN_FOCUS = FOCUS_ON_CLICK && ON_MAC;
+const CAN_FOCUS = ON_MAC;
 // The live Chrome tablog (reading's F030/Chrome-tablogs now/chrome.jsonc), through a
 // symlink in data/ so it's same-origin: its windows' tabs go on the map's Chrome windows
 const CHROME_NOW = DATA + 'chrome-now.jsonc';
@@ -369,12 +367,36 @@ function iconEl(w, cls) {
   return img;
 }
 
-// A window's title as a link that brings it forward (the config in use, on the Mac), or text
+// A window of the config in use, on the Mac, comes forward on ⌘-click (a minimized one
+// back from the Dock): its node, on the map or in the list, carries data-focus
+function focusable(node, w, live) {
+  if (live && w.id != null && CAN_FOCUS) node.dataset.focus = String(w.id);
+}
+
+function initFocusClicks() {
+  document.addEventListener('click', ev => {
+    const node = ev.metaKey && ev.target.closest('[data-focus]');
+    if (!node) return;
+    ev.preventDefault();
+    location.href = `hammerspoon://screenmaps?focus=${node.dataset.focus}`;
+  });
+}
+
 function titleEl(w, live, cls) {
-  const clickable = live && w.id != null && CAN_FOCUS;
-  const t = el(clickable ? 'a' : 'span', cls, cleanTitle(w));
-  if (clickable) t.href = `hammerspoon://screenmaps?focus=${w.id}`;
+  const t = el('span', 'title' + (cls ? ' ' + cls : ''), cleanTitle(w));
+  focusable(t, w, live);
   return t;
+}
+
+// The app's name after a window in the list, a toggle: only its windows, on the map and
+// in the list, the rest dimmed (the app filters' filter, which it lights too)
+function appToggle(map, w, text) {
+  const b = el('button', 'app', text || w.app);
+  b.type = 'button';
+  b.dataset.filter = w.app;
+  b.title = `Only ${w.app}'s windows (click again for all)`;
+  b.onclick = () => setFilter(w.app, [...map.windows, ...map.minimized].filter(o => o.app === w.app).map(keyOf), {mark: false});
+  return b;
 }
 
 // --- Popup ------------------------------------------------------------------------
@@ -435,7 +457,7 @@ function windowPop(map, w, z, live, tabs) {
     nodes.push(el('div', 'pop-line', `${tabs.length} tab${tabs.length === 1 ? '' : 's'}`), ul);
   }
   if (live && w.id != null && CAN_FOCUS) {
-    nodes.push(el('div', 'pop-line act', z == null ? 'Click to bring it back from the Dock' : 'Click to bring it forward'));
+    nodes.push(el('div', 'pop-line act', z == null ? '⌘-click to bring it back from the Dock' : '⌘-click to bring it forward'));
   }
   return nodes;
 }
@@ -598,7 +620,8 @@ function renderMap(map, live, depth, name) {
   const rs = [...rects.values()];
   const minX = Math.min(...rs.map(r => r.x)), minY = Math.min(...rs.map(r => r.y));
   const maxX = Math.max(...rs.map(r => r.x + r.w)), maxY = Math.max(...rs.map(r => r.y + r.h));
-  const width = box.clientWidth || 1000;
+  // Free 3D runs the viewport's whole width, out past the panel's sides
+  const width = free ? document.documentElement.clientWidth : box.clientWidth || 1000;
   const room = Math.max(320, window.innerHeight * 0.68);
   const by = windowsByDisplay(map);
   const total = map.windows.length;
@@ -638,6 +661,12 @@ function renderMap(map, live, depth, name) {
   stage.append(fit);
   stage.style.height = `${free ? Math.round(room) : planeHeight}px`;
   box.append(stage);
+  if (free) {
+    stage.style.width = `${width}px`;
+    const inset = Math.round(box.getBoundingClientRect().left);
+    stage.style.marginLeft = `${-inset}px`;
+    stage.style.setProperty('--inset', `${inset}px`);   // its controls stay over the panel's edge
+  }
 
   for (const d of ds) {
     const r = rects.get(d);
@@ -656,11 +685,11 @@ function renderMap(map, live, depth, name) {
     }
     const wins = by.get(d);
     wins.forEach(({w, z}, i) => {
-      const clickable = live && w.id != null && CAN_FOCUS;
-      const we = el(clickable ? 'a' : 'div', 'win');
-      if (clickable) we.href = `hammerspoon://screenmaps?focus=${w.id}`;
+      const we = el('div', 'win');
+      focusable(we, w, live);
       tagWindow(we, w, d);
       we.dataset.rank = String(i);   // its place in its display's stack, 0 at the front
+      we.style.setProperty('--rank', String(i));   // flat: the farther back, the thicker its border
       if (z === 0) we.classList.add('focused');
       if (i === 0) we.classList.add('front');
       // Inside its display, which clips it the way macOS does
@@ -730,9 +759,8 @@ function renderMap(map, live, depth, name) {
     box.append(el('div', 'map-divider', `Minimized windows · ${map.minimized.length}`));
     const strip = el('div', 'min-strip');
     for (const w of map.minimized) {
-      const clickable = live && w.id != null && CAN_FOCUS;
-      const chip = el(clickable ? 'a' : 'div', 'min-chip');
-      if (clickable) chip.href = `hammerspoon://screenmaps?focus=${w.id}`;
+      const chip = el('div', 'min-chip');
+      focusable(chip, w, live);
       tagWindow(chip, w);
       chip.style.setProperty('--hue', hue(bundleOf(w) || w.app));
       chip.append(iconEl(w), el('span', 'min-title', cleanTitle(w)));
@@ -808,16 +836,17 @@ function freeControls(name, cam) {
     };
     bar.append(b);
   }
-  bar.append(el('span', 'free-hint', 'drag to turn · pinch to zoom · ⌃-drag to pan · tab flies display to display'),
+  bar.append(el('span', 'free-hint', 'drag a display to turn · drag around them to pan · pinch to zoom · tab flies display to display'),
     el('span', 'free-where'));
   // the buttons are the stage's too: don't start a drag on them
   bar.addEventListener('pointerdown', ev => ev.stopPropagation());
   return bar;
 }
 
-// Free 3D's hands: drag turns the scene, ⌃-drag (or a right or ⇧ drag) pans it, a
-// trackpad pinch (a ⌃-wheel to the browser, or Safari's gesture events) or two fingers on
-// a touch screen zoom it. A plain wheel still scrolls the page.
+// Free 3D's hands: a drag on a display or a window turns the scene, a drag on the canvas
+// around them pans it (as a ⌃-drag, a right or ⇧ drag anywhere), a trackpad pinch (a
+// ⌃-wheel to the browser, or Safari's gesture events) or two fingers on a touch screen
+// zoom it. A plain wheel still scrolls the page; ⌘-click a window to bring it forward.
 function initFreeDrag(stage, fit, plane, name, cam) {
   const pointers = new Map();
   let mode = null, last = null, pinch = null;
@@ -831,6 +860,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
   };
   stage.addEventListener('contextmenu', ev => ev.preventDefault());   // ⌃-click is a right click
   stage.addEventListener('pointerdown', ev => {
+    if (ev.metaKey && ev.target.closest('[data-focus]')) return;   // ⌘-click: initFocusClicks
     hidePop();
     try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* a synthetic pointer */ }
     pointers.set(ev.pointerId, at(ev));
@@ -838,7 +868,8 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       mode = 'pinch';
       pinch = twoFingers();
     } else {
-      mode = ev.ctrlKey || ev.shiftKey || ev.button === 2 ? 'pan' : 'turn';
+      const onScene = ev.target.closest('.display, .win');
+      mode = ev.ctrlKey || ev.shiftKey || ev.button === 2 || !onScene ? 'pan' : 'turn';
       last = at(ev);
     }
     stage.classList.add('dragging');
@@ -1061,7 +1092,7 @@ function displaySection(map, d, wins, live) {
   for (const {w, z} of wins) {
     const li = el('li', z === 0 ? 'focused' : null);
     tagWindow(li, w, d);
-    li.append(iconEl(w), titleEl(w, live), ' ', el('span', 'app', w.app));
+    li.append(iconEl(w), titleEl(w, live), ' ', appToggle(map, w));
     onHover(li, () => windowPop(map, w, z, live));
     ul.append(li);
   }
@@ -1092,7 +1123,7 @@ function renderList(map, live) {
       const li = el('li');
       tagWindow(li, w);
       const d = displayOf(map, w);
-      li.append(iconEl(w), titleEl(w, live), ' ', el('span', 'app', `${w.app}${d ? ', from ' + displayName(d) : ''}`));
+      li.append(iconEl(w), titleEl(w, live), ' ', appToggle(map, w), d ? el('span', 'from', `, from ${displayName(d)}`) : '');
       onHover(li, () => windowPop(map, w, null, live));
       ul.append(li);
     }
@@ -1191,6 +1222,7 @@ for (const b of document.querySelectorAll('.panel-views button')) {
   b.addEventListener('click', () => setView(b.dataset.view));
 }
 initHoverLinks();
+initFocusClicks();
 for (const b of document.querySelectorAll('#depth button')) {
   b.addEventListener('click', () => setDepth(b.dataset.depth));
 }
