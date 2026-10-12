@@ -265,6 +265,17 @@ function physicalRects(displays) {
     const a = rects.get(aboves[0]), r = rects.get(b);
     r.x = a.x + (a.w - r.w) / 2;
   }
+  // Every column stands on the desk: its lowest display's bottom on the one line of the
+  // lowest of all (the laptop's, on the desk). macOS's arrangement puts a side display as
+  // high as it was dragged in System Settings, which on the page left Left, Bottom Center
+  // and Right each ending at a height of its own (2026-10-11).
+  const cols = displayColumns(displays);
+  const bottom = d => rects.get(d).y + rects.get(d).h;
+  const desk = Math.max(...displays.map(bottom));
+  for (const c of cols) {
+    const dy = desk - Math.max(...c.map(bottom));
+    for (const d of c) rects.get(d).y += dy;
+  }
   return rects;
 }
 
@@ -593,37 +604,31 @@ function renderAppFilters(map) {
 // right edge is the farther one, and seen a little from above (screenmaps.css's
 // .three-d .plane holds the same angles). Depth then runs left to right: the display at
 // the back on the left, each window a step to the right of the one behind it.
-const TURN = 42 * Math.PI / 180;
-// Free 3D: a camera you turn by dragging, zoom by pinching and pan by ⌃-dragging. Its
-// presets: the plane upright as the displays stand (Turned, the 3D view's angles), or
+// Free 3D: the flat map under a camera you turn by dragging, zoom by pinching and pan by
+// right-dragging. It opens face on, looking just like Flat, and turns 3D as you drag. Its
+// presets: face on (Flat), the plane upright and turned (Turned, the 3D view's angles), or
 // lying on the ground with each stack rising from it (On the ground). yaw turns the scene
 // about the vertical, pitch tilts it toward you (negative: seen from above).
 const PRESETS = {
+  flat: {label: 'Flat', base: 'upright', yaw: 0, pitch: 0},
   turned: {label: 'Turned', base: 'upright', yaw: 42, pitch: -12},
   ground: {label: 'On the ground', base: 'ground', yaw: 26, pitch: -40},
 };
 
-// The shown config's free 3D camera: its preset's angles, or where you left them (kept
-// per config), at the zoom and pan of this visit
+// The shown config's free 3D camera, face on at first, kept for the visit (until
+// 2026-10-11 the angles were kept per config and it opened turned)
 function freeCam(name) {
   if (!state.cams[name]) {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(`screenmaps.free.${name}`) || 'null'); } catch (e) { saved = null; }
-    const p = PRESETS[saved && saved.preset] || PRESETS.turned;
-    state.cams[name] = {
-      preset: saved && PRESETS[saved.preset] ? saved.preset : 'turned', base: p.base,
-      yaw: saved && Number.isFinite(saved.yaw) ? saved.yaw : p.yaw,
-      pitch: saved && Number.isFinite(saved.pitch) ? saved.pitch : p.pitch,
-      zoom: 1, panX: 0, panY: 0, fit: null,
-    };
+    state.cams[name] = {preset: 'flat', base: 'upright', yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, fit: null};
   }
   return state.cams[name];
 }
 
-function saveCam(name, cam) {
-  try {
-    localStorage.setItem(`screenmaps.free.${name}`, JSON.stringify({preset: cam.preset, yaw: cam.yaw, pitch: cam.pitch}));
-  } catch (e) { /* private window: the camera lasts the visit */ }
+// How turned the camera is, 0 face on to 1 at 20° and past: free 3D's windows go from
+// Flat's see-through to 3D's solid as it turns (screenmaps.css's --solid)
+function solidity(cam) {
+  const facing = Math.abs(new DOMMatrix(camTransform(cam)).m33);   // the plane's normal toward you
+  return Math.min(1, Math.acos(Math.min(1, facing)) * 180 / Math.PI / 20).toFixed(3);
 }
 
 // The plane's transform: the camera's tilt and turn, after laying the plane down for the
@@ -650,8 +655,10 @@ function renderMap(map, live, depth, name) {
   const rs = [...rects.values()];
   const minX = Math.min(...rs.map(r => r.x)), minY = Math.min(...rs.map(r => r.y));
   const maxX = Math.max(...rs.map(r => r.x + r.w)), maxY = Math.max(...rs.map(r => r.y + r.h));
-  // Free 3D runs the viewport's whole width, out past the panel's sides
-  const width = free ? document.documentElement.clientWidth : box.clientWidth || 1000;
+  // Free 3D runs the viewport's whole width, out past the panel's sides; its scene is
+  // Flat's, at Flat's size
+  const panelWidth = box.clientWidth || 1000;
+  const width = free ? document.documentElement.clientWidth : panelWidth;
   const room = Math.max(320, window.innerHeight * 0.68);
   const by = windowsByDisplay(map);
   const total = map.windows.length;
@@ -661,32 +668,26 @@ function renderMap(map, live, depth, name) {
   const tallest = Math.max(1, ...[...by.values()].map(wins => wins.length));
   // On the ground the steps rise toward you instead: closer, or the stacks float off it
   const layer = Math.max(24, Math.min(72, 640 / tallest)) * (ground ? 0.35 : 1);
-  // 3D, upright: each column of displays moves right by the depth of the stacks before it,
-  // so a stack stands clear of the next display instead of running through it (on the
-  // ground the stacks rise instead, clear of each other)
-  const shift = new Map();
-  if (threeD && !ground) {
-    let x = 0;
-    for (const col of displayColumns(ds)) {
-      for (const d of col) shift.set(d, x);
-      x += Math.max(...col.map(d => by.get(d).length)) * layer * Math.tan(TURN) + 24;
-    }
-  }
-  const spread = shift.size ? Math.max(0, ...shift.values()) : 0;   // px the shifts add
-  // Flat: the arrangement fills the width, or the room. 3D: the room's height; the fit
-  // shrinks it if, turned and stacked, it's too wide
-  const scale = threeD
+  // The displays stay side by side in 3D as on the desk, a stack running into the next
+  // display's (until 2026-10-11 each column moved right by the depth of the stacks before it)
+  // Flat and free 3D: the arrangement fills the panel's width, or the room. 3D: the room's
+  // height; the fit shrinks it if, turned and stacked, it's too wide
+  const scale = depth === '3d'
     ? room / (maxY - minY)
-    : Math.min(width / (maxX - minX), room / (maxY - minY));
+    : Math.min(panelWidth / (maxX - minX), room / (maxY - minY));
   const left = threeD ? 0 : (width - (maxX - minX) * scale) / 2;   // flat: centred
   const planeHeight = Math.ceil((maxY - minY) * scale);
-  const planeWidth = threeD ? Math.ceil((maxX - minX) * scale + spread) : width;
-  const stage = el('div', 'map-stage' + (threeD ? ' three-d' : '') + (free ? ' free' : ''));
+  const planeWidth = threeD ? Math.ceil((maxX - minX) * scale) : width;
+  // .iso: the 3D view's bigger titles and icons, for its turned plane drawn smaller
+  const stage = el('div', 'map-stage' + (threeD ? ' three-d' : '') + (free ? ' free' : '') + (depth === '3d' ? ' iso' : ''));
   const fit = el('div', 'fit');
   const plane = el('div', 'plane');
   plane.style.width = `${planeWidth}px`;
   plane.style.height = `${planeHeight}px`;
-  if (free) plane.style.transform = camTransform(cam);
+  if (free) {
+    plane.style.transform = camTransform(cam);
+    stage.style.setProperty('--solid', solidity(cam));
+  }
   fit.append(plane);
   stage.append(fit);
   stage.style.height = `${free ? freeHeight() || Math.round(room) : planeHeight}px`;
@@ -703,7 +704,7 @@ function renderMap(map, live, depth, name) {
     const sx = (r.w / d.full.w) * scale, sy = (r.h / d.full.h) * scale;   // px per point here
     const de = el('div', 'display' + (isBuiltin(d) ? ' builtin' : ''));
     de.dataset.screen = screenId(d);
-    de.style.left = `${left + (r.x - minX) * scale + (shift.get(d) || 0) + GAP / 2}px`;
+    de.style.left = `${left + (r.x - minX) * scale + GAP / 2}px`;
     de.style.top = `${(r.y - minY) * scale + GAP / 2}px`;
     de.style.width = `${r.w * scale - GAP}px`;
     de.style.height = `${r.h * scale - GAP}px`;
@@ -764,7 +765,8 @@ function renderMap(map, live, depth, name) {
   if (free) {
     // the canvas's height left out: setting it keeps the scene's size (initFreeResize)
     const key = `${width}:${planeWidth}x${planeHeight}:${cam.base}`;
-    if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, stage.clientHeight)};
+    const faceOn = cam.yaw === 0 && cam.pitch === 0 && cam.base === 'upright';
+    if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, stage.clientHeight, faceOn)};
     applyView(fit, cam);
     stage.append(freeControls(name, cam));
     initFreeDrag(stage, fit, plane, name, cam);
@@ -830,11 +832,12 @@ function fitInStage(stage, fit, maxWidth) {
 }
 
 // Free 3D: the scale and offset that centre the scene in the stage at its preset's
-// angles; kept while you turn it, so turning doesn't pump the zoom
-function measureFit(stage, fit, width, height) {
+// angles; kept while you turn it, so turning doesn't pump the zoom. Face on it keeps
+// Flat's size, shrinking only if the canvas is too small for it.
+function measureFit(stage, fit, width, height, faceOn) {
   const {x0, y0, w, h} = projectedBox(stage, fit);
   if (!(w > 0 && h > 0)) return {tx: 0, ty: 0, s: 1};
-  const s = Math.min(width / w, height / h) * 0.9;
+  const s = faceOn ? Math.min(1, width / w, height / h) : Math.min(width / w, height / h) * 0.9;
   return {tx: (width - w * s) / 2 - x0 * s, ty: (height - h * s) / 2 - y0 * s, s};
 }
 
@@ -863,7 +866,6 @@ function freeControls(name, cam) {
     b.type = 'button';
     b.onclick = () => {
       state.cams[name] = {preset: key, base: p.base, yaw: p.yaw, pitch: p.pitch, zoom: 1, panX: 0, panY: 0, fit: null};
-      saveCam(name, state.cams[name]);
       render();
     };
     bar.append(b);
@@ -925,6 +927,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       cam.yaw += (p.x - last.x) * 0.35;
       cam.pitch = Math.max(-90, Math.min(90, cam.pitch - (p.y - last.y) * 0.35));
       plane.style.transform = camTransform(cam);
+      stage.style.setProperty('--solid', solidity(cam));
       if (cmdHeld) raise(true);   // the line of sight turned with it
       if (state.fly) state.fly.boxes = null;   // turned: the stops' boxes are measured anew
       last = p;
@@ -940,7 +943,6 @@ function initFreeDrag(stage, fit, plane, name, cam) {
     pointers.delete(ev.pointerId);
     if (pointers.size) return;
     if (mode === 'turn') {
-      saveCam(name, cam);
       for (const b of stage.querySelectorAll('.free-controls button')) b.classList.remove('active');
     }
     mode = null;

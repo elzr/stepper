@@ -128,10 +128,17 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
    little from above (renderMap's TURN, then fitInStage); each window a layer in front of
    the one behind it, so depth runs left to right, its title still on it */
 .three-d .plane { transform-style: preserve-3d; transform: rotateX(-12deg) rotateY(42deg); }
-.three-d .display { overflow: visible; transform-style: preserve-3d; background: #dde3ea; }
+.three-d .display { overflow: visible; transform-style: preserve-3d; }
+.iso .display { background: #dde3ea; }
 /* its label just off the display's face: coplanar, Chrome sometimes drew its pill without the text */
 .three-d .display-label { transform: translateZ(1px); }
-.three-d .win { background: hsl(var(--hue) 50% 98% / 0.94); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22); }
+.iso .win { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22); }
+/* How solid a window is below its title bar (--a): see-through on the flat map, so the
+   windows under it show; solid in 3D; in free 3D see-through face on, as Flat, turning
+   solid over the first 20° you turn it (--solid, renderMap's solidity) */
+.map-stage { --a: 0; }
+.map-stage.iso { --a: 0.94; }
+.map-stage.free { --a: calc(0.94 * var(--solid, 0)); }
 .display {
   position: absolute;
   background: #e9edf2;
@@ -142,7 +149,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .display.builtin { border-radius: 6px 6px 10px 10px; }
 /* the display of the window hovered, on the map or in the list (hoverWindow) */
 .display { transition: background-color 0.2s, border-color 0.2s; }
-.display.near, .three-d .display.near { background: #dde5ef; border-color: #7c93b3; }
+.display.near, .iso .display.near { background: #dde5ef; border-color: #7c93b3; }
 .display .menubar { position: absolute; left: 0; right: 0; top: 0; background: rgba(15, 23, 42, 0.08); }
 .display-label {
   position: absolute;
@@ -168,7 +175,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   display: block;
   min-width: 6px;
   min-height: 6px;
-  background: hsl(var(--hue) 50% 98%);
+  background: hsl(var(--hue) 50% 98% / var(--a, 1));
   border: 1px solid hsl(var(--hue) 28% 70%);
   border-radius: 3px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
@@ -177,26 +184,22 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   text-decoration: none;
   cursor: default;
 }
-/* Flat: each window see-through below its title bar, so the ones under it show */
-.map-stage:not(.three-d) .win { background: transparent; }
-.map-stage:not(.three-d) .win.kin { background: hsl(var(--hue) 50% 91% / 0.4); }
-.map-stage:not(.three-d) .win.lit { background: hsl(var(--hue) 46% 84% / 0.5); }
 .win.front { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2); }   /* each display's top window */
 .win.focused { border-color: var(--front); box-shadow: 0 0 0 1.5px var(--front), 0 2px 7px rgba(0, 0, 0, 0.2); }
 .win:hover { border-color: var(--link); }
 /* the window hovered, on the map or in the list (hoverWindow): its own tint, deeper, at
    once; the other windows of its app (kin) a lighter tint, fading in a moment later */
 .win { transition: background-color 0.15s, border-color 0.15s; }
-.win.kin, .three-d .win.kin {
-  background: hsl(var(--hue) 50% 91%);
+.win.kin {
+  background: hsl(var(--hue) 50% 91% / max(0.4, var(--a, 1)));
   border-color: hsl(var(--hue) 40% 58%);
   transition: background-color 0.7s ease 0.2s, border-color 0.7s ease 0.2s;
 }
 /* the hovered window on top: flat, above everything on its display (labels included);
    in 3D only with ⌘ held, slid toward you along the line of sight (raise) */
 .map-stage:not(.three-d) .win.lit { z-index: 100000 !important; }
-.win.lit, .three-d .win.lit {
-  background: hsl(var(--hue) 46% 84%);
+.win.lit {
+  background: hsl(var(--hue) 46% 84% / max(0.5, var(--a, 1)));
   border-color: var(--link);
   box-shadow: 0 0 0 1.5px var(--link), 0 2px 7px rgba(0, 0, 0, 0.2);
   transition: none;
@@ -222,10 +225,11 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-/* 3D: the app's icon three times the title bar's old one, in the window's top-left corner
-   and off the title bar, which stays as tall as its text (half again as big as it was) */
-.three-d .win-head { font-size: 22.5px; padding: 5px 8px 5px 66px; gap: 6px; min-height: 40px; }
-.three-d .win-head img, .three-d .win-head .letter {
+/* 3D (.iso; free 3D keeps Flat's): the app's icon three times the title bar's old one, in
+   the window's top-left corner and off the title bar, which stays as tall as its text
+   (half again as big as it was) */
+.iso .win-head { font-size: 22.5px; padding: 5px 8px 5px 66px; gap: 6px; min-height: 40px; }
+.iso .win-head img, .iso .win-head .letter {
   position: absolute;
   left: 6px;
   top: 6px;
@@ -235,9 +239,9 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   margin: 0;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
 }
-.three-d .win-head .letter { font-size: 26px; }
-.three-d .win.tiny .win-head { padding: 1px 2px; min-height: 0; }
-.three-d .win.tiny .win-head img, .three-d .win.tiny .win-head .letter { position: static; width: 17px; height: 17px; filter: none; }
+.iso .win-head .letter { font-size: 26px; }
+.iso .win.tiny .win-head { padding: 1px 2px; min-height: 0; }
+.iso .win.tiny .win-head img, .iso .win.tiny .win-head .letter { position: static; width: 17px; height: 17px; filter: none; }
 /* a Chrome window: its logo on top, a rule, its tabs' favicons from the live tablog */
 .win-tabs { padding: 5px 6px; text-align: center; }
 .win-logo { display: block; width: 20px; height: 20px; margin: 0 auto; opacity: 0.75; }
@@ -245,9 +249,9 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .tab-favs { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .tab-fav { width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0; }
 .tab-fav.front-tab { outline: 1.5px solid var(--front); outline-offset: 1px; }
-.three-d .win-logo { width: 26px; height: 26px; }
-.three-d .tab-fav { width: 20px; height: 20px; }
-.three-d .tab-favs { gap: 6px; }
+.iso .win-logo { width: 26px; height: 26px; }
+.iso .tab-fav { width: 20px; height: 20px; }
+.iso .tab-favs { gap: 6px; }
 .win.tiny .win-head { padding: 1px 2px; }
 .win.tiny .win-title { display: none; }
 .win-mark {   /* its app's icon, faded, in the middle of a big enough window */
