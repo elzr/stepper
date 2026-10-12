@@ -515,8 +515,8 @@ function tagWindow(node, w, d) {
 
 // Hovering a window, on the map or in the list, lights it in both (lit), its display
 // on the map and its section in the list (near), and, a moment later, every other
-// window of its app (kin: the slow fade is screenmaps.css's). On the flat map the window
-// comes to the top (z-index, screenmaps.css); in the 3D views only while ⌘ is held (raise).
+// window of its app (kin: the slow fade is screenmaps.css's). The window comes to the top
+// (raise): face on at once, as a flat map's would; turned only while ⌘ is held.
 let hovered = null;
 let cmdHeld = false;
 function hoverWindow(node) {
@@ -536,11 +536,13 @@ function hoverWindow(node) {
       if (n.dataset.screen === on) n.classList.add('near');
     }
   }
-  raise(cmdHeld);
+  raise(raising());
 }
 
-// 3D, with ⌘ held: the hovered window comes in front of every other, without the ones in
-// front of it fading. It slides straight toward you, along the line of sight: the views
+const raising = () => cmdHeld || !!(state.fly && faceOn(state.fly.cam));
+
+// The hovered window comes in front of every other, without the ones in front of it
+// fading. It slides straight toward you, along the line of sight: the views
 // have no perspective, so it stays exactly where it was on screen, under the pointer, and
 // only the depth order changes. The line of sight in the plane's own coordinates is the
 // plane's rotation undone on the screen's z; far enough is past the whole scene.
@@ -569,7 +571,7 @@ function initHoverLinks() {
   const cmd = ev => {
     if (ev.key !== 'Meta' || ev.metaKey === cmdHeld) return;
     cmdHeld = ev.metaKey;
-    raise(cmdHeld);
+    raise(raising());
   };
   document.addEventListener('keydown', cmd);
   document.addEventListener('keyup', cmd);
@@ -600,32 +602,63 @@ function renderAppFilters(map) {
 
 // --- Map --------------------------------------------------------------------------
 
-// 3D: the plane stands upright like the displays, turned about its vertical axis so its
-// right edge is the farther one, and seen a little from above (screenmaps.css's
-// .three-d .plane holds the same angles). Depth then runs left to right: the display at
-// the back on the left, each window a step to the right of the one behind it.
-// Free 3D: the flat map under a camera you turn by dragging, zoom by pinching and pan by
-// right-dragging. It opens face on, looking just like Flat, and turns 3D as you drag. Its
-// presets: face on (Flat), the plane upright and turned (Turned, the 3D view's angles), or
-// lying on the ground with each stack rising from it (On the ground). yaw turns the scene
-// about the vertical, pitch tilts it toward you (negative: seen from above).
+// The map is one scene under a camera you turn by dragging, zoom by pinching and pan by
+// right-dragging, its angles from three presets, the panel's Flat | Turned | On the
+// ground: face on, looking just like a flat map (Flat), the plane upright and turned
+// (Turned), or lying on the ground (On the ground). yaw turns the scene about the
+// vertical, pitch tilts it toward you (negative: seen from above). Until 2026-10-11 the
+// panel had Flat | 3D | Free 3D, three renderers; the camera's face-on view replaced the
+// flat one, its Turned the 3D one.
 const PRESETS = {
   flat: {label: 'Flat', base: 'upright', yaw: 0, pitch: 0},
   turned: {label: 'Turned', base: 'upright', yaw: 42, pitch: -12},
   ground: {label: 'On the ground', base: 'ground', yaw: 26, pitch: -40},
 };
 
-// The shown config's free 3D camera, face on at first, kept for the visit (until
-// 2026-10-11 the angles were kept per config and it opened turned)
+// The preset picked, per config: Turned for the laptop alone, whose mostly maximized
+// windows hide each other face on; Flat elsewhere
+function presetOf(name) {
+  let picked = null;
+  try { picked = localStorage.getItem(`screenmaps.preset.${name}`); } catch (e) { picked = null; }
+  if (PRESETS[picked]) return picked;
+  const c = list(state.now.configs).find(c => c.name === name);
+  return c && c.screens === 1 ? 'turned' : 'flat';
+}
+
+function setPreset(key) {
+  const name = state.now && shownConfig();
+  if (!name || !PRESETS[key]) return;
+  try { localStorage.setItem(`screenmaps.preset.${name}`, key); } catch (e) { /* lasts the visit */ }
+  delete state.cams[name];
+  render();
+}
+
+// Windows stacked up from their display, the front one nearest you (Above), or sunk
+// into it (Below): each display a see-through hole as deep as its windows, the front one
+// just under its face. Kept for every config.
+function stackOf() {
+  try { return localStorage.getItem('screenmaps.stack') === 'below' ? 'below' : 'above'; } catch (e) { return 'above'; }
+}
+
+function setStack(dir) {
+  try { localStorage.setItem('screenmaps.stack', dir); } catch (e) { /* lasts the visit */ }
+  render();
+}
+
+// The shown config's camera: its preset's angles, then wherever you turn it, for the visit
 function freeCam(name) {
   if (!state.cams[name]) {
-    state.cams[name] = {preset: 'flat', base: 'upright', yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0, fit: null};
+    const key = presetOf(name), p = PRESETS[key];
+    state.cams[name] = {preset: key, base: p.base, yaw: p.yaw, pitch: p.pitch, zoom: 1, panX: 0, panY: 0, fit: null};
   }
   return state.cams[name];
 }
 
-// How turned the camera is, 0 face on to 1 at 20° and past: free 3D's windows go from
-// Flat's see-through to 3D's solid as it turns (screenmaps.css's --solid)
+const faceOn = cam => cam.yaw === 0 && cam.pitch === 0 && cam.base === 'upright';
+
+// How turned the camera is, 0 face on to 1 at 20° and past: the windows go from see-through
+// to solid as it turns, and the labels sink from above the stacks to their displays
+// (screenmaps.css's --solid)
 function solidity(cam) {
   const facing = Math.abs(new DOMMatrix(camTransform(cam)).m33);   // the plane's normal toward you
   return Math.min(1, Math.acos(Math.min(1, facing)) * 180 / Math.PI / 20).toFixed(3);
@@ -635,11 +668,26 @@ function solidity(cam) {
 // ground (its top edge away from you, the stacks' depth pointing up)
 const camTransform = cam => `rotateX(${cam.pitch}deg) rotateY(${cam.yaw}deg)` + (cam.base === 'ground' ? ' rotateX(90deg)' : '');
 
-// The map's displays and windows sit on a plane. Flat, it's the stage; in 3D it stands
-// upright and turned, each window one layer in front of the one behind it on its display
-// (the stack the saves record front to back), its title still on it; free 3D puts the
-// same plane under a camera you move.
-function renderMap(map, live, depth, name) {
+// A display sunk in (Below): see-through walls as deep as its windows and a floor under the
+// back one, its face left open
+function holeParts(depth) {
+  const parts = [];
+  for (const side of ['left', 'right', 'top', 'bottom']) {
+    const wall = el('div', `hole-wall ${side}`);
+    wall.style.setProperty('--deep', `${depth}px`);
+    parts.push(wall);
+  }
+  const floor = el('div', 'hole-floor');
+  floor.style.transform = `translateZ(${-depth}px)`;
+  parts.push(floor);
+  return parts;
+}
+
+// The map's displays and windows sit on a plane under the camera, each window one layer
+// in front of the one behind it on its display (the stack the saves record front to back),
+// or one layer below it when they're sunk in. The scene is a flat map's, at its size: face
+// on, it is one.
+function renderMap(map, live, name) {
   const box = $('map');
   box.textContent = '';
   const ds = map.displays;
@@ -647,74 +695,62 @@ function renderMap(map, live, depth, name) {
     box.append(el('p', 'empty', 'No displays saved for this config.'));
     return;
   }
-  const free = depth === 'free';
-  const threeD = depth === '3d' || free;
-  const cam = free ? freeCam(name) : null;
-  const ground = free && cam.base === 'ground';
+  const cam = freeCam(name);
+  const ground = cam.base === 'ground';
+  const below = stackOf() === 'below';
   const rects = physicalRects(ds);
   const rs = [...rects.values()];
   const minX = Math.min(...rs.map(r => r.x)), minY = Math.min(...rs.map(r => r.y));
   const maxX = Math.max(...rs.map(r => r.x + r.w)), maxY = Math.max(...rs.map(r => r.y + r.h));
-  // Free 3D runs the viewport's whole width, out past the panel's sides; its scene is
-  // Flat's, at Flat's size
+  // The canvas runs the viewport's whole width, out past the panel's sides; the scene fills
+  // the panel's width, or the room
   const panelWidth = box.clientWidth || 1000;
-  const width = free ? document.documentElement.clientWidth : panelWidth;
+  const width = document.documentElement.clientWidth;
   const room = Math.max(320, window.innerHeight * 0.68);
   const by = windowsByDisplay(map);
   const total = map.windows.length;
   const tabsOf = live ? chromeTabs(map) : new Map();
-  // 3D layers: wide apart, since depth runs across the page, where tall portrait displays
-  // leave room; closer in a tall stack
+  // Layers wide apart, closer in a tall stack; on the ground closer still, or the stacks
+  // float off it. The displays stay side by side as on the desk, a stack running into the
+  // next display's (until 2026-10-11 the 3D view moved each column right by the stacks before it).
   const tallest = Math.max(1, ...[...by.values()].map(wins => wins.length));
-  // On the ground the steps rise toward you instead: closer, or the stacks float off it
   const layer = Math.max(24, Math.min(72, 640 / tallest)) * (ground ? 0.35 : 1);
-  // The displays stay side by side in 3D as on the desk, a stack running into the next
-  // display's (until 2026-10-11 each column moved right by the depth of the stacks before it)
-  // Flat and free 3D: the arrangement fills the panel's width, or the room. 3D: the room's
-  // height; the fit shrinks it if, turned and stacked, it's too wide
-  const scale = depth === '3d'
-    ? room / (maxY - minY)
-    : Math.min(panelWidth / (maxX - minX), room / (maxY - minY));
-  const left = threeD ? 0 : (width - (maxX - minX) * scale) / 2;   // flat: centred
+  const scale = Math.min(panelWidth / (maxX - minX), room / (maxY - minY));
   const planeHeight = Math.ceil((maxY - minY) * scale);
-  const planeWidth = threeD ? Math.ceil((maxX - minX) * scale) : width;
-  // .iso: the 3D view's bigger titles and icons, for its turned plane drawn smaller
-  const stage = el('div', 'map-stage' + (threeD ? ' three-d' : '') + (free ? ' free' : '') + (depth === '3d' ? ' iso' : ''));
+  const planeWidth = Math.ceil((maxX - minX) * scale);
+  const stage = el('div', 'map-stage three-d free' + (below ? ' below' : ''));
   const fit = el('div', 'fit');
   const plane = el('div', 'plane');
   plane.style.width = `${planeWidth}px`;
   plane.style.height = `${planeHeight}px`;
-  if (free) {
-    plane.style.transform = camTransform(cam);
-    stage.style.setProperty('--solid', solidity(cam));
-  }
+  plane.style.transform = camTransform(cam);
+  stage.style.setProperty('--solid', solidity(cam));
   fit.append(plane);
   stage.append(fit);
-  stage.style.height = `${free ? freeHeight() || Math.round(room) : planeHeight}px`;
+  stage.style.height = `${freeHeight() || Math.round(room)}px`;
   box.append(stage);
-  if (free) {
-    stage.style.width = `${width}px`;
-    const inset = Math.round(box.getBoundingClientRect().left);
-    stage.style.marginLeft = `${-inset}px`;
-    stage.style.setProperty('--inset', `${inset}px`);   // its controls stay over the panel's edge
-  }
+  stage.style.width = `${width}px`;
+  const inset = Math.round(box.getBoundingClientRect().left);
+  stage.style.marginLeft = `${-inset}px`;
+  stage.style.setProperty('--inset', `${inset}px`);   // its flight label stays over the panel's edge
 
   for (const d of ds) {
     const r = rects.get(d);
     const sx = (r.w / d.full.w) * scale, sy = (r.h / d.full.h) * scale;   // px per point here
-    const de = el('div', 'display' + (isBuiltin(d) ? ' builtin' : ''));
+    const wins = by.get(d);
+    const de = el('div', 'display' + (isBuiltin(d) ? ' builtin' : '') + (below && wins.length ? ' hole' : ''));
     de.dataset.screen = screenId(d);
-    de.style.left = `${left + (r.x - minX) * scale + GAP / 2}px`;
+    de.style.left = `${(r.x - minX) * scale + GAP / 2}px`;
     de.style.top = `${(r.y - minY) * scale + GAP / 2}px`;
     de.style.width = `${r.w * scale - GAP}px`;
     de.style.height = `${r.h * scale - GAP}px`;
+    if (below && wins.length) de.append(...holeParts((wins.length + 1) * layer));
     const bar = d.frame.y - d.full.y;   // the menu bar
     if (bar > 0) {
       const mb = el('div', 'menubar');
       mb.style.height = `${bar * sy}px`;
       de.append(mb);
     }
-    const wins = by.get(d);
     wins.forEach(({w, z}, i) => {
       const we = el('div', 'win');
       focusable(we, w, live);
@@ -722,7 +758,6 @@ function renderMap(map, live, depth, name) {
       we.dataset.rank = String(i);   // its place in its display's stack, 0 at the front
       if (z === 0) we.classList.add('focused');
       if (i === 0) we.classList.add('front');
-      // Inside its display, which clips it the way macOS does
       const ww = w.frame.w * sx, wh = w.frame.h * sy;
       const wl = (w.frame.x - d.full.x) * sx - GAP / 2, wt = (w.frame.y - d.full.y) * sy - GAP / 2;
       we.style.left = `${wl}px`;
@@ -750,43 +785,36 @@ function renderMap(map, live, depth, name) {
       }
       onHover(we, () => windowPop(map, w, z, live, tabs));
       de.append(we);
-      if (threeD) {
-        // The display's front window nearest: i is its place in this display's stack
-        we.dataset.z = `translateZ(${(wins.length - i) * layer}px)`;   // raise() adds to it
-        we.style.transform = we.dataset.z;
-      }
+      // The front window nearest you: above, the top of the pile; below, just under the face
+      we.dataset.z = `translateZ(${below ? -(i + 1) * layer : (wins.length - i) * layer}px)`;   // raise() adds to it
+      we.style.transform = we.dataset.z;
     });
     const label = el('div', 'display-label', displayName(d));
     if (d.mm) label.append(el('span', 'size', ` ${inches(d)}`));
     label.append(el('span', 'count', ` · ${wins.length}`));
+    // face on, above the pile, as a flat map's labels are above its windows; it sinks to its
+    // display as you turn (below, the windows are under the face already)
+    if (!below) label.style.setProperty('--lift', `${(wins.length + 1) * layer}px`);
     de.append(label);
     plane.append(de);
   }
-  if (free) {
-    // the canvas's height left out: setting it keeps the scene's size (initFreeResize)
-    const key = `${width}:${planeWidth}x${planeHeight}:${cam.base}`;
-    const faceOn = cam.yaw === 0 && cam.pitch === 0 && cam.base === 'upright';
-    if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, stage.clientHeight, faceOn)};
-    applyView(fit, cam);
-    stage.append(freeControls(name, cam));
-    initFreeDrag(stage, fit, plane, name, cam);
-    initFreeResize(stage, fit, cam);
-    // Tab's stops: all the displays, then each as the list reads them
-    const order = displayColumns(ds).flat();
-    state.fly = {stage, fit, cam, stops: [
-      {label: 'All displays', nodes: () => [...stage.querySelectorAll('.display, .win')]},
-      ...order.map(d => {
-        const de = [...stage.querySelectorAll('.display')].find(n => n.dataset.screen === screenId(d));
-        return {label: displayName(d), nodes: () => [de, ...de.querySelectorAll('.win')]};
-      }),
-    ], boxes: null};
-    if (cam.stop != null) showStop(cam.stop);
-  } else {
-    state.fly = null;
-  }
-  if (!free && threeD) {
-    fitInStage(stage, fit, width);
-  }
+  // the canvas's height left out: setting it keeps the scene's size (initFreeResize)
+  const key = `${width}:${planeWidth}x${planeHeight}:${cam.base}:${below}`;
+  if (!cam.fit || cam.fit.key !== key) cam.fit = {key, ...measureFit(stage, fit, width, stage.clientHeight, faceOn(cam))};
+  applyView(fit, cam);
+  stage.append(el('div', 'free-where'));
+  initFreeDrag(stage, fit, plane, name, cam);
+  initFreeResize(stage, fit, cam);
+  // Tab's stops: all the displays, then each as the list reads them
+  const order = displayColumns(ds).flat();
+  state.fly = {stage, fit, cam, stops: [
+    {label: 'All displays', nodes: () => [...stage.querySelectorAll('.display, .win')]},
+    ...order.map(d => {
+      const de = [...stage.querySelectorAll('.display')].find(n => n.dataset.screen === screenId(d));
+      return {label: displayName(d), nodes: () => [de, ...de.querySelectorAll('.win')]};
+    }),
+  ], boxes: null};
+  if (cam.stop != null) showStop(cam.stop);
 
   // The minimized windows after a rule, as the tablogs show minimized Chrome windows
   if (map.minimized.length) {
@@ -821,23 +849,13 @@ function projectedBox(stage, fit) {
   return {x0, y0, w: x1 - x0, h: y1 - y0};
 }
 
-// The tilted plane's projection spills out of its box: measure it, then centre it in the
-// stage (and shrink it if it's too wide; a tall stack just makes the stage taller)
-function fitInStage(stage, fit, maxWidth) {
-  const {x0, y0, w, h} = projectedBox(stage, fit);
-  if (!(w > 0 && h > 0)) return;
-  const s = Math.min(1, maxWidth / w), pad = 12;
-  fit.style.transform = `translate(${(maxWidth - w * s) / 2 - x0 * s}px, ${pad - y0 * s}px) scale(${s})`;
-  stage.style.height = `${Math.ceil(h * s) + 2 * pad}px`;
-}
-
-// Free 3D: the scale and offset that centre the scene in the stage at its preset's
-// angles; kept while you turn it, so turning doesn't pump the zoom. Face on it keeps
-// Flat's size, shrinking only if the canvas is too small for it.
-function measureFit(stage, fit, width, height, faceOn) {
+// The scale and offset that centre the scene in the stage at its preset's angles; kept
+// while you turn it, so turning doesn't pump the zoom. Face on it keeps a flat map's size,
+// shrinking only if the canvas is too small for it.
+function measureFit(stage, fit, width, height, flat) {
   const {x0, y0, w, h} = projectedBox(stage, fit);
   if (!(w > 0 && h > 0)) return {tx: 0, ty: 0, s: 1};
-  const s = faceOn ? Math.min(1, width / w, height / h) : Math.min(width / w, height / h) * 0.9;
+  const s = flat ? Math.min(1, width / w, height / h) : Math.min(width / w, height / h) * 0.9;
   return {tx: (width - w * s) / 2 - x0 * s, ty: (height - h * s) / 2 - y0 * s, s};
 }
 
@@ -858,25 +876,20 @@ function zoomAt(fit, cam, k, x, y) {
   applyView(fit, cam);
 }
 
-// The presets, in the stage's top-left corner
-function freeControls(name, cam) {
-  const bar = el('div', 'free-controls');
-  for (const [key, p] of Object.entries(PRESETS)) {
-    const b = el('button', key === cam.preset && cam.yaw === p.yaw && cam.pitch === p.pitch ? 'active' : null, p.label);
-    b.type = 'button';
-    b.onclick = () => {
-      state.cams[name] = {preset: key, base: p.base, yaw: p.yaw, pitch: p.pitch, zoom: 1, panX: 0, panY: 0, fit: null};
-      render();
-    };
-    bar.append(b);
+// The panel's map controls: the presets lit for the camera at one, the stack's direction,
+// and how to move the camera
+function renderMapControls(name) {
+  const cam = freeCam(name);
+  for (const b of document.querySelectorAll('#presets button')) {
+    const p = PRESETS[b.dataset.preset];
+    b.classList.toggle('active', b.dataset.preset === cam.preset && cam.yaw === p.yaw && cam.pitch === p.pitch);
   }
-  bar.append(el('span', 'free-hint', TOUCH
-    ? 'drag a display to turn · drag around them to pan · pinch to zoom · tab flies display to display'
-    : 'drag to turn · right-drag to pan · pinch to zoom · tab flies display to display'),
-    el('span', 'free-where'));
-  // the buttons are the stage's too: don't start a drag on them
-  bar.addEventListener('pointerdown', ev => ev.stopPropagation());
-  return bar;
+  for (const b of document.querySelectorAll('#stack button')) {
+    b.classList.toggle('active', b.dataset.stack === stackOf());
+  }
+  $('mapHint').textContent = (TOUCH
+    ? 'drag a display to turn · drag around them to pan · pinch to zoom'
+    : 'drag to turn · right-drag to pan · pinch to zoom · ⌘ raises a window') + ' · tab flies display to display';
 }
 
 // Free 3D's hands: a drag turns the scene, a right drag pans it (a ⌃ or ⇧ drag too); on
@@ -928,7 +941,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       cam.pitch = Math.max(-90, Math.min(90, cam.pitch - (p.y - last.y) * 0.35));
       plane.style.transform = camTransform(cam);
       stage.style.setProperty('--solid', solidity(cam));
-      if (cmdHeld) raise(true);   // the line of sight turned with it
+      raise(raising());   // the line of sight turned with it
       if (state.fly) state.fly.boxes = null;   // turned: the stops' boxes are measured anew
       last = p;
     } else if (mode === 'pan') {
@@ -943,7 +956,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
     pointers.delete(ev.pointerId);
     if (pointers.size) return;
     if (mode === 'turn') {
-      for (const b of stage.querySelectorAll('.free-controls button')) b.classList.remove('active');
+      for (const b of document.querySelectorAll('#presets button')) b.classList.remove('active');
     }
     mode = null;
     stage.classList.remove('dragging');
@@ -1049,22 +1062,6 @@ function landFlight(fit) {
 function showStop(i) {
   const where = state.fly && state.fly.stage.querySelector('.free-where');
   if (where && state.fly.stops[i]) where.textContent = `→ ${state.fly.stops[i].label}`;
-}
-
-// Flat, 3D or free 3D, per config. 3D by default for the laptop alone, whose mostly
-// maximized windows hide each other on a flat map
-function depthOf(name) {
-  const picked = localStorage.getItem(`screenmaps.depth.${name}`);
-  if (picked === 'flat' || picked === '3d' || picked === 'free') return picked;
-  const c = list(state.now.configs).find(c => c.name === name);
-  return c && c.screens === 1 ? '3d' : 'flat';
-}
-
-function setDepth(depth) {
-  const name = state.now && shownConfig();
-  if (!name) return;
-  localStorage.setItem(`screenmaps.depth.${name}`, depth);
-  render();
 }
 
 // --- Days: by the day each window was opened, and by the day it was last used --------
@@ -1252,13 +1249,10 @@ function render() {
   for (const b of document.querySelectorAll('.panel-views button')) {
     b.classList.toggle('active', b.dataset.view === state.view);
   }
-  const depth = depthOf(name);
-  $('depth').hidden = state.view !== 'map';
-  for (const b of document.querySelectorAll('#depth button')) {
-    b.classList.toggle('active', b.dataset.depth === depth);
-  }
+  for (const id of ['presets', 'stack', 'mapHint']) $(id).hidden = state.view !== 'map';
+  renderMapControls(name);
   renderAppFilters(map);
-  if (state.view === 'map') renderMap(map, live, depth, name);
+  if (state.view === 'map') renderMap(map, live, name);
   else renderDays(map, live);
   renderList(map, live);
   applyFilter();
@@ -1298,15 +1292,19 @@ for (const b of document.querySelectorAll('.panel-views button')) {
 }
 initHoverLinks();
 initFocusClicks();
-for (const b of document.querySelectorAll('#depth button')) {
-  b.addEventListener('click', () => setDepth(b.dataset.depth));
+for (const b of document.querySelectorAll('#presets button')) {
+  b.addEventListener('click', () => setPreset(b.dataset.preset));
+}
+for (const b of document.querySelectorAll('#stack button')) {
+  b.addEventListener('click', () => setStack(b.dataset.stack));
 }
 document.addEventListener('keydown', ev => {
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-  if (ev.key === '3' && state.now && state.view === 'map') {
-    setDepth(depthOf(shownConfig()) === 'flat' ? '3d' : 'flat');
-  } else if (ev.key === 'f' && state.now && state.view === 'map') {
-    setDepth('free');
+  const keyed = {1: 'flat', 2: 'turned', 3: 'ground'}[ev.key];
+  if (keyed && state.now && state.view === 'map') {
+    setPreset(keyed);
+  } else if (ev.key === 's' && state.now && state.view === 'map') {
+    setStack(stackOf() === 'below' ? 'above' : 'below');
   } else if (ev.key === 'Tab' && state.fly && state.view === 'map') {
     ev.preventDefault();
     flyTo(ev.shiftKey ? -1 : 1);

@@ -78,7 +78,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .panel-views button + button { border-left: 1px solid var(--border); }
 .panel-views button:hover { color: var(--text); }
 .panel-views button.active { background: var(--active-bg); color: var(--active-text); }
-/* Flat | 3D beside them, as the tablogs' map modes */
+/* Flat | Turned | On the ground and Above | Below beside them, as the tablogs' map modes */
 .map-modes { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .map-modes[hidden] { display: none; }
 .map-modes button {
@@ -94,6 +94,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .map-modes button:hover { color: var(--text); }
 .map-modes button.active { background: var(--active-bg); color: var(--active-text); }
 .panel-hint { color: var(--grey); font-size: 0.75rem; }
+.panel-hint[hidden] { display: none; }
 /* The app filters, in the map's top-right corner: an app with several windows, its count */
 .app-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px 4px; margin-left: auto; }
 .app-filter {
@@ -124,21 +125,18 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .fit { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .plane { position: relative; }
 
-/* 3D: the plane stands upright, turned so its right edge is the farther one and seen a
-   little from above (renderMap's TURN, then fitInStage); each window a layer in front of
-   the one behind it, so depth runs left to right, its title still on it */
-.three-d .plane { transform-style: preserve-3d; transform: rotateX(-12deg) rotateY(42deg); }
+/* The scene under the camera (screenmaps.js renderMap): each window a layer in front of
+   the one behind it, or below it when they're sunk in, its title still on it */
+.three-d .plane { transform-style: preserve-3d; }
 .three-d .display { overflow: visible; transform-style: preserve-3d; }
-.iso .display { background: #dde3ea; }
-/* its label just off the display's face: coplanar, Chrome sometimes drew its pill without the text */
-.three-d .display-label { transform: translateZ(1px); }
-.iso .win { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22); }
-/* How solid a window is below its title bar (--a): see-through on the flat map, so the
-   windows under it show; solid in 3D; in free 3D see-through face on, as Flat, turning
-   solid over the first 20° you turn it (--solid, renderMap's solidity) */
-.map-stage { --a: 0; }
-.map-stage.iso { --a: 0.94; }
-.map-stage.free { --a: calc(0.94 * var(--solid, 0)); }
+/* its label just off the display's face (coplanar, Chrome sometimes drew its pill without
+   the text); face on, above the pile (--lift), as a flat map's labels are above its
+   windows, sinking to the display over the first 20° you turn it */
+.three-d .display-label { transform: translateZ(calc(1px + var(--lift, 0px) * (1 - var(--solid, 1)))); }
+/* How solid a window is below its title bar (--a): see-through face on, so the windows
+   under it show, as on a flat map, turning solid over the first 20° you turn the camera
+   (--solid, renderMap's solidity) */
+.map-stage { --a: calc(0.94 * var(--solid, 0)); }
 .display {
   position: absolute;
   background: #e9edf2;
@@ -149,7 +147,7 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .display.builtin { border-radius: 6px 6px 10px 10px; }
 /* the display of the window hovered, on the map or in the list (hoverWindow) */
 .display { transition: background-color 0.2s, border-color 0.2s; }
-.display.near, .iso .display.near { background: #dde5ef; border-color: #7c93b3; }
+.display.near { background: #dde5ef; border-color: #7c93b3; }
 .display .menubar { position: absolute; left: 0; right: 0; top: 0; background: rgba(15, 23, 42, 0.08); }
 .display-label {
   position: absolute;
@@ -195,9 +193,8 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   border-color: hsl(var(--hue) 40% 58%);
   transition: background-color 0.7s ease 0.2s, border-color 0.7s ease 0.2s;
 }
-/* the hovered window on top: flat, above everything on its display (labels included);
-   in 3D only with ⌘ held, slid toward you along the line of sight (raise) */
-.map-stage:not(.three-d) .win.lit { z-index: 100000 !important; }
+/* the hovered window on top: face on at once, turned with ⌘ held, slid toward you along
+   the line of sight (screenmaps.js raise) */
 .win.lit {
   background: hsl(var(--hue) 46% 84% / max(0.5, var(--a, 1)));
   border-color: var(--link);
@@ -225,23 +222,6 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-/* 3D (.iso; free 3D keeps Flat's): the app's icon three times the title bar's old one, in
-   the window's top-left corner and off the title bar, which stays as tall as its text
-   (half again as big as it was) */
-.iso .win-head { font-size: 22.5px; padding: 5px 8px 5px 66px; gap: 6px; min-height: 40px; }
-.iso .win-head img, .iso .win-head .letter {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  z-index: 1;
-  width: 51px;
-  height: 51px;
-  margin: 0;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
-}
-.iso .win-head .letter { font-size: 26px; }
-.iso .win.tiny .win-head { padding: 1px 2px; min-height: 0; }
-.iso .win.tiny .win-head img, .iso .win.tiny .win-head .letter { position: static; width: 17px; height: 17px; filter: none; }
 /* a Chrome window: its logo on top, a rule, its tabs' favicons from the live tablog */
 .win-tabs { padding: 5px 6px; text-align: center; }
 .win-logo { display: block; width: 20px; height: 20px; margin: 0 auto; opacity: 0.75; }
@@ -249,9 +229,6 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .tab-favs { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .tab-fav { width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0; }
 .tab-fav.front-tab { outline: 1.5px solid var(--front); outline-offset: 1px; }
-.iso .win-logo { width: 26px; height: 26px; }
-.iso .tab-fav { width: 20px; height: 20px; }
-.iso .tab-favs { gap: 6px; }
 .win.tiny .win-head { padding: 1px 2px; }
 .win.tiny .win-title { display: none; }
 .win-mark {   /* its app's icon, faded, in the middle of a big enough window */
@@ -265,7 +242,21 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
   pointer-events: none;
 }
 
-/* Free 3D: a camera you move (screenmaps.js initFreeDrag), its presets top left */
+/* Below: each display a see-through hole as deep as its windows (holeParts), its face
+   open, the walls folded back from its edges, the floor under the back window */
+.display.hole, .display.hole.near { background: transparent; }
+.hole-wall, .hole-floor { position: absolute; pointer-events: none; }
+.hole-wall { background: rgba(148, 163, 184, 0.22); border: 1px solid rgba(100, 116, 139, 0.3); }
+.hole-wall.left, .hole-wall.right { top: 0; height: 100%; width: var(--deep); transform-origin: 0 50%; transform: rotateY(90deg); }
+.hole-wall.left { left: 0; }
+.hole-wall.right { left: 100%; }
+.hole-wall.top, .hole-wall.bottom { left: 0; width: 100%; height: var(--deep); transform-origin: 50% 0; transform: rotateX(-90deg); }
+.hole-wall.top { top: 0; }
+.hole-wall.bottom { top: 100%; }
+.hole-floor { inset: 0; background: rgba(233, 237, 242, 0.88); border-radius: inherit; transition: background-color 0.2s; }
+.display.hole.near .hole-floor { background: rgba(221, 229, 239, 0.92); }
+
+/* The canvas: a camera you move (screenmaps.js initFreeDrag) */
 .map-stage.free {   /* as wide as the viewport (renderMap), past the panel's sides */
   overflow: hidden;
   cursor: grab;
@@ -304,30 +295,16 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 }
 .free-resize:hover::after, .map-stage.resizing .free-resize::after { opacity: 1; }
 .map-stage.free.resizing, .map-stage.free.resizing * { cursor: ns-resize; }
-.free-controls {
+.free-where {   /* where Tab flew, top left */
   position: absolute;
   top: 8px;
   left: calc(var(--inset, 0px) + 8px);
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: default;
-}
-.free-controls button {
-  font: inherit;
+  color: var(--text);
   font-size: 0.74rem;
-  padding: 1px 8px;
-  color: var(--grey);
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  cursor: pointer;
+  font-weight: 600;
+  pointer-events: none;
 }
-.free-controls button:hover { color: var(--text); }
-.free-controls button.active { color: var(--active-text); background: var(--active-bg); border-color: var(--active-bg); }
-.free-hint { margin-left: 6px; color: var(--grey); font-size: 0.7rem; }
-.free-where { margin-left: 4px; color: var(--text); font-size: 0.74rem; font-weight: 600; }
 
 /* Minimized windows, after a rule under the displays (the tablogs' minimized windows) */
 .map-divider { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--grey); font-size: 0.78rem; }

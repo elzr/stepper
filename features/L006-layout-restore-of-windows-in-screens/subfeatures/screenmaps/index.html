@@ -19,11 +19,16 @@
         <button type="button" data-view="map" title="Map (m)">Map</button>
         <button type="button" data-view="days" title="Days (d)">Days</button>
       </div>
-      <div class="map-modes" id="depth">
-        <button type="button" data-depth="flat" title="Flat (3 switches)">Flat</button>
-        <button type="button" data-depth="3d" title="3D: the displays upright, each window a layer in front of the one behind it (3 switches)">3D</button>
-        <button type="button" data-depth="free" title="Free 3D, the page's whole width: drag a display to turn, drag around them to pan, pinch to zoom (f)">Free 3D</button>
+      <div class="map-modes" id="presets">
+        <button type="button" data-preset="flat" title="Face on, a flat map (1)">Flat</button>
+        <button type="button" data-preset="turned" title="The displays upright, turned so their right edges are the farther ones, seen a little from above (2)">Turned</button>
+        <button type="button" data-preset="ground" title="The displays lying flat as on a floor (3)">On the ground</button>
       </div>
+      <div class="map-modes" id="stack">
+        <button type="button" data-stack="above" title="Windows stacked up from their display, the front one nearest you (s switches)">Above</button>
+        <button type="button" data-stack="below" title="Windows sunk into their display, each a see-through hole as deep as its windows (s switches)">Below</button>
+      </div>
+      <span class="panel-hint" id="mapHint"></span>
       <div class="app-filters" id="apps" aria-label="Only one app's windows"></div>
     </div>
     <div class="screen-map" id="map"></div>
