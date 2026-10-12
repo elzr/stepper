@@ -643,19 +643,30 @@ end
 -- Every window a layout save read (L006/screenmaps hands them over: on screen, minimized,
 -- hidden, each {id, bundle, title}); failed: the apps that didn't answer, whose slots
 -- keep their state. A slot is whole while its window id, or its app's window with its
--- recorded title, is among them, as findLiveSlotWindow finds it. No Accessibility calls:
--- the helper read these off the main thread.
+-- recorded title, is among them, as findLiveSlotWindow finds it. A whole slot's window's
+-- title now goes in nowTitle and nowDoc (the keymap shows them, with the title it was set
+-- on, which says why); title and doc stay the ones it was set on, the fallback when the
+-- window is gone. No Accessibility calls: the helper read these off the main thread.
 function M.checkLiveSlots(windows, failed)
   local ids, titles = {}, {}
   for _, w in ipairs(windows) do
-    if w.id then ids[w.id] = true end
+    if w.id then ids[w.id] = w.title or "" end
     if w.bundle then titles[w.bundle .. "\n" .. tostring(w.title)] = true end
   end
   local changed = false
   for _, slot in pairs(liveSlots) do
     if slot.bundleID and not (failed and failed[slot.app or ""]) then
-      local whole = (slot.winID and ids[slot.winID]) or titles[slot.bundleID .. "\n" .. tostring(slot.title)]
+      local now = slot.winID and ids[slot.winID]
+      local whole = now or titles[slot.bundleID .. "\n" .. tostring(slot.title)]
       if markBroken(slot, not whole) then changed = true end
+      if now and now ~= "" then
+        local nowTitle = now ~= slot.title and now or nil
+        if nowTitle ~= slot.nowTitle then
+          slot.nowTitle = nowTitle
+          slot.nowDoc = nowTitle and documentTitle(nowTitle, slot.app) or nil
+          changed = true
+        end
+      end
     end
   end
   if changed then saveLiveSlots() end
