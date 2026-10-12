@@ -133,6 +133,11 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
    windows sunk below it (Below), which it caught before (2026-10-11) */
 .three-d .plane { pointer-events: none; }
 .three-d .display, .three-d .win { pointer-events: auto; }
+/* Above, seen from behind: the display surfaces fade to their outlines, or they'd hide
+   every window stacked in front of them (--behind, screenmaps.js behindness); from the
+   front they're behind every window and stay solid */
+.three-d .display { background: rgba(233, 237, 242, calc(1 - var(--behind, 0))); }
+.three-d .display.near { background: rgba(221, 229, 239, calc(1 - var(--behind, 0))); }
 /* its label just off the display's face (coplanar, Chrome sometimes drew its pill without
    the text); face on, above the pile (--lift), as a flat map's labels are above its
    windows, sinking to the display over the first 20° you turn it */

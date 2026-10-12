@@ -665,6 +665,20 @@ function solidity(cam) {
   return Math.min(1, Math.acos(Math.max(-1, Math.min(1, facing))) * 180 / Math.PI / 20).toFixed(3);
 }
 
+// How far you're looking from behind the plane, 0 in front to 1 once past edge on (the
+// plane's normal from 0.15 toward you to 0.15 away): from behind, the display surfaces
+// stand in front of every window stacked above them, so they fade to their outlines
+// (screenmaps.css's --behind)
+function behindness(cam) {
+  const facing = new DOMMatrix(camTransform(cam)).m33;
+  return Math.max(0, Math.min(1, (0.15 - facing) / 0.3)).toFixed(3);
+}
+
+function setCamVars(stage, cam) {
+  stage.style.setProperty('--solid', solidity(cam));
+  stage.style.setProperty('--behind', behindness(cam));
+}
+
 // The plane's transform: the camera's tilt and turn, after laying the plane down for the
 // ground (its top edge away from you, the stacks' depth pointing up)
 const camTransform = cam => `rotateX(${cam.pitch}deg) rotateY(${cam.yaw}deg)` + (cam.base === 'ground' ? ' rotateX(90deg)' : '');
@@ -725,7 +739,7 @@ function renderMap(map, live, name) {
   plane.style.width = `${planeWidth}px`;
   plane.style.height = `${planeHeight}px`;
   plane.style.transform = camTransform(cam);
-  stage.style.setProperty('--solid', solidity(cam));
+  setCamVars(stage, cam);
   fit.append(plane);
   stage.append(fit);
   stage.style.height = `${freeHeight() || Math.round(room)}px`;
@@ -941,7 +955,7 @@ function initFreeDrag(stage, fit, plane, name, cam) {
       cam.yaw += (p.x - last.x) * 0.35;
       cam.pitch = Math.max(-90, Math.min(90, cam.pitch - (p.y - last.y) * 0.35));
       plane.style.transform = camTransform(cam);
-      stage.style.setProperty('--solid', solidity(cam));
+      setCamVars(stage, cam);
       raise(raising());   // the line of sight turned with it
       if (state.fly) state.fly.boxes = null;   // turned: the stops' boxes are measured anew
       last = p;
