@@ -93,7 +93,7 @@ Jump to adjacent screen, focusing the window closest to where you came from.
 
 - **Manual save**: ctrl+option+delete — pinned, survives autosave overwrites
 - **Manual restore**: ctrl+option+shift+delete — restores pinned save, falls back to autosave
-- ==🟢**[Screenmaps](https://stepper.internal/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/)**==: each display config's last layout as a map of its displays and as lists, with the minimized windows and the ones rcmd hid (hover one to see where it comes back). On the go it opens on the desk you last left; at the desk, clicking a window brings it forward ([L006/screenmaps](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps))
+- ==🟢**[Screenmaps](https://stepper.internal/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/)**==: each display config's last layout as a map of its displays and as lists, with the windows rcmd hid and the minimized ones under the displays (hover one to lift it to where it comes back). On the go it opens on the desk you last left; at the desk, clicking a window brings it forward ([L006/screenmaps](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps))
 
 ### Display arrangement guard
 

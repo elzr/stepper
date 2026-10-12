@@ -192,9 +192,9 @@ async function loadMaps() {
 }
 
 const bundleOf = w => w.bundle || state.appBundles[w.app];
-// On screen, then the ones that come back: minimized, and hidden with their app
-const allWindows = map => [...map.windows, ...map.minimized, ...map.hidden];
-const offScreen = map => [...map.minimized, ...map.hidden];
+// On screen, then the ones that come back: hidden with their app, then minimized
+const allWindows = map => [...map.windows, ...map.hidden, ...map.minimized];
+const offScreen = map => [...map.hidden, ...map.minimized];
 // rcmd's key for a hidden window's app, as the keymap writes rcmd's keys (right ⌥)
 const rcmdKey = w => (w.rcmd ? `⌥${w.rcmd}` : '');
 // A window's identity on the page, across the map, the days and the list
@@ -565,7 +565,7 @@ function raise(on) {
     w.style.transform = w.dataset.z;
   }
   if (!on) return;
-  for (const w of document.querySelectorAll('#map .three-d .win.lit')) {
+  for (const w of document.querySelectorAll('#map .three-d .win.lit:not(.off)')) {   // .off rise by their own
     const plane = w.closest('.plane');
     const sight = new DOMMatrix(getComputedStyle(plane).transform).inverse().transformPoint(new DOMPoint(0, 0, 1, 0));
     const far = 2 * (plane.offsetWidth + plane.offsetHeight) / Math.hypot(sight.x, sight.y, sight.z);
@@ -729,13 +729,15 @@ function placeWin(node, w, d, sx, sy) {
   return {ww, wh};
 }
 
-// Under the map, after a rule: the minimized windows, or the hidden apps' ones, each a chip
-// (with its rcmd key); hovering one shows on the map where it comes back
-function offStrip(box, map, wins, label, live) {
+// Under the map, after a rule: the hidden apps' windows (each with its rcmd key), then,
+// after a |, the minimized ones; hovering one lifts it on the map to where it comes back
+function offStrip(box, map, live) {
+  const wins = offScreen(map);
   if (!wins.length) return;
-  box.append(el('div', 'map-divider', `${label} · ${wins.length}`));
+  box.append(el('div', 'map-divider', `Hidden/Minimized windows · ${wins.length}`));
   const strip = el('div', 'min-strip');
   for (const w of wins) {
+    if (w === map.minimized[0] && map.hidden.length) strip.append(el('span', 'off-split', '|'));
     const chip = el('div', 'min-chip');
     focusable(chip, w, live);
     tagWindow(chip, w, displayOf(map, w));
@@ -855,25 +857,27 @@ function renderMap(map, live, name) {
       we.dataset.z = `translateZ(${below ? -(i + 1) * layer : (wins.length - i) * layer}px)`;   // raise() adds to it
       we.style.transform = we.dataset.z;
     });
-    // The windows that come back here, minimized or hidden: each a ghost where it will
-    // stand, on top of the stack (just under the face, sunk in), shown only while its chip
-    // under the map or its row in the list is hovered (hoverWindow lights it)
-    for (const w of offBy.get(d) || []) {
-      const ge = el('div', 'win ghost');
-      tagWindow(ge, w, d);
-      const {ww, wh} = placeWin(ge, w, d, sx, sy);
-      ge.style.zIndex = String(total + 1);
-      ge.style.setProperty('--hue', hue(bundleOf(w) || w.app));
-      if (ww < 48 || wh < 22) ge.classList.add('tiny');
+    // The windows that come back here, hidden then minimized, kept under the display one
+    // layer each (Above: behind its surface; Below: under its hole's floor), so a turn of
+    // the scene shows them and face on the display hides them. Hovering one, its chip
+    // under the map or its row in the list, lifts it to where it comes back: the top of
+    // the stack (just under the face, sunk in). --rest and --up, screenmaps.css's
+    const down = below && wins.length ? wins.length + 1 : 0;   // layers down to the floor
+    (offBy.get(d) || []).forEach((w, k) => {
+      const oe = el('div', 'win off');
+      tagWindow(oe, w, d);
+      const {ww, wh} = placeWin(oe, w, d, sx, sy);
+      oe.style.setProperty('--hue', hue(bundleOf(w) || w.app));
+      if (ww < 48 || wh < 22) oe.classList.add('tiny');
       const head = el('div', 'win-head');
       head.append(iconEl(w), el('span', 'win-title', cleanTitle(w)));
-      ge.append(head, el('div', 'ghost-note', w.hidden
+      oe.append(head, el('div', 'off-note', w.hidden
         ? (w.rcmd ? `${rcmdKey(w)} brings it back here` : 'comes back here when its app is shown')
         : 'comes back here from the Dock'));
-      de.append(ge);
-      ge.dataset.z = `translateZ(${below && wins.length ? -0.5 * layer : (wins.length + 1) * layer}px)`;
-      ge.style.transform = ge.dataset.z;
-    }
+      oe.style.setProperty('--rest', `translateZ(${-(down + k + 1) * layer}px)`);
+      oe.style.setProperty('--up', `translateZ(${below && wins.length ? -0.5 * layer : (wins.length + 1) * layer}px)`);
+      de.append(oe);
+    });
     const label = el('div', 'display-label', displayName(d));
     if (d.mm) label.append(el('span', 'size', ` ${inches(d)}`));
     label.append(el('span', 'count', ` · ${wins.length}`));
@@ -893,18 +897,17 @@ function renderMap(map, live, name) {
   // Tab's stops: all the displays, then each as the list reads them
   const order = displayColumns(ds).flat();
   state.fly = {stage, fit, cam, stops: [
-    {label: 'All displays', nodes: () => [...stage.querySelectorAll('.display, .win:not(.ghost)')]},
+    {label: 'All displays', nodes: () => [...stage.querySelectorAll('.display, .win:not(.off)')]},
     ...order.map(d => {
       const de = [...stage.querySelectorAll('.display')].find(n => n.dataset.screen === screenId(d));
-      return {label: displayName(d), nodes: () => [de, ...de.querySelectorAll('.win:not(.ghost)')]};
+      return {label: displayName(d), nodes: () => [de, ...de.querySelectorAll('.win:not(.off)')]};
     }),
   ], boxes: null};
   if (cam.stop != null) showStop(cam.stop);
 
-  // The minimized windows after a rule, as the tablogs show minimized Chrome windows, then
-  // the hidden apps' ones (rcmd's toggles mostly)
-  offStrip(box, map, map.minimized, 'Minimized windows', live);
-  offStrip(box, map, map.hidden, 'rcmd-hidden windows', live);
+  // The hidden and minimized windows after a rule, as the tablogs show minimized Chrome
+  // windows
+  offStrip(box, map, live);
 }
 
 // What the plane's displays and windows cover on screen, relative to the stage, with the
@@ -913,7 +916,7 @@ function projectedBox(stage, fit) {
   fit.style.transform = '';
   const sr = stage.getBoundingClientRect();
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const n of stage.querySelectorAll('.display, .win:not(.ghost)')) {
+  for (const n of stage.querySelectorAll('.display, .win:not(.off)')) {
     const r = n.getBoundingClientRect();
     x0 = Math.min(x0, r.left - sr.left);
     y0 = Math.min(y0, r.top - sr.top);
@@ -1261,25 +1264,26 @@ function renderList(map, live) {
     grid.append(c);
   }
   box.append(grid);
-  offList(box, map, map.minimized, 'Minimized', live);
-  offList(box, map, map.hidden, 'rcmd-hidden', live);
+  offList(box, map, live);
 }
 
-// After the displays' columns, a rule and the minimized windows, or the hidden apps' ones
-// (with their rcmd keys), each with the display it comes back to
-function offList(box, map, wins, label, live) {
+// After the displays' columns, a rule and the hidden apps' windows (with their rcmd keys),
+// then, after a dotted rule, the minimized ones, each with the display it comes back to
+function offList(box, map, live) {
+  const wins = offScreen(map);
   if (!wins.length) return;
   const sec = el('section', 'screen-list minimized-list');
-  const h = el('h3', null, label + ' ');
+  const h = el('h3', null, 'Hidden/Minimized ');
   h.append(el('span', 'count', String(wins.length)));
   const ul = el('ul');
   for (const w of wins) {
+    if (w === map.minimized[0] && map.hidden.length) ul.append(el('li', 'off-split'));
     const li = el('li');
     const d = displayOf(map, w);
     tagWindow(li, w, d);
     li.append(iconEl(w), titleEl(w, live), ' ', appToggle(map, w));
     if (w.rcmd) li.append(el('span', 'rcmd-key', rcmdKey(w)));
-    if (d) li.append(el('span', 'from', `, ${w.hidden ? 'on' : 'from'} ${displayName(d)}`));
+    if (d) li.append(el('span', 'from', `, ${w.hidden ? 'on' : 'minimized, from'} ${displayName(d)}`));
     onHover(li, () => windowPop(map, w, null, live));
     ul.append(li);
   }
@@ -1323,7 +1327,7 @@ function render() {
   $('asOf').textContent = map.saved ? `${live ? 'unchanged since' : 'last here'} ${when(map.saved)}` : '';
   const nd = map.displays.length, nw = map.windows.length, nm = map.minimized.length, nh = map.hidden.length;
   $('summary').textContent = `${nw} window${nw === 1 ? '' : 's'} on ${nd} display${nd === 1 ? '' : 's'}` +
-    (nm ? `, ${nm} minimized` : '') + (nh ? `, ${nh} hidden` : '');
+    (nh ? `, ${nh} hidden` : '') + (nm ? `, ${nm} minimized` : '');
   if (map.rebuilt) {
     $('summary').append(' · ', el('span', 'note',
       'rebuilt from its layout save, from before screenmaps: displays without windows are missing'));
