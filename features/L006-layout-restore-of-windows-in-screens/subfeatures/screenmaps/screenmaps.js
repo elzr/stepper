@@ -934,7 +934,10 @@ function renderMap(map, live, name) {
       head.append(iconEl(w), el('span', 'win-title', cleanTitle(w)));
       we.append(head);
       const keys = keysOf.get(w);
-      if (keys) we.append(keysEl(keys, 'win-keys', ' to toggle'));   // a reminder of the ◆ key
+      if (keys) {   // a reminder of the ◆ key
+        we.classList.add('keyed');
+        we.append(keysEl(keys, 'win-keys', ' to toggle'));
+      }
       const tabs = tabsOf.get(w);
       if (tabs && ww >= 48 && wh >= 48) {
         // A Chrome window: its logo on top, a rule, and its tabs' favicons in tab order

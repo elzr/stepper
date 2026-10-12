@@ -15,7 +15,9 @@
 -- (hammerspoon://screenmaps?focus=<window id>), and has an app hidden or shown saved
 -- within seconds, so the page follows rcmd's toggles
 --
--- screenmaps.init({save = layout.triggerSave})    — the URL handler and the app watcher
+-- screenmaps.init({save = layout.triggerSave, onWindows = bear_hud.checkLiveSlots})
+--                                                 — the URL handler, the app watcher, and
+--                                                   every save's windows for the live slots
 -- screenmaps.setConfigs(knownConfigs)             — layout.lua's KNOWN_CONFIGS
 -- screenmaps.setCurrent(name, screenCount)        — the config in use
 -- screenmaps.record(name, count, entries, ids, idToPos, extra) — a save that changed something
@@ -232,6 +234,25 @@ function M.record(name, count, entries, ids, idToPos, extra)
   end
   known[name] = after
 
+  -- Every window this save read, for bear-hud's live slots: one whose window is gone is
+  -- broken (F002's keymap strikes it through)
+  if M._onWindows then
+    local all = {}
+    for i, e in ipairs(entries) do
+      if ids[i] then table.insert(all, {id = ids[i], bundle = e.bundle, title = e.title}) end
+    end
+    for _, kind in ipairs({"minimized", "hidden"}) do
+      for _, m in ipairs(extra[kind] or {}) do
+        table.insert(all, {id = m.id, bundle = m.bundle ~= "" and m.bundle or nil, title = m.title})
+      end
+    end
+    -- Read without the helper: no minimized or hidden windows to go by, so no verdicts
+    if extra.minimized and extra.hidden then
+      local ok, err = pcall(M._onWindows, all, failedApps)
+      if not ok then print("[screenmaps] ERROR: live slot check: " .. tostring(err)) end
+    end
+  end
+
   local mmById = {}
   for _, d in ipairs(extra.displays or {}) do
     if (d.mmW or 0) > 0 and (d.mmH or 0) > 0 then
@@ -254,6 +275,7 @@ end
 
 function M.init(opts)
   opts = opts or {}
+  M._onWindows = opts.onWindows   -- bear-hud's checkLiveSlots(windows, failedApps)
   -- The page's windows link here: bring that window forward, wherever it is, out of the
   -- Dock if it's minimized, its app shown if it's hidden.
   -- hs -c 'return hs.inspect(_G._stepper.screenmaps.lastFocus)' shows the last request

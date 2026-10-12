@@ -622,12 +622,52 @@ local function isBearSlot(slot)
   return slot and slot.bundleID == "net.shinyfrog.bear"
 end
 
+-- A slot whose window is gone is broken: fleet F002's keymap strikes it through, and
+-- L006/screenmaps leaves its key off the map. slot.broken is when it was first found gone
+-- (a key press here, or a layout save through M.checkLiveSlots). Bear slots never break:
+-- they open their note.
+local function markBroken(slot, broken)
+  if isBearSlot(slot) or (slot.broken ~= nil) == broken then return false end
+  slot.broken = broken and os.date("%Y-%m-%dT%H:%M:%S") or nil
+  return true
+end
+
+-- Pressed, and its window is gone: say so, and how to fix it
+local function slotGone(slotKey, slot)
+  print(string.format("[bear-hud] Live %s broken: window not found: '%s'", slotKey, slot.title))
+  if markBroken(slot, true) then saveLiveSlots() end
+  hs.alert.show(string.format("◆%s is broken: its window is gone\n%s · %s\nR⌥◆%s gives it the focused window",
+    slotKey, slot.doc or slot.title or "?", slot.app or slot.bundleID or "?", slotKey), 4)
+end
+
+-- Every window a layout save read (L006/screenmaps hands them over: on screen, minimized,
+-- hidden, each {id, bundle, title}); failed: the apps that didn't answer, whose slots
+-- keep their state. A slot is whole while its window id, or its app's window with its
+-- recorded title, is among them, as findLiveSlotWindow finds it. No Accessibility calls:
+-- the helper read these off the main thread.
+function M.checkLiveSlots(windows, failed)
+  local ids, titles = {}, {}
+  for _, w in ipairs(windows) do
+    if w.id then ids[w.id] = true end
+    if w.bundle then titles[w.bundle .. "\n" .. tostring(w.title)] = true end
+  end
+  local changed = false
+  for _, slot in pairs(liveSlots) do
+    if slot.bundleID and not (failed and failed[slot.app or ""]) then
+      local whole = (slot.winID and ids[slot.winID]) or titles[slot.bundleID .. "\n" .. tostring(slot.title)]
+      if markBroken(slot, not whole) then changed = true end
+    end
+  end
+  if changed then saveLiveSlots() end
+end
+
 -- Handle a live window toggle (raise/unfocus with z-order restore)
 local function handleLiveToggle(slotKey)
   local slot = liveSlots[slotKey]
   if not slot then return end
   print(string.format("[bear-hud] Live %s toggle '%s'", slotKey, slot.title))
   local win = findLiveSlotWindow(slot)
+  if win and markBroken(slot, false) then saveLiveSlots() end
   local focusedAtEntry = hs.window.focusedWindow()
   if not (win and focusedAtEntry and win:id() == focusedAtEntry:id()) then
     priorWindow = focusedAtEntry
@@ -656,7 +696,7 @@ local function handleLiveToggle(slotKey)
       hs.timer.doAfter(0.2, waitForWindow)
       return
     end
-    print(string.format("[bear-hud] Window not found: '%s' — app may be closed", slot.title))
+    slotGone(slotKey, slot)
     return
   end
 
@@ -692,6 +732,7 @@ local function handleLiveSummon(slotKey)
   if not slot then return end
   print(string.format("[bear-hud] Live %s summon '%s'", slotKey, slot.title))
   local win = findLiveSlotWindow(slot)
+  if win and markBroken(slot, false) then saveLiveSlots() end
 
   -- Already summoned → unsummon
   local state = summonedNotes[slotKey]
@@ -736,7 +777,7 @@ local function handleLiveSummon(slotKey)
       hs.timer.doAfter(0.2, waitAndSummon)
       return
     end
-    print(string.format("[bear-hud] Window not found: '%s' — app may be closed", slot.title))
+    slotGone(slotKey, slot)
     return
   end
 

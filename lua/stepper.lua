@@ -1202,8 +1202,9 @@ screenswitch.setScreenMemory(screenmemory)
 
 -- Initialize layout auto-save, screen watcher, and Lunar name sync; every save that
 -- changes something also updates L006/screenmaps, the layout's digital twin (an app
--- hidden or shown is saved within seconds, for its hidden windows)
-screenmaps.init({save = layout.triggerSave})
+-- hidden or shown is saved within seconds, for its hidden windows; each save's windows
+-- tell bear-hud which live slots are broken)
+screenmaps.init({save = layout.triggerSave, onWindows = bear_hud.checkLiveSlots})
 layout.init({screenswitch = screenswitch, screenmemory = screenmemory, screenmaps = screenmaps})
 
 -- Lost key-up forensics: builds inputprobe if needed and takes a baseline tap census
