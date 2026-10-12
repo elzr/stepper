@@ -400,6 +400,27 @@ a.min-chip:hover { border-color: var(--link); }
   color: var(--link);
 }
 .win.tiny .off-note { display: none; }
+/* the label says where it comes back only while it's lifted there */
+.win.off:not(.lit) .off-note { display: none; }
+
+/* The ◆ key that toggles a window (a Bear note's, a live slot's), as a reminder: on the
+   map under its title bar, after its title in the list and on its chip */
+.win-keys {
+  display: inline-block;
+  margin: 3px 5px 0;
+  padding: 0 5px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.win-keys b { font-weight: 700; }
+.win-keys .to { color: #64748b; }
+.win.tiny .win-keys { display: none; }
+.hyper-key b { font-weight: 600; }
 
 /* Days: opened and last used side by side, a row per day, each app once with its count */
 .days-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 32px; margin-top: 6px; }

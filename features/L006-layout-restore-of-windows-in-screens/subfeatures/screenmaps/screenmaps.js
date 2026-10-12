@@ -30,6 +30,11 @@ const TOUCH = navigator.maxTouchPoints > 0;   // free 3D's drags read the canvas
 // symlink in data/ so it's same-origin: its windows' tabs go on the map's Chrome windows
 const CHROME_NOW = DATA + 'chrome-now.jsonc';
 const FAVICONS = 'https://reading.internal/features/F030-tablogs/favicons/';
+// stepper's ◆ hotkeys that toggle a window, as fleet F002's keymap shows them: the Bear
+// note keys (◆ this week's note, R⌘◆ last week's, R⌥◆ next week's) and the live slots
+// bear-hud.lua keeps (R⌥◆key gives one the focused window)
+const BEAR_NOTES = DATA + 'bear-notes.jsonc';
+const LIVE_SLOTS = DATA + 'live-toggle-hotkeys.json';
 
 const $ = id => document.getElementById(id);
 const state = {
@@ -42,6 +47,8 @@ const state = {
   filter: null,     // {label, keys}: the windows a day or app in Days picked out
   chrome: null,     // the live Chrome tablog: {taken, windows}
   chromeSig: '',
+  hotkeys: {notes: null, live: null},   // bear-notes.jsonc and live-toggle-hotkeys.json
+  hotkeysSig: '',
   cams: {},         // config name → free 3D's camera (freeCam)
 };
 
@@ -69,6 +76,90 @@ async function fetchChrome() {
   } catch (e) {
     return null;
   }
+}
+
+// A JSONC file's text without its comments, leaving strings alone (the note keys' file has
+// raycast:// URLs)
+function stripComments(text) {
+  let out = '', inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      out += c;
+      if (c === '\\') out += text[++i] || '';
+      else if (c === '"') inString = false;
+    } else if (c === '"') {
+      inString = true;
+      out += c;
+    } else if (c === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+      out += '\n';
+    } else {
+      out += c;
+    }
+  }
+  return out.replace(/,(\s*[}\]])/g, '$1');
+}
+
+async function fetchText(path) {
+  try {
+    const res = await fetch(path + '?raw=1', {cache: 'no-store'});
+    return res.ok ? await res.text() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// The hotkeys' two files, with the text they came from (refresh re-renders on a change)
+async function fetchHotkeys() {
+  const [notesText, liveText] = await Promise.all([fetchText(BEAR_NOTES), fetchText(LIVE_SLOTS)]);
+  const parse = (text, strip) => {
+    try { return text ? JSON.parse(strip ? stripComments(text) : text) : null; } catch (e) { return null; }
+  };
+  return {sig: `${notesText}\n${liveText}`, notes: parse(notesText, true), live: parse(liveText, false)};
+}
+
+// Each window a ◆ hotkey toggles → its keys ("◆D", "R⌘◆D"), found as bear-hud.lua finds
+// them: a note's Bear window by its title (the ${vars} filled in), a live slot's by its
+// window id, else the first of its app's windows with its recorded title
+function toggleKeys(map) {
+  const out = new Map();
+  const add = (w, label) => {
+    if (!out.has(w)) out.set(w, []);
+    if (!out.get(w).includes(label)) out.get(w).push(label);
+  };
+  const all = allWindows(map);
+  const {notes, live} = state.hotkeys;
+  const fixed = new Set();   // note and URL keys: never live slots
+  if (notes) {
+    const vars = notes.vars || {};
+    const fill = t => (typeof t === 'string' ? t.replace(/\$\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)) : null);
+    const bear = all.filter(w => w.bundle === 'net.shinyfrog.bear' || w.app === 'Bear');
+    for (const u of list(notes.urls)) fixed.add(u.key);
+    for (const n of list(notes.notes)) {
+      fixed.add(n.key);
+      for (const [field, mods] of [['title', '◆'], ['pastTitle', 'R⌘◆'], ['nextTitle', 'R⌥◆']]) {
+        const title = fill(n[field]);
+        if (!title) continue;
+        for (const w of bear) if (w.title === title) add(w, mods + n.key);
+      }
+    }
+  }
+  for (const [key, slot] of Object.entries(live || {})) {
+    if (fixed.has(key) || !slot) continue;
+    const mine = all.filter(w => bundleOf(w) === slot.bundleID);
+    const w = (slot.winID != null && mine.find(o => o.id === slot.winID)) || mine.find(o => o.title === slot.title);
+    if (w) add(w, '◆' + key);
+  }
+  return out;
+}
+
+// A window's ◆ keys, for its map window, its chip and its row
+function keysEl(keys, cls, suffix) {
+  const e = el('span', cls);
+  e.append(el('b', null, keys.join(' · ')));
+  if (suffix) e.append(el('span', 'to', suffix));
+  return e;
 }
 
 // The live config's Chrome windows → their tabs in the tablog: the tablog window whose
@@ -450,7 +541,7 @@ function onHover(node, build) {
 }
 
 // A window's popup: its whole title, app, size and display, and its times
-function windowPop(map, w, z, live, tabs) {
+function windowPop(map, w, z, live, tabs, keys) {
   const head = el('div', 'pop-title');
   head.append(iconEl(w), el('span', null, w.title || w.app));
   const nodes = [head];
@@ -462,6 +553,7 @@ function windowPop(map, w, z, live, tabs) {
       ? `${w.app} · ${w.frame.w} × ${w.frame.h} · hidden with its app, comes back on ${where}`
       : `${w.app} · ${w.frame.w} × ${w.frame.h} · minimized, from ${where}`));
   if (w.hidden && w.rcmd) nodes.push(el('div', 'pop-line', `${rcmdKey(w)} brings it back (rcmd)`));
+  if (keys && keys.length) nodes.push(el('div', 'pop-line', `${keys.join(' · ')} toggle${keys.length === 1 ? 's' : ''} it (stepper)`));
   const notes = [];
   if (z === 0) notes.push('the front window');
   if (w.seen) {
@@ -734,6 +826,7 @@ function placeWin(node, w, d, sx, sy) {
 function offStrip(box, map, live) {
   const wins = offScreen(map);
   if (!wins.length) return;
+  const keysOf = toggleKeys(map);
   box.append(el('div', 'map-divider', `Hidden/Minimized windows · ${wins.length}`));
   const strip = el('div', 'min-strip');
   for (const w of wins) {
@@ -744,8 +837,9 @@ function offStrip(box, map, live) {
     chip.style.setProperty('--hue', hue(bundleOf(w) || w.app));
     chip.append(iconEl(w));
     if (w.rcmd) chip.append(el('span', 'rcmd-key', rcmdKey(w)));
+    if (keysOf.get(w)) chip.append(keysEl(keysOf.get(w), 'rcmd-key hyper-key'));
     chip.append(el('span', 'min-title', cleanTitle(w)));
-    onHover(chip, () => windowPop(map, w, null, live));
+    onHover(chip, () => windowPop(map, w, null, live, null, keysOf.get(w)));
     strip.append(chip);
   }
   box.append(strip);
@@ -783,6 +877,7 @@ function renderMap(map, live, name) {
     if (d) offBy.set(d, [...(offBy.get(d) || []), w]);
   }
   const tabsOf = live ? chromeTabs(map) : new Map();
+  const keysOf = toggleKeys(map);
   // Layers wide apart, closer in a tall stack; on the ground closer still, or the stacks
   // float off it. The displays stay side by side as on the desk, a stack running into the
   // next display's (until 2026-10-11 the 3D view moved each column right by the stacks before it).
@@ -838,6 +933,8 @@ function renderMap(map, live, name) {
       const head = el('div', 'win-head');
       head.append(iconEl(w), el('span', 'win-title', cleanTitle(w)));
       we.append(head);
+      const keys = keysOf.get(w);
+      if (keys) we.append(keysEl(keys, 'win-keys', ' to toggle'));   // a reminder of the ◆ key
       const tabs = tabsOf.get(w);
       if (tabs && ww >= 48 && wh >= 48) {
         // A Chrome window: its logo on top, a rule, and its tabs' favicons in tab order
@@ -851,7 +948,7 @@ function renderMap(map, live, name) {
         // Big enough: its app's icon, faded, in the middle, to tell the apps apart at a glance
         we.append(iconEl(w, 'win-mark'));
       }
-      onHover(we, () => windowPop(map, w, z, live, tabs));
+      onHover(we, () => windowPop(map, w, z, live, tabs, keys));
       de.append(we);
       // The front window nearest you: above, the top of the pile; below, just under the face
       we.dataset.z = `translateZ(${below ? -(i + 1) * layer : (wins.length - i) * layer}px)`;   // raise() adds to it
@@ -871,7 +968,9 @@ function renderMap(map, live, name) {
       if (ww < 48 || wh < 22) oe.classList.add('tiny');
       const head = el('div', 'win-head');
       head.append(iconEl(w), el('span', 'win-title', cleanTitle(w)));
-      oe.append(head, el('div', 'off-note', w.hidden
+      oe.append(head);
+      if (keysOf.get(w)) oe.append(keysEl(keysOf.get(w), 'win-keys', ' to toggle'));
+      oe.append(el('div', 'off-note', w.hidden
         ? (w.rcmd ? `${rcmdKey(w)} brings it back here` : 'comes back here when its app is shown')
         : 'comes back here from the Dock'));
       oe.style.setProperty('--rest', `translateZ(${-(down + k + 1) * layer}px)`);
@@ -1232,7 +1331,7 @@ function daysColumn(map, items, title, field, hint) {
 
 // --- List: a bulleted list per display, laid out as the displays stand --------------
 
-function displaySection(map, d, wins, live) {
+function displaySection(map, d, wins, live, keysOf) {
   const sec = el('section', 'screen-list');
   sec.dataset.screen = screenId(d);
   const h = el('h3', null, displayName(d) + ' ');
@@ -1243,7 +1342,8 @@ function displaySection(map, d, wins, live) {
     const li = el('li', z === 0 ? 'focused' : null);
     tagWindow(li, w, d);
     li.append(iconEl(w), titleEl(w, live), ' ', appToggle(map, w));
-    onHover(li, () => windowPop(map, w, z, live));
+    if (keysOf.get(w)) li.append(keysEl(keysOf.get(w), 'rcmd-key hyper-key'));
+    onHover(li, () => windowPop(map, w, z, live, null, keysOf.get(w)));
     ul.append(li);
   }
   if (!wins.length) ul.append(el('li', 'none', 'no windows'));
@@ -1255,12 +1355,13 @@ function renderList(map, live) {
   const box = $('list');
   box.textContent = '';
   const by = windowsByDisplay(map);
+  const keysOf = toggleKeys(map);
   const cols = displayColumns(map.displays);
   const grid = el('div', 'list-cols');
   grid.style.setProperty('--cols', String(cols.length));
   for (const col of cols) {
     const c = el('div', 'list-col');
-    for (const d of col) c.append(displaySection(map, d, by.get(d), live));
+    for (const d of col) c.append(displaySection(map, d, by.get(d), live, keysOf));
     grid.append(c);
   }
   box.append(grid);
@@ -1272,6 +1373,7 @@ function renderList(map, live) {
 function offList(box, map, live) {
   const wins = offScreen(map);
   if (!wins.length) return;
+  const keysOf = toggleKeys(map);
   const sec = el('section', 'screen-list minimized-list');
   const h = el('h3', null, 'Hidden/Minimized ');
   h.append(el('span', 'count', String(wins.length)));
@@ -1283,8 +1385,9 @@ function offList(box, map, live) {
     tagWindow(li, w, d);
     li.append(iconEl(w), titleEl(w, live), ' ', appToggle(map, w));
     if (w.rcmd) li.append(el('span', 'rcmd-key', rcmdKey(w)));
+    if (keysOf.get(w)) li.append(keysEl(keysOf.get(w), 'rcmd-key hyper-key'));
     if (d) li.append(el('span', 'from', `, ${w.hidden ? 'on' : 'minimized, from'} ${displayName(d)}`));
-    onHover(li, () => windowPop(map, w, null, live));
+    onHover(li, () => windowPop(map, w, null, live, null, keysOf.get(w)));
     ul.append(li);
   }
   sec.append(h, ul);
@@ -1362,12 +1465,15 @@ async function refresh() {
   const sig = JSON.stringify(now);
   const chrome = await fetchChrome();
   const chromeSig = chrome ? String(chrome.taken) : '';
-  if (sig === state.nowSig && chromeSig === state.chromeSig) return;
+  const hotkeys = await fetchHotkeys();
+  if (sig === state.nowSig && chromeSig === state.chromeSig && hotkeys.sig === state.hotkeysSig) return;
   const mapsChanged = sig !== state.nowSig;
   state.nowSig = sig;
   state.now = now;
   state.chrome = chrome;
   state.chromeSig = chromeSig;
+  state.hotkeys = hotkeys;
+  state.hotkeysSig = hotkeys.sig;
   if (mapsChanged) await loadMaps();
   // mid-drag in free 3D, wait for the next poll
   if (document.querySelector('.map-stage.dragging, .map-stage.resizing')) { state.chromeSig = ''; state.nowSig = ''; return; }
