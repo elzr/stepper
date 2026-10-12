@@ -1,4 +1,5 @@
-# Files the L005 weekly roll rewrites: git compares them with week numbers and date
-# ranges blanked, so only hand edits show up. Filter and its one-time setup:
-# features/L005-weekly-updater-of-Bear-shortcuts/git-week-filter.sh
-data/bear-notes.jsonc            filter=l005-weeks
+# Files the weekly roll rewrites (fleet's F043/L001, stepper's L005 until 2026-10-12): git
+# compares them with week numbers and date ranges blanked, so only hand edits show up. The
+# filter lives with the feature, and its one-time setup per clone is in it:
+# ~/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts/git-week-filter.sh
+data/bear-notes.jsonc            filter=bear-weeks

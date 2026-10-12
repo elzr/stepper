@@ -90,7 +90,7 @@ Pure slides log nothing (silenced as part of the v0.4 paring-down).
 | ==🔵[lua/stepper.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua)== | `currentDisplayConfig`, `dispatchStepMove`, `ofsr.init` wiring, the `minShrinkSize` table |
 | ==🔵[original-vision/](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L010-move-to-resize/original-vision)== | Historical v0.1–v0.3.5 design with persisted virtual frame + stretch-back — preserved as context for what was tried and pared down |
 
-==🔵Sibling feature:== [L011-Bear-restore-on-reopen](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L011-Bear-restore-on-reopen) was originally scoped as the *dual* of L010 (visible-past vs hypothetical-future per-note geometry). That motivation survives even though L010 no longer persists anything.
+==🔵Sibling feature:== [F043/L003-Bear-restore-on-reopen](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L003-Bear-restore-on-reopen) was originally scoped as the *dual* of L010 (visible-past vs hypothetical-future per-note geometry). That motivation survives even though L010 no longer persists anything.
 
 ## Verifying it works
 

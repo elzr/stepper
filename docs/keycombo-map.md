@@ -94,7 +94,7 @@ Position preserved. Oversized windows shrink to fit (restored when moved back).
 
 ## Bear Note HUD (◆ + letter)
 
-==🟣Hyperkey shortcuts for Bear notes and URLs.== Configured in [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc), implemented in [bear-hud.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/bear-hud.lua). Weekly notes (D/W/T) auto-updated by [L005](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts).
+==🟣Hyperkey shortcuts for Bear notes and URLs.== Configured in [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc), implemented in [bear-hud.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/bear-hud.lua). Weekly notes (D/W/T) auto-updated by [F043/L001](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts).
 
 | Key | Note |
 |-----|------|

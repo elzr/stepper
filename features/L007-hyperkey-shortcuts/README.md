@@ -34,7 +34,7 @@ Hyper + letter → open/raise a Bear note by title. Supports modifier variants:
 - **Right Option held**: open next-week variant
 - **Right Shift held**: summon note window to cursor position
 
-Template variables (`${weekNum}`, `${weekDays}`, etc.) expand at load time from the `vars` section. Updated weekly by [L005](../L005-weekly-updater-of-Bear-shortcuts/).
+Template variables (`${weekNum}`, `${weekDays}`, etc.) expand at load time from the `vars` section. Updated weekly by fleet's [F043/L001](https://fleet.internal/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts/) (stepper/L005 until 2026-10-12).
 
 Keys: N, R, D, W, T, S, M, I (and more — see [the jsonc file](https://stepper.internal/data/bear-notes.jsonc)).
 

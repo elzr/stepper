@@ -51,7 +51,7 @@ This was **proved empirically** with live GC tests via Hammerspoon IPC — a loc
 
 1. **Highlight cleanup timers** (March 2026) — `hs.timer.doAfter()` return values discarded in focus.lua, causing stuck blue borders. See [changelog](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/changelog/2026-03-30-stale-border-timer-gc.md).
 
-2. **[L005](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts) week updater** (April 2026) — Monday 00:01 timer and caffeinate wake watcher both GC'd, silently killing the entire auto-update pipeline. See [changelog](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/changelog/2026-04-13-fix-L005-timer-watcher-gc.md).
+2. **[F043/L001](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts) week updater** (April 2026) — Monday 00:01 timer and caffeinate wake watcher both GC'd, silently killing the entire auto-update pipeline. See [changelog](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/changelog/2026-04-13-fix-L005-timer-watcher-gc.md).
 
 ---
 
@@ -89,7 +89,7 @@ However, `hs.eventtap` **can** detect fn via `event:getFlags().fn` — this is u
 
 `~/Library/CloudStorage/` (where Dropbox syncs this project) is protected by macOS TCC. ==🔴Shell scripts spawned by launchd cannot access these paths== — they have no bundle ID and can't receive TCC grants. Hammerspoon can access them because it has `kTCCServiceFileProviderDomain` permission.
 
-Full analysis and workaround history: [how-we-auto-update.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts/how-we-auto-update.md).
+Full analysis and workaround history: [how-we-auto-update.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts/how-we-auto-update.md).
 
 ---
 
@@ -113,11 +113,11 @@ Note: `log show --predicate 'process == "Hammerspoon"'` does NOT capture Hammers
 ~/bin/hs-reload.sh          # backgrounds reload, waits for ready
 ```
 
-### [L005](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts) week updater tests
+### [F043/L001](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts) week updater tests
 
 ```bash
 ~/bin/hs-test-week-updater.sh                                    # 7-check integration suite
-python3 features/L005-.../test_update_bear_weeks.py -v           # 17 unit + integration tests
+python3 ~/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts/test_update_bear_weeks.py -v   # 16 unit + integration tests
 ```
 
 The startup GC self-test prints `[weekUpdate] GC self-test: timer=alive watcher=alive` on every reload.
@@ -128,7 +128,7 @@ Arbitrary Lua via the Hammerspoon CLI:
 
 ```bash
 HS=/Applications/Hammerspoon.app/Contents/Frameworks/hs/hs
-$HS -c "return type(_G._stepper.weekTimer)"    # → "userdata"
+$HS -c "return type(_G._stepper.sleepWatcher)" # → "userdata" (the week timer is fleet F043/L001's _G._bear.weekTimer since 2026-10-12)
 $HS -c "collectgarbage('collect'); return 'ok'" # force GC
 ```
 

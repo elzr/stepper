@@ -103,6 +103,8 @@ In the quad config the two Samsung LS37D70xE are identical to macOS (same EDID s
 
 ## Bear Note HUD
 
+==🔵Bear work now lives in fleet's [F043 Bear-hands](https://fleet.internal/features/F043-Bear-hands/)== (since 2026-10-12), so stepper can grow into window and screen control: the weekly updater, image thumbnails and restore-on-reopen moved there from stepper's L005, L008 and L011, and [auto-pagination](https://fleet.internal/features/F043-Bear-hands/subfeatures/L004-auto-pagination/) was born there. This HUD, [bear-hud.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/bear-hud.lua), stays for now, its hotkeys woven into stepper's Hyper handling.
+
 ==🟣Open Bear notes like a HUD== — a keyboard shortcut opens a specific note right where you left off, with caret and scroll position preserved. Configured in [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc), implemented in [bear-hud.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/bear-hud.lua).
 
 ### Note hotkeys (hyperkey + letter)
@@ -120,7 +122,7 @@ Each hotkey ==🔵toggles through three states:== open → raise/focus → minim
 | M | `_money 2026` |
 | I | `_index 2026` |
 
-==🟢Weekly notes== (D/W/T) use template variables auto-updated every Monday by [L005](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L005-weekly-updater-of-Bear-shortcuts). **Right-cmd** opens previous week, **right-option** opens next week.
+==🟢Weekly notes== (D/W/T) use template variables auto-updated every Monday by [F043/L001](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts). **Right-cmd** opens previous week, **right-option** opens next week.
 
 ### Summon to cursor (right-shift + hyperkey + letter)
 

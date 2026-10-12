@@ -56,7 +56,7 @@ In practice, this is the lowest-priority remaining item — single-screen is the
 
 ### L011 — full implementation
 
-==🔵[features/L011-Bear-restore-on-reopen/README.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L011-Bear-restore-on-reopen/README.md)== has the design. Code is ==🔴not yet written==. Lives inside `lua/bear-hud.lua` as an extension to the existing per-note `positions` schema (caret + scroll today, frame added). Notes from the design call:
+==🔵[features/L011-Bear-restore-on-reopen/README.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L003-Bear-restore-on-reopen/README.md)== has the design. Code is ==🔴not yet written==. Lives inside `lua/bear-hud.lua` as an extension to the existing per-note `positions` schema (caret + scroll today, frame added). Notes from the design call:
 
 - Schema: add `frame` field to `positions[key]` so each note stores `{caret, scroll, frame}`. Old entries without `frame` keep working (additive).
 - Save trigger: Bear window loses focus / closes — capture frame in relative coords.
@@ -115,7 +115,7 @@ Estimate: ~80 lines added to `bear-hud.lua`, no new file.
 Pick a thread:
 
 - **Resume L010 polish** → start with [W1](#w1--fresh-window-heuristic-for-non-bear-apps-may-be-too-aggressive). Look at logs from real usage to decide which fix.
-- **Build L011** → read the [L011 README](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L011-Bear-restore-on-reopen/README.md), then extend `bear-hud.lua` per the L011 plan above.
+- **Build L011** → read the [L011 README](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L003-Bear-restore-on-reopen/README.md), then extend `bear-hud.lua` per the L011 plan above.
 - **Ship L010 v0.4** → see [plan.md v0.4 section](plan.md#v04--multi-screen-safety). Lowest priority.
 
 Quickest sanity check on resume:
@@ -133,7 +133,7 @@ Quickest sanity check on resume:
 | ==🔵[features/L010-move-to-resize-on-single-screen/design.md](design.md)== | Behavior contract, mental model, shoving metaphor |
 | ==🔵[features/L010-move-to-resize-on-single-screen/plan.md](plan.md)== | Phased implementation plan (v0.1–v0.4) |
 | ==🔵features/L010-move-to-resize-on-single-screen/where-were-we.md== | This file — resume snapshot |
-| ==🔵[features/L011-Bear-restore-on-reopen/README.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L011-Bear-restore-on-reopen/README.md)== | L011 design (the dual of L010) |
+| ==🔵[features/L011-Bear-restore-on-reopen/README.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F043-Bear-hands/subfeatures/L003-Bear-restore-on-reopen/README.md)== | L011 design (the dual of L010) |
 | ==🔵[lua/move-to-resize-on-single-screen.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/move-to-resize-on-single-screen.lua)== | Implementation: state, math, ops, persistence, eager Bear restore |
 | ==🔵[lua/stepper.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua)== | Dispatcher + reset hooks + ofsr.init wiring |
 | ==🔵[lua/mousemove.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/mousemove.lua)== | onDragStart hook for proactive virtual-frame drop |

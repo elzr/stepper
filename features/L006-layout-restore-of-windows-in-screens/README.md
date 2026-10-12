@@ -191,4 +191,4 @@ The module logs to Hammerspoon console (check with `~/bin/hs-console.sh`). A 10-
 
 - ==🟢**[L006/screenmaps](subfeatures/screenmaps/)**== — the layout's digital twin: each display config's last layout as a map of its displays and as bulleted lists, updated with every save that changes something ([page](https://stepper.internal/features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/))
 - **[F010 — sync-display-names-in-Lunar](../../features/F010-sync-display-names-in-Lunar/)** — syncs Lunar brightness app names after display reconnection, using the same `buildScreenMap()` infrastructure
-- **[L005 — weekly-updater-of-Bear-shortcuts](../L005-weekly-updater-of-Bear-shortcuts/)** — Bear hotkeys generate `triggerSave` calls after summon/unsummon
+- **[F043/L001 — weekly-updater-of-Bear-shortcuts](https://fleet.internal/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts/) (fleet's Bear-hands; stepper/L005 until 2026-10-12)** — Bear hotkeys generate `triggerSave` calls after summon/unsummon

@@ -4,12 +4,8 @@ hs.loadSpoon("WinWin")
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 local projectRoot = scriptPath .. "../"
 
--- Update bear-notes.jsonc week vars BEFORE loading bear-hud (synchronous).
--- This ensures hotkeys bind to current week names without needing a second reload.
-local weekUpdateScript = projectRoot .. "features/L005-weekly-updater-of-Bear-shortcuts/update-bear-weeks.py"
-local PYTHON = "/opt/homebrew/bin/python3"   -- native Homebrew, as in layout.lua; not the system /usr/bin/python3
-local weekOut, weekOk = hs.execute(PYTHON .. " " .. weekUpdateScript .. " 2>&1")
-local weekUpdateMsg = "[weekUpdate] " .. (weekOut or ""):gsub("\n$", "")
+-- bear-notes.jsonc's week vars were brought up to date just before this file, by fleet's
+-- F043/L001 (loaded from ~/.hammerspoon/init.lua), so bear-hud binds this week's notes.
 
 local focus = dofile(scriptPath .. "focus.lua")
 local mousemove = dofile(scriptPath .. "mousemove.lua")
@@ -17,7 +13,6 @@ local screenswitch = dofile(scriptPath .. "screenswitch.lua")
 local screenmemory = dofile(scriptPath .. "screenmemory.lua")
 local screenmaps = dofile(scriptPath .. "screenmaps.lua")
 bear_hud = dofile(scriptPath .. "bear-hud.lua")
-bear_paste = dofile(scriptPath .. "bear-paste.lua")
 layout = dofile(scriptPath .. "layout.lua")
 local keymapwatch = dofile(scriptPath .. "keymapwatch.lua")
 ofsr = dofile(scriptPath .. "move-to-resize.lua")
@@ -1190,9 +1185,6 @@ mousemove.init({
 -- Initialize Bear HUD (note hotkeys + caret position persistence)
 bear_hud.init(projectRoot, focus)
 
--- L008: intercept ⌘V in Bear, auto-shrink pasted images to 150px thumbnails
-bear_paste.init()
-
 -- Keeps fleet F002's keymap.html current (it replaced L009-keymap's generator)
 keymapwatch.init(projectRoot)
 
@@ -1222,25 +1214,10 @@ hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
 -- Manual layout restore: fn+ctrl+alt+shift+delete (reads pinned save, fallback to autosave)
 hs.hotkey.bind({"ctrl", "alt", "shift"}, "forwarddelete", layout.manualRestore)
 
--- Weekly bear-notes.jsonc updater for timer/wake (async, reloads if changed).
--- The synchronous on-load update is at the top of this file.
-function updateBearWeeksAsync()
-  hs.task.new(PYTHON, function(exitCode, stdout, stderr)
-    if exitCode ~= 0 then
-      print("[weekUpdate] ERROR: " .. (stderr or ""):gsub("\n$", ""))
-      return
-    end
-    local out = (stdout or ""):gsub("\n$", "")
-    print("[weekUpdate] " .. out)
-    if out:find("CHANGED") then
-      hs.reload()
-    end
-  end, {weekUpdateScript}):start()
-end
 -- Persistent objects: stored on _G._stepper so they survive Lua GC.
 -- stepper.lua runs via dofile() — top-level locals go out of scope when it returns,
 -- making them eligible for GC. Globals rooted in _G are never collected.
--- Also accessible via IPC for testing: hs -c "return type(_G._stepper.weekTimer)"
+-- Also accessible via IPC for testing: hs -c "return type(_G._stepper.sleepWatcher)"
 _G._stepper = {}
 
 -- The guarded key repeat and its lost key-up forensics, for IPC tests that bind a
@@ -1250,12 +1227,6 @@ _G._stepper.inputprobe = inputprobe
 _G._stepper.cmdtabwatch = cmdtabwatch
 _G._stepper.keymapwatch = keymapwatch
 _G._stepper.screenmaps = screenmaps
-
--- Monday midnight: the only day the week number changes.
--- The on-load sync check and wake trigger handle other scenarios.
-_G._stepper.weekTimer = hs.timer.doAt("00:01", "1d", function()
-  if os.date("*t").wday == 2 then updateBearWeeksAsync() end  -- 2 = Monday
-end)
 
 -- Save state before sleep, prompt restore on wake.
 _G._stepper.sleepWatcher = hs.caffeinate.watcher.new(function(event)
@@ -1268,7 +1239,6 @@ _G._stepper.sleepWatcher = hs.caffeinate.watcher.new(function(event)
     print("[stepper] Wake detected — checking displays")
     inputprobe.noteWake()
     layout.onWake()
-    updateBearWeeksAsync()
   elseif event == hs.caffeinate.watcher.screensDidUnlock then
     inputprobe.noteUnlock()
   end
@@ -1279,11 +1249,8 @@ _G._stepper.sleepWatcher:start()
 -- Runs on every reload — if this ever prints DEAD, the fix has regressed.
 collectgarbage("collect")
 collectgarbage("collect")
-print(string.format("[weekUpdate] GC self-test: timer=%s watcher=%s",
-  (type(_G._stepper.weekTimer) == "userdata") and "alive" or "DEAD",
+print(string.format("[stepper] GC self-test: sleepWatcher=%s",
   (type(_G._stepper.sleepWatcher) == "userdata") and "alive" or "DEAD"))
-
-print(weekUpdateMsg)
 
 -- Shift-first detection: press shift before fn to resize from the top-left anchor.
 -- This callback rides on bear-hud's raltWatcher because it's the only flagsChanged
