@@ -7,7 +7,9 @@
 //
 // "windows" are the ones hs.window.orderedWindows() returns: on screen, not minimized, of
 // unhidden regular apps, front to back. "minimized" are every regular app's minimized
-// windows, for L006/screenmaps (layout saves leave them out). "displays" gives each
+// windows, and "hidden" the other windows of hidden apps (⌘H, or rcmd's second press),
+// each with its rcmd key if rcmd has one for its app, for L006/screenmaps (layout saves
+// leave both out). "displays" gives each
 // display's size in millimetres, from its EDID. Apps are read in parallel, each
 // Accessibility call waits at most axTimeoutSeconds, and the apps that haven't answered by
 // deadlineSeconds are listed in "failed", so layout.lua keeps their last saved windows.
@@ -82,19 +84,44 @@ func displaySizes() -> [[String: Any]] {
   }
 }
 
-// Every regular app (hs.application:kind() == 1): hidden ones only for their minimized windows
-struct App: Sendable { let pid: pid_t; let name: String; let bundle: String; let hidden: Bool }
+// rcmd's keys by app path (its appKeyAssignments, one JSON string each), so the screenmaps
+// can say which key brings a hidden app back. By path: an app replaced under a new bundle
+// ID keeps its path, and rcmd's key (memory: rcmd_bundle_id_drift).
+func rcmdKeys() -> [String: String] {
+  let plist = NSHomeDirectory() +
+    "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
+  guard let data = FileManager.default.contents(atPath: plist),
+        let prefs = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+        let assignments = prefs["appKeyAssignments"] as? [String] else { return [:] }
+  var keys: [String: String] = [:]
+  for s in assignments {
+    guard let entry = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any],
+          let key = entry["key"] as? String, let app = entry["app"] as? [String: Any],
+          let path = app["path"] as? String else { continue }
+    keys[URL(fileURLWithPath: path).standardizedFileURL.path] = key.uppercased()
+  }
+  return keys
+}
+let rcmd = rcmdKeys()
+
+// Every regular app (hs.application:kind() == 1): hidden ones for their hidden and minimized
+// windows
+struct App: Sendable {
+  let pid: pid_t; let name: String; let bundle: String; let hidden: Bool; let rcmdKey: String?
+}
 let apps: [App] = NSWorkspace.shared.runningApplications
   .filter { $0.activationPolicy == .regular }
   .map { app in
     App(pid: app.processIdentifier,
         name: app.localizedName ?? app.bundleIdentifier ?? "pid \(app.processIdentifier)",
-        bundle: app.bundleIdentifier ?? "", hidden: app.isHidden)
+        bundle: app.bundleIdentifier ?? "", hidden: app.isHidden,
+        rcmdKey: app.bundleURL.flatMap { rcmd[$0.standardizedFileURL.path] })
   }
 
 struct Reading {
   var windows: [[String: Any]] = []
   var minimized: [[String: Any]] = []
+  var hidden: [[String: Any]] = []
   var error: String? = nil
   var ms = 0
 }
@@ -120,8 +147,8 @@ func readWindows(_ app: App, _ zOrder: [CGWindowID: Int]) -> Reading {
     guard copied == .success, let values = raw as? [AnyObject], values.count == 5 else { continue }
     let minimized = values[4] as? Bool == true
     let z = zOrder[id]
-    // Neither minimized nor on screen (another Space), or of a hidden app: not recorded
-    if !minimized && (z == nil || app.hidden) { continue }
+    // Neither minimized nor hidden nor on screen (another Space): not recorded
+    if !minimized && !app.hidden && z == nil { continue }
     guard let origin = point(values[2]), let extent = size(values[3]) else { continue }
     var window: [String: Any] = [
       "id": Int(id), "pid": Int(app.pid), "app": app.name, "bundle": app.bundle,
@@ -131,6 +158,9 @@ func readWindows(_ app: App, _ zOrder: [CGWindowID: Int]) -> Reading {
     ]
     if minimized {
       reading.minimized.append(window)
+    } else if app.hidden {
+      if let key = app.rcmdKey { window["rcmd"] = key }
+      reading.hidden.append(window)
     } else {
       window["z"] = z!
       reading.windows.append(window)
@@ -164,6 +194,7 @@ _ = group.wait(timeout: .now() + deadline)
 let answered = readings.snapshot()
 var windows: [[String: Any]] = []
 var minimized: [[String: Any]] = []
+var hidden: [[String: Any]] = []
 var failed: [[String: Any]] = []
 var slow: [String] = []
 for app in apps {
@@ -176,11 +207,13 @@ for app in apps {
   } else {
     windows += reading.windows
     minimized += reading.minimized
+    hidden += reading.hidden
   }
   if reading.ms >= 100 { slow.append("\(app.name) \(reading.ms) ms") }
 }
 windows.sort { ($0["z"] as! Int) < ($1["z"] as! Int) }
 minimized.sort { ($0["id"] as! Int) < ($1["id"] as! Int) }
+hidden.sort { ($0["id"] as! Int) < ($1["id"] as! Int) }
 
 emit(["ok": true, "ms": msSince(started), "apps": apps.count, "windows": windows,
-      "minimized": minimized, "displays": displaySizes(), "failed": failed, "slow": slow])
+      "minimized": minimized, "hidden": hidden, "displays": displaySizes(), "failed": failed, "slow": slow])

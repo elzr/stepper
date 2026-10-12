@@ -751,10 +751,23 @@ local function fileSnapshot(doc)
     screenmemory.updateFromLayout(entries, liveIDs)
   end
   -- The digital twin of this config: L006/screenmaps' page draws it, with the displays'
-  -- physical sizes and the minimized windows the save leaves out
+  -- physical sizes and the minimized and hidden windows the save leaves out (nil when the
+  -- windows were read here, which can't tell: screenmaps keeps the last ones it had)
   if screenmaps then
+    local hidden = nil
+    if doc.hidden then
+      hidden = {}
+      -- A hidden app's windows say AXDialog, its standard ones too (Telegram, WhatsApp,
+      -- Safari, 2026-10-12), so only the size and the title tell a ghost
+      for _, w in ipairs(doc.hidden) do
+        local ghost = isGhostWindow(w)
+        if w.subrole == "AXDialog" then ghost = isGhostWindow({subrole = "AXStandardWindow",
+          w = w.w, h = w.h, title = w.title}) end
+        if not ghost then table.insert(hidden, w) end
+      end
+    end
     screenmaps.record(activeConfig.name, activeCount, entries, ids, idToPos,
-      {displays = doc.displays, minimized = doc.minimized, failed = doc.failed})
+      {displays = doc.displays, minimized = doc.minimized, hidden = hidden, failed = doc.failed})
   end
   return "written"
 end

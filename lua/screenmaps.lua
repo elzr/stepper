@@ -4,15 +4,18 @@
 -- layout.lua hands over every save that changed something. This writes what the page in
 -- features/L006-layout-restore-of-windows-in-screens/subfeatures/screenmaps/ draws:
 --   data/screenmap-<config>.json  every display (with its size in millimetres), the windows
---                                 front to back and the minimized ones, each with when it
---                                 was first saved, last moved and last used. One file per
---                                 config, so each keeps its last layout while you're away
+--                                 front to back, the minimized ones and the hidden ones
+--                                 (their app hidden, by ⌘H or rcmd's second press, with
+--                                 rcmd's key for it), each with when it was first saved,
+--                                 last moved and last used. One file per config, so each
+--                                 keeps its last layout while you're away
 --   data/screenmaps-now.json      the current config, and when each config was saved
 -- It also saves the app icons the page shows (data/app-icons/<bundleID>.png, shared with
--- bear-hud and keymapwatch), and brings a window forward when the page asks:
--- hammerspoon://screenmaps?focus=<window id>
+-- bear-hud and keymapwatch), brings a window forward when the page asks
+-- (hammerspoon://screenmaps?focus=<window id>), and has an app hidden or shown saved
+-- within seconds, so the page follows rcmd's toggles
 --
--- screenmaps.init()                               — the URL handler
+-- screenmaps.init({save = layout.triggerSave})    — the URL handler and the app watcher
 -- screenmaps.setConfigs(knownConfigs)             — layout.lua's KNOWN_CONFIGS
 -- screenmaps.setCurrent(name, screenCount)        — the config in use
 -- screenmaps.record(name, count, entries, ids, idToPos, extra) — a save that changed something
@@ -32,10 +35,12 @@ local current = nil   -- {name, screens}
 local appBundles = {}
 
 -- Per config, what the last record said:
---   byKey[key]  {seen, moved, used, frame, screen, minimized}, key = window id, or
---               "App\nTitle" for a window kept from an earlier save
+--   byKey[key]  {seen, moved, used, frame, screen, off}, key = window id, or
+--               "App\nTitle" for a window kept from an earlier save; off = "minimized" or
+--               "hidden" for a window off screen
 --   order       the on-screen windows' keys, front to back
 --   minimized   the minimized windows' records, kept for apps that don't answer
+--   hidden      the hidden apps' windows' records, the same way
 --   since       when this config's screenmap began: windows first saved then were
 --               already open, and how long before is unknown
 local known = {}
@@ -107,7 +112,7 @@ end
 -- What this config's file says, the first time it's recorded after a load, so the times
 -- outlive reloads
 local function seed(name)
-  local s = {byKey = {}, order = {}, minimized = {}}
+  local s = {byKey = {}, order = {}, minimized = {}, hidden = {}}
   local fh = io.open(mapFile(name), "r")
   if not fh then return s end
   local ok, doc = pcall(hs.json.decode, fh:read("*a"))
@@ -119,10 +124,12 @@ local function seed(name)
     table.insert(s.order, keyOf(w))
     if w.seen and (not earliest or w.seen < earliest) then earliest = w.seen end
   end
-  for _, w in ipairs(type(doc.minimized) == "table" and doc.minimized or {}) do
-    s.byKey[keyOf(w)] = {seen = w.seen, moved = w.moved, used = w.used, frame = w.frame,
-                         screen = w.screen, minimized = true}
-    table.insert(s.minimized, w)
+  for _, kind in ipairs({"minimized", "hidden"}) do
+    for _, w in ipairs(type(doc[kind]) == "table" and doc[kind] or {}) do
+      s.byKey[keyOf(w)] = {seen = w.seen, moved = w.moved, used = w.used, frame = w.frame,
+                           screen = w.screen, off = kind}
+      table.insert(s[kind], w)
+    end
   end
   -- A file from before "since" was kept: its first save was the earliest first-saved time
   s.since = doc.since or earliest
@@ -153,12 +160,14 @@ end
 -- entries: the save, front to back (layout.lua's fileSnapshot, after position
 -- protection); ids[i]: entries[i]'s window id, nil for a window kept from an earlier
 -- save; idToPos: screen id → position name; extra: the helper's displays (sizes in mm),
--- minimized windows, and the apps that didn't answer
+-- minimized windows, hidden apps' windows (each with its rcmd key), and the apps that
+-- didn't answer. Minimized or hidden nil: the windows were read without the helper, which
+-- can't tell, so the last ones stay.
 function M.record(name, count, entries, ids, idToPos, extra)
   extra = extra or {}
   local now = os.time()
   local before = known[name] or seed(name)
-  local after = {byKey = {}, order = {}, minimized = {}, since = before.since or now}
+  local after = {byKey = {}, order = {}, minimized = {}, hidden = {}, since = before.since or now}
 
   -- Where the window that was in front last time stands now: every window above it was
   -- brought forward since, which is the use a save can see
@@ -172,8 +181,9 @@ function M.record(name, count, entries, ids, idToPos, extra)
   for i, e in ipairs(entries) do
     local prev = before.byKey[keys[i]]
     local samePlace = prev and sameSpot(prev, e.frame, e.screenPosition)
-    -- In use: new, moved, back from the Dock, in front, or raised above the last front one
-    local inUse = not samePlace or prev.minimized or i == 1 or (prevFrontAt and i < prevFrontAt)
+    -- In use: new, moved, back from the Dock or from hiding, in front, or raised above the
+    -- last front one
+    local inUse = not samePlace or prev.off or i == 1 or (prevFrontAt and i < prevFrontAt)
     local w = {
       id = ids[i], app = e.app, bundle = e.bundle, title = e.title,
       screen = e.screenPosition, frame = e.frame,
@@ -188,32 +198,36 @@ function M.record(name, count, entries, ids, idToPos, extra)
     ensureIcon(e.bundle)
   end
 
+  -- The windows off screen, where each comes back: minimized (in the Dock) and hidden
+  -- (their app hidden). Going there was using it; an app that didn't answer keeps the ones
+  -- it had.
   local failedApps = {}
   for _, f in ipairs(extra.failed or {}) do failedApps[f.app] = true end
-  for _, m in ipairs(extra.minimized or {}) do
-    local frame = rect(m)
-    local key = m.id or (m.app .. "\n" .. m.title)
-    local prev = before.byKey[key]
-    local screen = hs.screen.find(frame)
-    local w = {
-      id = m.id, app = m.app, bundle = m.bundle ~= "" and m.bundle or nil, title = m.title,
-      screen = screen and idToPos[screen:id()], frame = frame,
-      seen = prev and prev.seen or now,
-      moved = prev and prev.moved or now,
-      -- Minimizing it was using it
-      used = (prev and prev.minimized) and (prev.used or prev.seen or now) or now,
-    }
-    table.insert(after.minimized, w)
-    after.byKey[key] = {seen = w.seen, moved = w.moved, used = w.used, frame = frame,
-                        screen = w.screen, minimized = true}
-    if w.bundle then appBundles[w.app] = w.bundle end
-    ensureIcon(w.bundle)
-  end
-  -- An app that didn't answer keeps the minimized windows it had
-  for _, w in ipairs(before.minimized) do
-    if failedApps[w.app] then
-      table.insert(after.minimized, w)
-      after.byKey[keyOf(w)] = before.byKey[keyOf(w)]
+  for _, kind in ipairs({"minimized", "hidden"}) do
+    local read = extra[kind]
+    for _, m in ipairs(read or {}) do
+      local frame = rect(m)
+      local key = m.id or (m.app .. "\n" .. m.title)
+      local prev = before.byKey[key]
+      local screen = hs.screen.find(frame)
+      local w = {
+        id = m.id, app = m.app, bundle = m.bundle ~= "" and m.bundle or nil, title = m.title,
+        screen = screen and idToPos[screen:id()], frame = frame, rcmd = m.rcmd,
+        seen = prev and prev.seen or now,
+        moved = prev and prev.moved or now,
+        used = (prev and prev.off == kind) and (prev.used or prev.seen or now) or now,
+      }
+      table.insert(after[kind], w)
+      after.byKey[key] = {seen = w.seen, moved = w.moved, used = w.used, frame = frame,
+                          screen = w.screen, off = kind}
+      if w.bundle then appBundles[w.app] = w.bundle end
+      ensureIcon(w.bundle)
+    end
+    for _, w in ipairs(before[kind]) do
+      if read == nil or failedApps[w.app] then
+        table.insert(after[kind], w)
+        after.byKey[keyOf(w)] = before.byKey[keyOf(w)]
+      end
     end
   end
   known[name] = after
@@ -232,26 +246,44 @@ function M.record(name, count, entries, ids, idToPos, extra)
     })
   end
   if writeJSON(mapFile(name), {config = name, screens = count, saved = now, since = after.since,
-                               displays = displays, windows = windows, minimized = after.minimized}) then
+                               displays = displays, windows = windows, minimized = after.minimized,
+                               hidden = after.hidden}) then
     writeNow()
   end
 end
 
-function M.init()
+function M.init(opts)
+  opts = opts or {}
   -- The page's windows link here: bring that window forward, wherever it is, out of the
-  -- Dock if it's minimized.
+  -- Dock if it's minimized, its app shown if it's hidden.
   -- hs -c 'return hs.inspect(_G._stepper.screenmaps.lastFocus)' shows the last request
   hs.urlevent.bind("screenmaps", function(_, params)
     local id = tonumber(params.focus)
     local win = id and hs.window.get(id)
     M.lastFocus = {id = id, found = win ~= nil, at = os.date("%H:%M:%S")}
     if win then
+      local app = win:application()
+      if app and app:isHidden() then app:unhide() end
       if win:isMinimized() then win:unminimize() end
       win:focus()
     else
       hs.alert.show("That window is gone")
     end
   end)
+
+  -- An app hidden or shown (rcmd's toggles, ⌘H) is saved within seconds, so the page's
+  -- hidden windows follow it; the minute's autosave would see it too, later
+  if opts.save then
+    if M._appWatcher then M._appWatcher:stop() end
+    local hidden, unhidden = hs.application.watcher.hidden, hs.application.watcher.unhidden
+    M._appWatcher = hs.application.watcher.new(function(appName, event)
+      if event == hidden or event == unhidden then
+        opts.save(string.format("screenmaps:%s '%s'", event == hidden and "hidden" or "shown",
+          tostring(appName)))
+      end
+    end)
+    M._appWatcher:start()
+  end
 end
 
 return M

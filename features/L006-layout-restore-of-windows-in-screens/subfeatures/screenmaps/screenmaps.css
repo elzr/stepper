@@ -350,6 +350,42 @@ a.min-chip:hover { border-color: var(--link); }
 .min-chip.kin { background: hsl(var(--hue) 50% 91%); transition: background-color 0.7s ease 0.2s; }
 .min-chip.lit { background: hsl(var(--hue) 46% 84%); border-color: var(--link); transition: none; }
 .min-chip.hit { border-color: var(--hit); box-shadow: inset 0 0 0 1px var(--hit); }
+/* rcmd's key for a hidden window's app (right ⌥ and its letter), on its chip and its row */
+.rcmd-key {
+  flex-shrink: 0;
+  padding: 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+.screen-list .rcmd-key { margin: 0 6px 0 2px; }
+
+/* A minimized or hidden window's ghost on the map: where it comes back, dashed, on top of
+   its display's stack, shown only while its chip or its row in the list is hovered
+   (hoverWindow lights it); the pointer never lands on it */
+.win.ghost, .three-d .win.ghost { visibility: hidden; pointer-events: none; }
+.win.ghost.lit {
+  visibility: visible;
+  background: hsl(var(--hue) 50% 96% / 0.9);
+  border: 1.5px dashed var(--link);
+  box-shadow: 0 2px 10px rgba(26, 95, 180, 0.25);
+}
+.ghost-note {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--link);
+}
+.win.tiny .ghost-note { display: none; }
 
 /* Days: opened and last used side by side, a row per day, each app once with its count */
 .days-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 32px; margin-top: 6px; }
