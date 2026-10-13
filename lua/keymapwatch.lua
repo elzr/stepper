@@ -46,13 +46,23 @@ local function rcmdSignature()
   return table.concat(parts, ",")
 end
 
--- The page shows each rcmd app's icon, Bear's, and BTT's and Raycast's on its filters; saved once per
+-- The page shows each rcmd app's icon (and those of apps rcmd once had), each app with in-app keys of
+-- yours (inApp), Bear's, and BTT's and Raycast's on its filters; saved once per
 -- app, as bear-hud.lua does for live slots
 local function saveIcons()
   local census = hs.json.read(CENSUS_JSON)
   if not census then return end
   local wanted = {BEAR, table.unpack(FILTER_ICONS)}
   for _, r in ipairs(census.rcmd and census.rcmd.keys or {}) do table.insert(wanted, r.bundleID) end
+  for _, h in ipairs(census.inApp or {}) do table.insert(wanted, h.bundleID) end
+  local hist = io.open(F002 .. "rcmd-history.jsonl", "r")   -- apps rcmd once had, for the ⏱ history
+  if hist then
+    for line in hist:lines() do
+      local bundleID = line:match('"bundleID": "([^"]+)"')
+      if bundleID then table.insert(wanted, bundleID) end
+    end
+    hist:close()
+  end
   hs.fs.mkdir(iconDir)
   for _, bundleID in ipairs(wanted) do
     local path = iconDir .. bundleID .. ".png"
