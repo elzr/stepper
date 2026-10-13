@@ -1523,3 +1523,5 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') refresh();
 });
 refresh();
+// fleet F040/light-dark-mode's sun/moon, top right of the header
+if (window.Theme) document.querySelector('.page-header').appendChild(Theme.button());

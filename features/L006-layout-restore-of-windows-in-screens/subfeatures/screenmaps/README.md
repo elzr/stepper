@@ -17,6 +17,7 @@
 - ==🟢Every save that changes something updates it== ([L006](https://stepper.internal/features/L006-layout-restore-of-windows-in-screens/)'s autosave, every minute, and 3 s after stepper moves a window to another display), and ==🔵the open page follows within 3 seconds== while it's in view. The header says "unchanged since 19:38" for the config in use, "last here Oct 7, 20:25" for the others.
 - ==🟣It's a backup you can read, not one that restores==: restoring stays with L006's hotkeys and its automatic restores.
 - It follows the [F030 tablogs](https://reading.internal/features/F030-tablogs/subfeatures/Chrome-tablogs/)' look: the same panel switch, day rows, chips, popup and violet front window, so the two maps read as one family.
+- ==🟢Light by day, dark by night== (since 2026-10-13), by the sun over Guadalajara or the sun/moon at the header's right, as every page of ours through [fleet F040/light-dark-mode](https://fleet.internal/features/F040-tiptop-software-infrastructure/subfeatures/light-dark-mode/); ==🔵the windows' tints are `hsl(hue, lightness)` with the lightness steps as variables==, so the dark set lowers them all at once.
 
 ## The views
 
