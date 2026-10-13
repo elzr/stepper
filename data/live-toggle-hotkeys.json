@@ -1,36 +1,111 @@
 {
   "A" : {
     "doc" : "22:01:17 - do-done",
-    "bundleID" : "com.google.Chrome",
+    "broken" : "2026-10-12T12:13:38",
+    "winID" : 69308,
     "app" : "Google Chrome",
     "title" : "22:01:17 - do-done - Google Chrome - Eli (Eli - main)",
     "setAt" : "2026-10-08T22:01:20",
     "icon" : "data\/app-icons\/com.google.Chrome.png",
-    "winID" : 69308
+    "bundleID" : "com.google.Chrome"
+  },
+  "I" : {
+    "app" : "Bear",
+    "bundleID" : "net.shinyfrog.bear",
+    "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "title" : "_index 2026",
+    "doc" : "_index 2026",
+    "setAt" : "2026-10-13T12:00:00"
   },
   "Q" : {
     "app" : "Bear",
-    "doc" : "_cdmx Encuentro Nacional 2026 MAS",
-    "title" : "_cdmx Encuentro Nacional 2026 MAS",
     "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "title" : "_cdmx Encuentro Nacional 2026 MAS",
+    "doc" : "_cdmx Encuentro Nacional 2026 MAS",
     "bundleID" : "net.shinyfrog.bear"
+  },
+  "X" : {
+    "doc" : "Screenmaps — quad",
+    "bundleID" : "com.google.Chrome",
+    "nowDoc" : "F031-readwise-reader-integration",
+    "app" : "Google Chrome",
+    "title" : "Screenmaps — quad - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-12T15:56:16",
+    "nowTitle" : "F031-readwise-reader-integration - Google Chrome - Eli (Eli - main)",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
+    "winID" : 89906
+  },
+  "R" : {
+    "app" : "Bear",
+    "bundleID" : "net.shinyfrog.bear",
+    "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "title" : "_app rcmd",
+    "doc" : "_app rcmd",
+    "setAt" : "2026-10-13T12:00:00"
   },
   "Z" : {
     "doc" : "ChatGPT",
-    "winID" : 64849,
+    "bundleID" : "com.google.Chrome",
+    "nowDoc" : "Claude usage",
     "app" : "Google Chrome",
     "title" : "ChatGPT - Google Chrome - Eli (Eli - main)",
     "setAt" : "2026-10-08T21:39:33",
+    "nowTitle" : "Claude usage - Google Chrome - Eli (Eli - main)",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
+    "winID" : 64849
+  },
+  "K" : {
+    "doc" : "Claude usage",
+    "winID" : 64849,
+    "app" : "Google Chrome",
+    "title" : "Claude usage - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-13T11:24:17",
     "icon" : "data\/app-icons\/com.google.Chrome.png",
     "bundleID" : "com.google.Chrome"
   },
-  "X" : {
-    "doc" : "21:49:17 - do-done",
-    "winID" : 69308,
+  "S" : {
+    "app" : "Bear",
+    "bundleID" : "net.shinyfrog.bear",
+    "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "title" : "_topsight 2026",
+    "doc" : "_topsight 2026",
+    "setAt" : "2026-10-13T12:00:00"
+  },
+  "L" : {
+    "doc" : "Shape the Netflix Experience - ely.parra@gmail.com - Gmail",
+    "bundleID" : "com.google.Chrome",
+    "nowDoc" : "Inbox (15) - ely.parra@gmail.com - Gmail",
     "app" : "Google Chrome",
-    "title" : "21:49:17 - do-done - Google Chrome - Eli (Eli - main)",
-    "setAt" : "2026-10-08T21:54:48",
+    "title" : "Shape the Netflix Experience - ely.parra@gmail.com - Gmail - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-12T15:51:56",
+    "nowTitle" : "Inbox (15) - ely.parra@gmail.com - Gmail - Google Chrome - Eli (Eli - main)",
     "icon" : "data\/app-icons\/com.google.Chrome.png",
-    "bundleID" : "com.google.Chrome"
+    "winID" : 160451
+  },
+  "E" : {
+    "doc" : "2026-10-12\/day · Tile Paper",
+    "bundleID" : "com.google.Chrome",
+    "app" : "Google Chrome",
+    "title" : "2026-10-12\/day · Tile Paper - Google Chrome - Eli (Eli - main)",
+    "setAt" : "2026-10-12T20:51:46",
+    "icon" : "data\/app-icons\/com.google.Chrome.png",
+    "winID" : 167752
+  },
+  "M" : {
+    "app" : "Bear",
+    "bundleID" : "net.shinyfrog.bear",
+    "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "title" : "_money 2026",
+    "doc" : "_money 2026",
+    "setAt" : "2026-10-13T12:00:00"
+  },
+  "U" : {
+    "doc" : "_buy US nov2026",
+    "bundleID" : "net.shinyfrog.bear",
+    "app" : "Bear",
+    "title" : "_buy US nov2026",
+    "setAt" : "2026-10-12T12:01:40",
+    "icon" : "data\/app-icons\/net.shinyfrog.bear.png",
+    "winID" : 149473
   }
 }

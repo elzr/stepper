@@ -6,7 +6,10 @@
 --
 -- Hotkeys: hyperkey + letter → open/raise/summon/unsummon Bear note
 -- URL handler: hammerspoon://open-bear-note?title=<title> or ?id=<id>
+--              hammerspoon://keymap?free=K | ?set=K&win=<window id> | ?erase=K&at=<when>
+--              (fleet F002's keymap.html frees, re-sets and prunes the live slots this way)
 -- Auto-save: periodic while Bear is active + on deactivate
+-- History: every live slot set or freed goes on a line of data/live-toggle-history.jsonl
 
 local M = {}
 
@@ -23,6 +26,9 @@ local saveTimer = nil
 local focusModule = nil     -- set by init(), provides flashFocusHighlight + focusSingleWindow
 local liveSlots = {}        -- {key = {bundleID=, title=, winID=, app=, doc=, icon=, setAt=}}, persisted
 local liveToggleFile = nil  -- set by init()
+local historyFile = nil     -- set by init(); one JSON line per live slot set or freed
+local liveKeySet = {}       -- the ◆ letters bound as live slots, as init binds them
+local urlTimers = {}        -- the keymap URL handler's deferred work, held until it runs
 local projectDir = nil      -- set by init(); live slots' app icons are saved under it
 local summonedNotes = {}    -- {key = {originalFrame}}
 local saveInFlight = false  -- guards against overlapping timer saves
@@ -598,14 +604,32 @@ local function handleNoteHotkey(noteTitle)
   focusModule.flashFocusHighlight(noteWin, nil)
 end
 
--- Set a live window slot to whatever window is currently focused
-local function setLiveWindow(slotKey)
-  local win = hs.window.focusedWindow()
-  if not win then return end
+-- The history of the live slots: a line per set or free, with the window it concerned and
+-- who did it ("R⌥◆" for the key, "keymap" for fleet F002's page). The page groups the lines
+-- per key, and erases one through hammerspoon://keymap?erase=K&at=<its at>. Lines, so
+-- the file can grow without hs.json.decode's quadratic nesting cost (hs_json_decode_quadratic)
+local function recordHistory(event, slotKey, slot, by)
+  if not historyFile then return end
+  local line = {
+    at = os.date("%Y-%m-%dT%H:%M:%S"), event = event, key = slotKey, by = by,
+    bundleID = slot.bundleID, app = slot.app, doc = slot.doc, title = slot.title, winID = slot.winID,
+  }
+  local f = io.open(historyFile, "a")
+  if not f then
+    print("[bear-hud] Failed to append to the live slot history")
+    return
+  end
+  f:write(hs.json.encode(line) .. "\n")
+  f:close()
+end
+
+-- Give a live slot a window, by R⌥◆key (the focused window) or by the keymap page (a
+-- window it picked by id); by says which, for the history
+local function assignLiveWindow(slotKey, win, by)
   local app = win:application()
-  if not app then return end
+  if not app then return false end
   local title = win:title()
-  if not title or title == "" then return end
+  if not title or title == "" then return false end
   local bundleID = app:bundleID()
   liveSlots[slotKey] = {
     bundleID = bundleID, title = title, winID = win:id(),
@@ -613,8 +637,53 @@ local function setLiveWindow(slotKey)
     icon = saveAppIcon(bundleID), setAt = os.date("%Y-%m-%dT%H:%M:%S"),
   }
   saveLiveSlots()
+  recordHistory("set", slotKey, liveSlots[slotKey], by)
   focusModule.flashFocusHighlight(win, nil, {color = {red = 1, green = 0.85, blue = 0, alpha = 0.9}})
-  print(string.format("[bear-hud] Live %s set: '%s' (%s)", slotKey, title, app:name()))
+  print(string.format("[bear-hud] Live %s set: '%s' (%s) by %s", slotKey, title, app:name(), by))
+  return true
+end
+
+-- Set a live window slot to whatever window is currently focused
+local function setLiveWindow(slotKey)
+  local win = hs.window.focusedWindow()
+  if not win then return end
+  assignLiveWindow(slotKey, win, "R⌥◆")
+end
+
+-- Empty a live slot (the keymap page's × on it)
+local function freeLiveSlot(slotKey, by)
+  local slot = liveSlots[slotKey]
+  if not slot then return false end
+  liveSlots[slotKey] = nil
+  saveLiveSlots()
+  recordHistory("freed", slotKey, slot, by)
+  print(string.format("[bear-hud] Live %s freed: '%s' by %s", slotKey, slot.doc or slot.title or "?", by))
+  return true
+end
+
+-- Drop the history lines of a key at a given time (the page's × on a history entry)
+local function eraseHistory(slotKey, at)
+  if not historyFile then return 0 end
+  local f = io.open(historyFile, "r")
+  if not f then return 0 end
+  local kept, dropped = {}, 0
+  for line in f:lines() do
+    local entry = hs.json.decode(line)
+    if entry and entry.key == slotKey and entry.at == at then
+      dropped = dropped + 1
+    elseif line ~= "" then
+      kept[#kept + 1] = line
+    end
+  end
+  f:close()
+  if dropped > 0 then
+    local out = io.open(historyFile, "w")
+    if out then
+      out:write(table.concat(kept, "\n") .. (#kept > 0 and "\n" or ""))
+      out:close()
+    end
+  end
+  return dropped
 end
 
 -- Check if a slot points to a Bear window
@@ -878,6 +947,7 @@ function M.init(projectRoot, focus)
   projectDir = projectRoot
   positionsFile = projectRoot .. "data/bear-hud-positions.json"
   liveToggleFile = projectRoot .. "data/live-toggle-hotkeys.json"
+  historyFile = projectRoot .. "data/live-toggle-history.jsonl"
   loadPositions()
   loadLiveSlots()
 
@@ -968,6 +1038,48 @@ function M.init(projectRoot, focus)
       local matchTitle = title  -- nil when opening by id (we don't know the title yet)
       M.restoreForNote(key, matchTitle)
     end)
+  end)
+
+  -- URL handler for fleet F002's keymap.html, which manages the live slots from the browser:
+  --   hammerspoon://keymap?free=K            empties ◆K
+  --   hammerspoon://keymap?set=K&win=<id>    gives ◆K the window with that id (the page picks one
+  --                                          from L006/screenmaps' last save)
+  --   hammerspoon://keymap?erase=K&at=<at>   drops that line of the history
+  -- Deferred, as open-bear-note is; the timer is held so a collection can't drop it. The page
+  -- sees the result through the slots file it polls, and a notice says what was done.
+  hs.urlevent.bind("keymap", function(_, params)
+    local timer
+    timer = hs.timer.doAfter(0, function()
+      urlTimers[timer] = nil
+      local key = (params.free or params.set or params.erase or ""):upper()
+      if not liveKeySet[key] then
+        hs.alert.show(string.format("◆%s isn't a live slot", key ~= "" and key or "?"), 3)
+        return
+      end
+      if params.free then
+        local slot = liveSlots[key]
+        if freeLiveSlot(key, "keymap") then
+          hs.alert.show(string.format("◆%s freed\n%s", key, slot.doc or slot.title or ""), 3)
+        else
+          hs.alert.show(string.format("◆%s was already free", key), 3)
+        end
+      elseif params.set then
+        local id = tonumber(params.win)
+        local win = id and hs.window.get(id)
+        if not win then
+          hs.alert.show(string.format("◆%s not set: that window is gone", key), 4)
+        elseif assignLiveWindow(key, win, "keymap") then
+          local slot = liveSlots[key]
+          hs.alert.show(string.format("◆%s set\n%s · %s", key, slot.doc or slot.title, slot.app or ""), 3)
+        else
+          hs.alert.show(string.format("◆%s not set: that window has no title", key), 4)
+        end
+      elseif params.erase then
+        local n = eraseHistory(key, params.at or "")
+        print(string.format("[bear-hud] History of %s: erased %d line(s) at %s", key, n, tostring(params.at)))
+      end
+    end)
+    urlTimers[timer] = true
   end)
 
   -- Auto-save: periodic timer while Bear is active, plus save on deactivate
@@ -1088,6 +1200,7 @@ function M.init(projectRoot, focus)
         if fixedKeys[key] then
           print(string.format("[bear-hud] liveKeys: %s is a note or URL key, not made live", key))
         else
+          liveKeySet[key] = true
           hs.hotkey.bind(mods, key, function()
             if rightOptionHeld then
               setLiveWindow(key)

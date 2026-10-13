@@ -28,7 +28,8 @@ stepper/
 │   ├── bear-notes.jsonc   # Note hotkey configuration
 │   ├── display-guard.json # Per-config target rotation/mode/origin per monitor text serial
 │   ├── cmd-tab-watch.jsonl # The watcher's log, plus AltTab stack samples in cmd-tab-samples/ (not tracked)
-│   ├── live-toggle-hotkeys.json # live ◆ slots (letters: bear-notes.jsonc's liveKeys); fleet F002's keymap.html shows them live (caddy lets it read this file), with icons from app-icons/ (not tracked)
+│   ├── live-toggle-hotkeys.json # live ◆ slots (letters: bear-notes.jsonc's liveKeys); fleet F002's keymap.html shows them live (caddy lets it read this file), with icons from app-icons/ (not tracked). Only bear-hud writes it: the page asks over hammerspoon://keymap?free|set|erase
+│   ├── live-toggle-history.jsonl # a line per live slot set or freed (bear-hud appends); the keymap's ⏱ per key
 │   └── bear-hud-positions.json  # Runtime caret/scroll positions (not tracked)
 ├── docs/                 # Architecture notes and decision records
 ├── CLAUDE.md             # This file

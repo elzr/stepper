@@ -13,19 +13,17 @@
   "mods": ["ctrl", "alt", "shift", "cmd"],
   "notes": [
     {"key": "N", "action": "open-bear-note", "title": "_mem NOW"},
-    {"key": "R", "action": "open-bear-note", "title": "_app rcmd"},
     {"key": "D", "action": "open-bear-note", "title": "w${weekNum}days ${weekDays}", "pastTitle": "w${pastWeekNum}days ${pastWeekDays}", "nextTitle": "w${nextWeekNum}days ${nextWeekDays}"},
     {"key": "W", "action": "open-bear-note", "title": "w${weekNum}work ${weekDays}", "pastTitle": "w${pastWeekNum}work ${pastWeekDays}", "nextTitle": "w${nextWeekNum}work ${nextWeekDays}"},
-    {"key": "T", "action": "open-bear-note", "title": "w${weekNum}thoughts ${weekDays}", "pastTitle": "w${pastWeekNum}thoughts ${pastWeekDays}", "nextTitle": "w${nextWeekNum}thoughts ${nextWeekDays}"},
-    {"key": "S", "action": "open-bear-note", "title": "_topsight 2026"},
-    {"key": "M", "action": "open-bear-note", "title": "_money 2026"},
-    {"key": "I", "action": "open-bear-note", "title": "_index 2026"}
+    {"key": "T", "action": "open-bear-note", "title": "w${weekNum}thoughts ${weekDays}", "pastTitle": "w${pastWeekNum}thoughts ${pastWeekDays}", "nextTitle": "w${nextWeekNum}thoughts ${nextWeekDays}"}
   ],
   "urls": [
     {"key": "F", "url": "raycast://extensions/sara/featurebase/index"},
     {"key": "P", "url": "raycast://extensions/sara/spin/index"}
   ],
   // Live window slots, bound in bear-hud.lua: R⌥◆key gives one the focused window, ◆key toggles it,
-  // R⇧◆key summons it. Every ◆ letter not taken above; a note or URL key listed here stays a note or URL
-  "liveKeys": ["A", "B", "C", "E", "G", "H", "J", "K", "L", "O", "Q", "U", "V", "X", "Y", "Z"]
+  // R⇧◆key summons it. Every ◆ letter not taken above; a note or URL key listed here stays a note or URL.
+  // I, M, R and S were fixed note keys (_index 2026, _money 2026, _app rcmd, _topsight 2026) until
+  // 2026-10-13: they're live now, holding those notes until re-set
+  "liveKeys": ["A", "B", "C", "E", "G", "H", "I", "J", "K", "L", "M", "O", "Q", "R", "S", "U", "V", "X", "Y", "Z"]
 }

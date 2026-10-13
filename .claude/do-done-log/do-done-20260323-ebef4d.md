@@ -2,7 +2,8 @@
 
 ---
 *2026-03-23 11:26* <!-- bd865e3f-9980-4061-950d-2cb7a4c7550d -->
-*11 in, 3.1k out · 234.0k cached · Worked for 2m8s · done 11:28 · hook 1845ms*
+*11 in, 3.1k out · 234.0k cached · 33.2k context · Worked for 2m8s · done 11:28 · hook 1845ms*
+<!--DO_DONE_META_V1 {"provider": "claude", "xid": "bd865e3f"}-->
 
 ## Eli:
 just did a wake up after the Mac went to sleep apparently, went to the bathroom very quick, no unplugging, and I'm finding that the w12 thoughts Bear notes window is in the top display and I don't think I've ever put it there, so what the fuck? was this only macOS doing? why didn'y our manual restore engage?
@@ -27,7 +28,8 @@ Here's what happened:
 
 ---
 *2026-03-23 11:31* <!-- 2c5dc80e-0d7d-465b-bbde-808b57adae0e -->
-*14 in, 4.4k out · 493.7k cached · Worked for 2m23s · done 11:33 · hook 1500ms*
+*14 in, 4.4k out · 493.7k cached · 47.0k context · Worked for 2m23s · done 11:33 · hook 1500ms*
+<!--DO_DONE_META_V1 {"provider": "claude", "xid": "2c5dc80e"}-->
 
 ## Eli:
 oh ok, yes, let's have onWake auto-restore after a compare check bc macos has been super fragile lately even with minor sleeps... and I actually think this was just a sleep display situation not a sleep sleep
