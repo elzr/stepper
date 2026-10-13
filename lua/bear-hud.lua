@@ -6,8 +6,8 @@
 --
 -- Hotkeys: hyperkey + letter → open/raise/summon/unsummon Bear note
 -- URL handler: hammerspoon://open-bear-note?title=<title> or ?id=<id>
---              hammerspoon://keymap?free=K | ?set=K&win=<window id> | ?erase=K&at=<when>
---              (fleet F002's keymap.html frees, re-sets and prunes the live slots this way)
+--              hammerspoon://keymap?free=K | ?set=K&win=<window id> | ?erase=K&at=<when> | ?move=K&to=T
+--              (fleet F002's keymap.html frees, re-sets, moves and prunes the live slots this way)
 -- Auto-save: periodic while Bear is active + on deactivate
 -- History: every live slot set or freed goes on a line of data/live-toggle-history.jsonl
 
@@ -27,7 +27,7 @@ local focusModule = nil     -- set by init(), provides flashFocusHighlight + foc
 local liveSlots = {}        -- {key = {bundleID=, title=, winID=, app=, doc=, icon=, setAt=}}, persisted
 local liveToggleFile = nil  -- set by init()
 local historyFile = nil     -- set by init(); one JSON line per live slot set or freed
-local liveKeySet = {}       -- the ◆ letters bound as live slots, as init binds them
+local liveKeySet = {}       -- the ◆ letters and digits bound as live slots, as init binds them
 local urlTimers = {}        -- the keymap URL handler's deferred work, held until it runs
 local projectDir = nil      -- set by init(); live slots' app icons are saved under it
 local summonedNotes = {}    -- {key = {originalFrame}}
@@ -661,6 +661,26 @@ local function freeLiveSlot(slotKey, by)
   return true
 end
 
+-- Move a live slot's window to another live key (the keymap page's ⇄): the source empties, and
+-- whatever the target held is replaced; each history says so. The window keeps everything it
+-- had (its title now, a broken mark) but its setAt, which is now.
+local function moveLiveSlot(fromKey, toKey, by)
+  local slot = liveSlots[fromKey]
+  if not slot or fromKey == toKey then return false end
+  local replaced = liveSlots[toKey]
+  if replaced then recordHistory("freed", toKey, replaced, by .. " ⇄ ◆" .. fromKey) end
+  local moved = {}
+  for k, v in pairs(slot) do moved[k] = v end
+  moved.setAt = os.date("%Y-%m-%dT%H:%M:%S")
+  liveSlots[toKey], liveSlots[fromKey] = moved, nil
+  saveLiveSlots()
+  recordHistory("freed", fromKey, slot, by .. " ⇄ ◆" .. toKey)
+  recordHistory("set", toKey, moved, by .. " ⇄ ◆" .. fromKey)
+  print(string.format("[bear-hud] Live %s moved to %s: '%s' by %s%s", fromKey, toKey,
+    slot.doc or slot.title or "?", by, replaced and (", replacing '" .. (replaced.doc or replaced.title or "?") .. "'") or ""))
+  return true, replaced
+end
+
 -- Drop the history lines of a key at a given time (the page's × on a history entry)
 local function eraseHistory(slotKey, at)
   if not historyFile then return 0 end
@@ -1045,18 +1065,31 @@ function M.init(projectRoot, focus)
   --   hammerspoon://keymap?set=K&win=<id>    gives ◆K the window with that id (the page picks one
   --                                          from L006/screenmaps' last save)
   --   hammerspoon://keymap?erase=K&at=<at>   drops that line of the history
+  --   hammerspoon://keymap?move=K&to=T       moves ◆K's window to ◆T, replacing what ◆T held
   -- Deferred, as open-bear-note is; the timer is held so a collection can't drop it. The page
   -- sees the result through the slots file it polls, and a notice says what was done.
   hs.urlevent.bind("keymap", function(_, params)
     local timer
     timer = hs.timer.doAfter(0, function()
       urlTimers[timer] = nil
-      local key = (params.free or params.set or params.erase or ""):upper()
-      if not liveKeySet[key] then
-        hs.alert.show(string.format("◆%s isn't a live slot", key ~= "" and key or "?"), 3)
+      local key = (params.free or params.set or params.erase or params.move or ""):upper()
+      local to = (params.to or ""):upper()
+      if not liveKeySet[key] or (params.move and not liveKeySet[to]) then
+        local bad = liveKeySet[key] and to or key
+        hs.sound.getByName("Basso"):play()
+        hs.alert.show(string.format("◆%s isn't a live slot", bad ~= "" and bad or "?"), 3)
         return
       end
-      if params.free then
+      if params.move then
+        local slot = liveSlots[key]
+        local ok, replaced = moveLiveSlot(key, to, "keymap")
+        if ok then
+          hs.alert.show(string.format("◆%s → ◆%s\n%s · %s%s", key, to, slot.doc or slot.title or "?", slot.app or "",
+            replaced and ("\n◆" .. to .. " no longer holds " .. (replaced.doc or replaced.title or "?")) or ""), 3)
+        else
+          hs.alert.show(string.format("◆%s not moved: %s", key, key == to and "same key" or "it holds no window"), 3)
+        end
+      elseif params.free then
         local slot = liveSlots[key]
         if freeLiveSlot(key, "keymap") then
           hs.alert.show(string.format("◆%s freed\n%s", key, slot.doc or slot.title or ""), 3)
