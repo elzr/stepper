@@ -587,6 +587,39 @@ function M.focusScreen(dir)
   M.flashFocusHighlight(targetWin, dir)
 end
 
+-- =============================================================================
+-- Cycle the front app's windows (⌥` next, ⌥⇧` previous)
+-- =============================================================================
+-- macOS's "Move focus to next window" brings up the rearmost window, but it has
+-- no previous, and ⌥⇧` doesn't reverse it once it's rebound off ⌘`. So both
+-- directions live here, walking one front-to-back snapshot of the app's windows:
+-- ⌥` steps back through it (rearmost first, as macOS does), ⌥⇧` forward (the one
+-- just behind first), and each undoes the other. The snapshot lasts while the window
+-- in front is the one we put there; a click elsewhere or a new window starts afresh.
+local cycle = nil  -- {pid, ids = {front-to-back}, at = index of the window we focused}
+
+function M.cycleAppWindows(dir)
+  local front = hs.window.focusedWindow()
+  if not front then return end
+  local pid = front:pid()
+  local alive, ordered = {}, {}
+  for _, w in ipairs(hs.window.orderedWindows()) do
+    if w:pid() == pid and w:isStandard() then alive[w:id()] = w; table.insert(ordered, w:id()) end
+  end
+  if not (cycle and cycle.pid == pid and cycle.ids[cycle.at] == front:id()) then
+    cycle = {pid = pid, ids = ordered, at = 1}
+  end
+  local n = #cycle.ids
+  for _ = 1, n do  -- skip windows closed or minimized since the snapshot
+    cycle.at = (cycle.at - 1 + (dir == "previous" and 1 or -1)) % n + 1
+    local win = alive[cycle.ids[cycle.at]]
+    if win then
+      if win:id() ~= front:id() then win:focus() end
+      return
+    end
+  end
+end
+
 -- Get debug info about tracking state (for the confirm focus hotkey)
 function M.getTrackingInfo()
   return lastFocusedByUs

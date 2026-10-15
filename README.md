@@ -42,6 +42,7 @@ All window bindings use ==🔵fn + modifier + arrow keys== (which Hammerspoon se
 | **cmd** | Focus nearest window (same screen) |
 | **option+cmd** | Focus nearest window (adjacent screen) |
 | **ctrl+option** | Move window to specific display (no fn) |
+| **option + \`** / **shift+option + \`** | ==🟢Front app's next / previous window== (no fn; [focus.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/focus.lua)) |
 
 ==🔵Full visual reference with ASCII diagrams:== [docs/keycombo-map.md](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/docs/keycombo-map.md)
 
@@ -80,6 +81,10 @@ Focus the nearest window in that direction. ==🟢Wraps around to cycle all wind
 ### Cross-screen focus (fn + option + cmd + arrows)
 
 Jump to adjacent screen, focusing the window closest to where you came from.
+
+### The front app's windows (option + \`, shift+option + \`)
+
+==🟣No fn.== ⌥\` brings up the front app's rearmost window, as macOS's own "Move focus to next window" does; ⌥⇧\` goes the other way, the window just behind first, so each undoes the other. ==🔵Both are stepper's since 2026-10-15==: macOS has no previous window, and ⌥⇧\` doesn't reverse its ⌥\` once rebound off ⌘\`, so macOS's is switched off. They walk one front-to-back snapshot of the app's windows on the current Space, kept while the window in front is the one stepper put there; a click elsewhere or a new window starts afresh ([focus.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/focus.lua) `cycleAppWindows`). BTT's menu bar menu moved from ⌥⇧\` to ⌥⌘\` to make room.
 
 ### Move to display (ctrl+option + arrows/return)
 

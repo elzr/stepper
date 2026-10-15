@@ -1160,6 +1160,11 @@ hs.hotkey.bind({"ctrl", "alt"}, "left", function() moveToDisplay("left") end)
 hs.hotkey.bind({"ctrl", "alt"}, "right", function() moveToDisplay("right") end)
 hs.hotkey.bind({"ctrl", "alt"}, "return", function() moveToDisplay("center") end)
 
+-- Step through the front app's windows: ⌥` next (rearmost first, as macOS's own did),
+-- ⌥⇧` previous. BTT's menu bar moved off ⌥⇧` to ⌥⌘` to make room.
+hs.hotkey.bind({"alt"}, "`", function() focus.cycleAppWindows("next") end)
+hs.hotkey.bind({"alt", "shift"}, "`", function() focus.cycleAppWindows("previous") end)
+
 -- Unassigned functions still available: toggleFullScreen, toggleCompact
 
 -- Show focus highlight on current window (fn+cmd+delete = forwarddelete).
