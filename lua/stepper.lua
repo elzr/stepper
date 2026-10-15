@@ -1194,7 +1194,7 @@ bear_hud.init(projectRoot, focus)
 -- Keeps fleet F002's keymap.html current (it replaced L009-keymap's generator)
 keymapwatch.init(projectRoot)
 
--- R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2, a same-side pair tapped twice: an alert each, on trial (2026-10-15)
+-- R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2, a same-side pair tapped twice: free since the trial (2026-10-15), waiting for an action
 modpairs.init()
 
 -- Initialize per-screen window position memory

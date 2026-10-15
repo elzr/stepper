@@ -1,9 +1,11 @@
--- A same-side modifier pair tapped twice: R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2 (a trial since 2026-10-15).
+-- A same-side modifier pair tapped twice: R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2.
 -- Both keys go down together, either one first, nothing else is held or typed, both come up, and
 -- again within a moment. BTT can't bind these (a BTT key sequence wants one key down before the
--- other); a flagsChanged tap can, since rawFlags tells left and right apart. For now each pair only
--- shows an alert, to learn whether tapping it also sets off BTT's ⌘ ⌘ or ⌥ ⌥ double-taps.
--- Keymap: fleet F002's Modifiers card lists them (the census's HS_GESTURES).
+-- other); a flagsChanged tap can, since rawFlags tells left and right apart.
+-- On 2026-10-15 each pair showed only an alert, as a trial: both fired flawlessly, and BTT's ⌘ ⌘ and
+-- ⌥ ⌥ double-taps didn't fire with them. The alerts are gone and the pairs wait for an action: give
+-- one an `action` below, and list it in fleet F002's census (HS_GESTURES) so the keymap shows it.
+-- With no action set, no event tap runs.
 
 local M = {}
 
@@ -17,9 +19,10 @@ local FN = 0x800000
 local TAP_MAX = 0.5   -- first key down to both up
 local GAP_MAX = 0.45  -- first tap's release to the second tap's first key down
 
+-- action: a function run when the pair fires; nil leaves the pair free
 M.pairs = {
-  { name = "R⌘ + R⌥ ×2", bits = SIDE.rcmd | SIDE.ropt },
-  { name = "L⌥ + L⌘ ×2", bits = SIDE.lopt | SIDE.lcmd },
+  { name = "R⌘ + R⌥ ×2", bits = SIDE.rcmd | SIDE.ropt, action = nil },
+  { name = "L⌥ + L⌘ ×2", bits = SIDE.lopt | SIDE.lcmd, action = nil },
 }
 
 local tap = nil
@@ -29,7 +32,7 @@ local lastTap = nil   -- { pair, at } of the previous clean tap
 
 local function fire(pair)
   print(string.format("[modpairs] %s", pair.name))
-  hs.alert.show(pair.name .. "  ·  Hammerspoon test", 1.5)
+  if pair.action then pair.action() end
   if M.onFire then M.onFire(pair) end
 end
 
@@ -70,7 +73,10 @@ end
 M._onFlags = onFlags  -- for tests: feed it { rawFlags = function() return bits end }
 
 function M.init()
-  tap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, onFlags)
+  local any = false
+  for _, p in ipairs(M.pairs) do any = any or p.action ~= nil end
+  if not any then return end  -- nothing to fire: no taps on every key press
+  tap =hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, onFlags)
   tap:start()
   -- A key typed while a pair is down makes it a chord, not a tap
   keyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function()

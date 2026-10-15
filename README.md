@@ -9,7 +9,7 @@
 - [Window operations](#window-operations)
 - [Bear Note HUD](#bear-note-hud)
 - [Mouse move](#mouse-move)
-- [Modifier pairs tapped twice](#modifier-pairs-tapped-twice) — ==🔵R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2, on trial==
+- [Modifier pairs tapped twice](#modifier-pairs-tapped-twice) — ==🔵R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2, tested, free==
 - [Dead ⌘⇥ watch](#dead--watch) — ==🔵logs each ⌘⇥ that did nothing while AltTab is on trial==
 - [Further reading](#further-reading)
 
@@ -162,7 +162,7 @@ Caret via `AXSelectedTextRange`, scroll via `AXScrollBar`, persisted to [bear-hu
 
 ## Modifier pairs tapped twice
 
-==🟣R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2==: both keys of a same-side pair go down together (either one first), nothing else is held or typed, both come up, and again within half a second. ==🔵On trial since 2026-10-15==: each shows only an alert ("R⌘ + R⌥ ×2 · Hammerspoon test"), to learn whether tapping a pair also sets off BTT's ⌘ ⌘ (Raycast) or ⌥ ⌥ (Bear search) double-taps before anything real goes there. BTT can't bind these (a BTT key sequence wants one key before the other); [modpairs.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/modpairs.lua) reads the side bits of a flagsChanged tap. fleet's [F002 keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html) lists both under Modifiers.
+==🟣R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2==: both keys of a same-side pair go down together (either one first), nothing else is held or typed, both come up, and again within half a second. ==🟢Tested on 2026-10-15==: each showed an alert for an afternoon, and both fired flawlessly without setting off BTT's ⌘ ⌘ (Raycast) or ⌥ ⌥ (Bear search) double-taps. ==🔵They're free now, waiting for an action==: give a pair one in `M.pairs`, and list it in the census's `HS_GESTURES`; with no action set, no event tap runs. BTT can't bind these (a BTT key sequence wants one key before the other); [modpairs.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/modpairs.lua) reads the side bits of a flagsChanged tap. fleet's [F002 keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html) lists both under Modifiers.
 
 ---
 
