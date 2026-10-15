@@ -9,6 +9,7 @@
 - [Window operations](#window-operations)
 - [Bear Note HUD](#bear-note-hud)
 - [Mouse move](#mouse-move)
+- [Modifier pairs tapped twice](#modifier-pairs-tapped-twice) — ==🔵R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2, on trial==
 - [Dead ⌘⇥ watch](#dead--watch) — ==🔵logs each ⌘⇥ that did nothing while AltTab is on trial==
 - [Further reading](#further-reading)
 
@@ -84,7 +85,7 @@ Jump to adjacent screen, focusing the window closest to where you came from.
 
 ### The front app's windows (option + \`, shift+option + \`)
 
-==🟣No fn.== ⌥\` brings up the front app's rearmost window, as macOS's own "Move focus to next window" does; ⌥⇧\` goes the other way, the window just behind first, so each undoes the other. ==🔵Both are stepper's since 2026-10-15==: macOS has no previous window, and ⌥⇧\` doesn't reverse its ⌥\` once rebound off ⌘\`, so macOS's is switched off. They walk one front-to-back snapshot of the app's windows on the current Space, kept while the window in front is the one stepper put there; a click elsewhere or a new window starts afresh ([focus.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/focus.lua) `cycleAppWindows`). BTT's menu bar menu moved from ⌥⇧\` to ⌥⌘\` to make room.
+==🟣No fn.== ⌥\` brings up the front app's rearmost window, as macOS's own "Move focus to next window" does; ⇧⌥\` goes the other way, the window just behind first, so each undoes the other. ==🔵Both are stepper's since 2026-10-15==: macOS has no previous window, and ⇧⌥\` doesn't reverse its ⌥\` once rebound off ⌘\`, so macOS's is switched off. They walk one front-to-back snapshot of the app's windows on the current Space, kept while the window in front is the one stepper put there; a click elsewhere or a new window starts afresh ([focus.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/focus.lua) `cycleAppWindows`). BTT's menu bar menu moved from ⇧⌥\` to ⌥⌘\` to make room.
 
 ### Move to display (ctrl+option + arrows/return)
 
@@ -156,6 +157,12 @@ Caret via `AXSelectedTextRange`, scroll via `AXScrollBar`, persisted to [bear-hu
 ## Mouse move
 
 ==🔵Hold fn + move mouse== to reposition the window under the cursor. Hold ==🔵fn + shift + move== to resize — the 3x3 grab grid determines which corner/edge moves. See [keycombo-map](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/docs/keycombo-map.md#mouse-move) for the grid diagram. Implemented in [mousemove.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/mousemove.lua).
+
+---
+
+## Modifier pairs tapped twice
+
+==🟣R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2==: both keys of a same-side pair go down together (either one first), nothing else is held or typed, both come up, and again within half a second. ==🔵On trial since 2026-10-15==: each shows only an alert ("R⌘ + R⌥ ×2 · Hammerspoon test"), to learn whether tapping a pair also sets off BTT's ⌘ ⌘ (Raycast) or ⌥ ⌥ (Bear search) double-taps before anything real goes there. BTT can't bind these (a BTT key sequence wants one key before the other); [modpairs.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/modpairs.lua) reads the side bits of a flagsChanged tap. fleet's [F002 keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html) lists both under Modifiers.
 
 ---
 

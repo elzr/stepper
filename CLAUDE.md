@@ -22,6 +22,7 @@ stepper/
 │   ├── inputprobe.swift  # Its helper, built on first use (binary untracked)
 │   ├── cmdtabwatch.lua   # Keeps the dead ⌘⇥ watcher running for the AltTab trial, and AltTab's own debug log on (fleet F040/AltTab)
 │   ├── cmdtabwatch.swift # The watcher: listen-only taps, logs each ⌘⇥ that did nothing (binary untracked)
+│   ├── modpairs.lua      # R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2 (a same-side pair tapped twice): an alert each, on trial
 │   ├── keymapwatch.lua   # Reruns fleet F002's keybinding census when rcmd's keys or stepper's hotkey data change; feeds F002's keymap.html, and disables a BTT trigger for its Modifiers × (hammerspoon://keymap-clear)
 │   └── bear-hud.lua      # Bear note HUD with caret/scroll persistence
 ├── data/

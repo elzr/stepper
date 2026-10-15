@@ -18,6 +18,7 @@ local keymapwatch = dofile(scriptPath .. "keymapwatch.lua")
 ofsr = dofile(scriptPath .. "move-to-resize.lua")
 local inputprobe = dofile(scriptPath .. "inputprobe.lua")
 local cmdtabwatch = dofile(scriptPath .. "cmdtabwatch.lua")
+local modpairs = dofile(scriptPath .. "modpairs.lua")
 
 -- Clean up any orphaned focus highlights from previous session
 focus.clearHighlight()
@@ -1193,6 +1194,9 @@ bear_hud.init(projectRoot, focus)
 -- Keeps fleet F002's keymap.html current (it replaced L009-keymap's generator)
 keymapwatch.init(projectRoot)
 
+-- R⌘ + R⌥ ×2 and L⌥ + L⌘ ×2, a same-side pair tapped twice: an alert each, on trial (2026-10-15)
+modpairs.init()
+
 -- Initialize per-screen window position memory
 screenmemory.init()
 screenswitch.setScreenMemory(screenmemory)
@@ -1231,6 +1235,7 @@ _G._stepper.bindWithRepeat = bindWithRepeat
 _G._stepper.inputprobe = inputprobe
 _G._stepper.cmdtabwatch = cmdtabwatch
 _G._stepper.keymapwatch = keymapwatch
+_G._stepper.modpairs = modpairs
 _G._stepper.screenmaps = screenmaps
 
 -- Save state before sleep, prompt restore on wake.
