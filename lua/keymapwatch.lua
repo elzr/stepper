@@ -8,11 +8,12 @@
 -- It replaced L009-keymap's generator on 2026-10-09.
 -- Hammerspoon's hotkeys go to the census on stdin: a run that Hammerspoon starts must not call back
 -- into Hammerspoon over IPC (a stuck hs CLI has crashed it before).
--- Page: https://fleet.internal/features/F002-harmonious-keybindings/keymap.html
+-- Page: https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html
+-- (F002/keymap and F002/census are subfeatures since 2026-10-15)
 
 local M = {}
 
-local F002 = "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/"
+local F002 = "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/subfeatures/census/"
 local CENSUS = F002 .. "keybinding-census.py"
 local CENSUS_JSON = F002 .. "keybindings-census.json"
 local PYTHON = "/opt/homebrew/bin/python3"  -- native arm64, no Rosetta needed

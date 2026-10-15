@@ -1,8 +1,8 @@
 # L009-keymap
 
-> ==🔴Superseded on 2026-10-09 by [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s [keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html)==, which grew out of this one: every ◆ hyperkey and rcmd right-⌥ key as an A–Z list that turns into a keyboard, with the live slots, the Bear note bindings, and the clashes [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s census finds across every app.
+> ==🔴Superseded on 2026-10-09 by [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s [keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html)==, which grew out of this one: every ◆ hyperkey and rcmd right-⌥ key as an A–Z list that turns into a keyboard, with the live slots, the Bear note bindings, and the clashes [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s census finds across every app.
 
-==🟢What still lives here: [Modifiers](#modifiers)==, the double-taps, mod-spacing and mod-tabbing that the keymap's key grid can't show.
+==🔵Hidden from featurebase's search since 2026-10-15==, kept for history. Its [Modifiers](#modifiers) tables, written that morning, became the [Modifiers card of F002/keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/README.md#modifiers) the same day, which stays current by itself; the tables below are that morning's snapshot.
 
 ## Contents
 
@@ -17,7 +17,7 @@
 
 ## Modifiers
 
-Starts from the Bear notes [_keys Mod-spacing](bear://x-callback-url/open-note?id=7B8F4599-D155-4AD7-985C-06376DF3930E) and [_keys Mod-tabbing](bear://x-callback-url/open-note?id=35C6BFFC-4A20-445D-91E5-E1C1366B69A8), ==🔵checked against each app's own config on 2026-10-15==: BetterTouchTool's `bttcli get_triggers`, Raycast's hotkey log, AltTab's, superwhisper's and Monologue's preferences, ChatGPT's `~/.codex` state and [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s [census](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/keybindings-census.json). The **vs. notes** column says what changed since the notes were written. ◆ is Caps Lock through Hyperkey (⌃⌥⇧⌘).
+Starts from the Bear notes [_keys Mod-spacing](bear://x-callback-url/open-note?id=7B8F4599-D155-4AD7-985C-06376DF3930E) and [_keys Mod-tabbing](bear://x-callback-url/open-note?id=35C6BFFC-4A20-445D-91E5-E1C1366B69A8), ==🔵checked against each app's own config on 2026-10-15==: BetterTouchTool's `bttcli get_triggers`, Raycast's hotkey log, AltTab's, superwhisper's and Monologue's preferences, ChatGPT's `~/.codex` state and [F002](https://fleet.internal/features/F002-harmonious-keybindings/)'s [census](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/subfeatures/census/keybindings-census.json). The **vs. notes** column says what changed since the notes were written. ◆ is Caps Lock through Hyperkey (⌃⌥⇧⌘).
 
 ### Double mods and modifier chords
 
@@ -74,7 +74,7 @@ Great for switching between and searching what's open, per the note.
 ### Traps
 
 - ==🔴Never bind ◆⎋==. Tapping Caps alone makes Hyperkey send Escape *with the four modifiers held*, so ◆⎋ fires on every Caps tap. On 2026-10-14 Raycast's hotkey recorder took the Esc meant to dismiss it as the hotkey, and Sleep Displays fired on each Caps tap until 2026-10-15. It looked like the four externals blinking off and on.
-- ==🔵Modifier-only hotkeys don't reach the census==: Raycast logs L⌘+R⌘ as `⌘⏴⏵`, and the [census](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/keybinding-census.py)'s Raycast reader only parses `mods #keycode`, so it drops them. ChatGPT's bare-modifier monitor is seen only while ChatGPT runs. This table is the record for both until the census reads them.
+- ==🔵Modifier-only hotkeys don't reach the census==: Raycast logs L⌘+R⌘ as `⌘⏴⏵`, and the [census](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/subfeatures/census/keybinding-census.py)'s Raycast reader only parses `mods #keycode`, so it drops them. ChatGPT's bare-modifier monitor is seen only while ChatGPT runs. This table is the record for both until the census reads them.
 
 ## What it was
 
@@ -84,10 +84,10 @@ A Hammerspoon module ([stepper.lua](openfile:///Users/sara/Library/CloudStorage/
 
 | Was here | Now |
 |---|---|
-| `keymap.html` (keyboard + table) | [F002/keymap.html](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html), drawn in the browser from the census |
-| `keymap.lua` reading rcmd and stepper's data | [F002/keybinding-census.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/keybinding-census.py), which reads every other app too |
+| `keymap.html` (keyboard + table) | [F002/keymap.html](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html), drawn in the browser from the census |
+| `keymap.lua` reading rcmd and stepper's data | [F002/keybinding-census.py](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/subfeatures/census/keybinding-census.py), which reads every other app too |
 | its pathwatchers | [lua/keymapwatch.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/keymapwatch.lua), which reruns the census |
-| `notes.jsonc` (mnemonics, Bear notes, drift checks) | [F002/keymap-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/keymap-notes.jsonc), reseeded from the Bear note [_app rcmd](bear://x-callback-url/open-note?id=DC12D4B5-3818-437A-9143-D5B6A783A89B) |
+| `notes.jsonc` (mnemonics, Bear notes, drift checks) | [F002/keymap-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F002-harmonious-keybindings/subfeatures/keymap/keymap-notes.jsonc), reseeded from the Bear note [_app rcmd](bear://x-callback-url/open-note?id=DC12D4B5-3818-437A-9143-D5B6A783A89B) |
 
 The code is in git history: `git log --all -- features/L009-keymap/keymap.lua`.
 

@@ -48,7 +48,7 @@ Hyper + live letter → toggle visibility of any window (not just Bear). Slots a
 
 Keys: ==🟢every ◆ letter that isn't a note or URL key==, A B C E G H J K L O Q U V X Y Z, listed as `liveKeys` in [bear-notes.jsonc](https://stepper.internal/data/bear-notes.jsonc) (X, Q, A and Z alone until 2026-10-09, when the user made the twelve free letters live). A note or URL key listed there too stays a note or URL: bear-hud.lua and F002's census both skip it.
 
-==🟢Live view: [fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html)== shows every slot with its window's icon and a "live" badge, re-reading the slots file every 2 s, so a new assignment appears without a reload. It took over from `docs/diagrams.html` on 2026-10-09.
+==🟢Live view: [fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html)== shows every slot with its window's icon and a "live" badge, re-reading the slots file every 2 s, so a new assignment appears without a reload. It took over from `docs/diagrams.html` on 2026-10-09.
 
 Each slot records:
 
@@ -115,14 +115,14 @@ A `"comment"` property works but pollutes the data structure — it gets parsed,
 
 - [`data/bear-notes.jsonc`](https://stepper.internal/data/bear-notes.jsonc) — Bear note hotkey definitions + template vars
 - [`data/live-toggle-hotkeys.json`](https://stepper.internal/data/live-toggle-hotkeys.json) — active window toggle slots
-- [fleet F002's `keymap.html`](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) — shows those slots live, beside every other ◆ and ⌥ key
+- [fleet F002's `keymap.html`](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html) — shows those slots live, beside every other ◆ and ⌥ key
 - [`data/hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc) — general hyperkey actions
 - [`lua/bear-hud.lua`](https://stepper.internal/lua/bear-hud.lua) — all hyperkey binding logic (loads all 3 config files)
 
 ## How to add a new hyperkey shortcut
 
 1. **Bear note?** → add to `notes` array in [`bear-notes.jsonc`](https://stepper.internal/data/bear-notes.jsonc)
-2. **Window toggle?** → press Right Option + hyper + any live letter at runtime ([keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) marks them ==🟢live==)
+2. **Window toggle?** → press Right Option + hyper + any live letter at runtime ([keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html) marks them ==🟢live==)
 3. **Anything else?** → add to [`hyper-actions.jsonc`](https://stepper.internal/data/hyper-actions.jsonc):
 
 ```jsonc
@@ -143,7 +143,7 @@ Then run `~/bin/hs-reload.sh`.
 
 ## Visual map
 
-==🔵[fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html)== shows this entire stack, plus rcmd's right-⌥ keys, as an A–Z list that turns into a keyboard, and flags any other app that holds a ◆ chord. It replaced [L009-keymap](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap) on 2026-10-09; [keymapwatch.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/keymapwatch.lua) keeps it current when these files change.
+==🔵[fleet F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html)== shows this entire stack, plus rcmd's right-⌥ keys, as an A–Z list that turns into a keyboard, and flags any other app that holds a ◆ chord. It replaced [L009-keymap](openfolder:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/features/L009-keymap) on 2026-10-09; [keymapwatch.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/keymapwatch.lua) keeps it current when these files change.
 
 ## Origin story
 

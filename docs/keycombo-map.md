@@ -106,7 +106,7 @@ Position preserved. Oversized windows shrink to fit (restored when moved back).
 | S | _topsight 2026 |
 | M | _money 2026 |
 | I | _index 2026 |
-| A B C E G H J K L O Q U V X Y Z | ==🟢live window (set with R⌥)==: the `liveKeys` in [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc), shown on [F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/keymap.html) |
+| A B C E G H J K L O Q U V X Y Z | ==🟢live window (set with R⌥)==: the `liveKeys` in [bear-notes.jsonc](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/data/bear-notes.jsonc), shown on [F002's keymap](https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html) |
 
 Toggle: open → raise → minimize (macOS auto-focuses previous window).
 Summon (R⇧ + ◆ letter): summon to cursor → return + minimize.
