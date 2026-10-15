@@ -149,6 +149,15 @@ h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: baseline; 
 .configs button.active { background: var(--active-bg); color: var(--active-text); }
 .page-header h1 { margin-right: auto; }   /* the configs and the sun/moon group at the right */
 .page-header .theme-toggle { align-self: center; color: var(--grey); --theme-toggle-hover: var(--text); }   /* fleet F040/light-dark-mode's sun/moon */
+.page-header .help-button {   /* fleet F040/help-button's ?, right of the sun/moon and as close as the configs' gap allows */
+  align-self: center;
+  margin-left: -6px;
+  color: var(--grey);
+  --help-hover: var(--text);
+  --help-bg: var(--surface);
+  --help-fg: var(--text);
+  --help-border: var(--border);
+}
 .subtitle { color: var(--grey); font-size: 0.95rem; margin-bottom: 16px; }
 .subtitle .note { color: var(--warn); }
 

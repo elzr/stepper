@@ -1525,3 +1525,27 @@ document.addEventListener('visibilitychange', () => {
 refresh();
 // fleet F040/light-dark-mode's sun/moon, top right of the header
 if (window.Theme) document.querySelector('.page-header').appendChild(Theme.button());
+// and fleet F040/help-button's ?, right of it: hover it or press ? for the keys, click it for the README
+if (window.Help) document.querySelector('.page-header').appendChild(Help.button({
+  readme: 'README.md',
+  keys: [
+    ['Views', [
+      ['m or d', 'Map or Days'],
+      ['1 2 3', 'Flat, Turned, On the ground (map)'],
+      ['s', 'windows above or below their display'],
+      ['Tab or ⇧Tab', 'fly display to display'],
+      ['Esc', 'show all the windows again'],
+    ]],
+    ['On the map', [
+      ['', 'drag: turn it; right-drag or ⇧-drag: pan'],
+      ['', 'pinch or ⌃-scroll: zoom; its bottom edge: its height'],
+      ['⌘', 'held over a window: bring it to the top'],
+      ['', '⌘-click a window, here or in the list: bring it forward on the Mac'],
+    ]],
+    ['Clicks', [
+      ['', 'a config, top right: its map'],
+      ['', 'an app (its icon or name): only its windows'],
+      ['', 'in Days, a day or an app: only those windows'],
+    ]],
+  ],
+}));
