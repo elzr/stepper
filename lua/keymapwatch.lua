@@ -10,6 +10,10 @@
 -- into Hammerspoon over IPC (a stuck hs CLI has crashed it before).
 -- Page: https://fleet.internal/features/F002-harmonious-keybindings/subfeatures/keymap/keymap.html
 -- (F002/keymap and F002/census are subfeatures since 2026-10-15)
+-- The page's × on a Modifiers row asks here, hammerspoon://keymap-clear?btt=<uuid>: the BTT trigger is
+-- disabled (BTT's own switch, so it can be turned back on there) and the census reruns, recording who
+-- freed it in modifier-history.jsonl. Only BTT triggers the census lists; Raycast's and the other apps'
+-- hotkeys live where nothing else can write them (since 2026-10-15).
 
 local M = {}
 
@@ -17,6 +21,7 @@ local F002 = "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/f
 local CENSUS = F002 .. "keybinding-census.py"
 local CENSUS_JSON = F002 .. "keybindings-census.json"
 local PYTHON = "/opt/homebrew/bin/python3"  -- native arm64, no Rosetta needed
+local BTTCLI = "/Applications/BetterTouchTool.app/Contents/SharedSupport/bin/bttcli"
 local RCMD_PLIST = os.getenv("HOME") ..
   "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
 local CHATGPT_ASAR = "/Applications/ChatGPT.app/Contents/Resources/app.asar"
@@ -34,6 +39,8 @@ local appWatcher = nil
 local pending = nil    -- a change that came in while the census ran
 local rcmdKeys = nil   -- rcmd's assignments as last seen
 local iconDir = nil    -- stepper's data/app-icons/, shared with bear-hud.lua's live slots (untracked)
+local clearing = {}    -- the keymap-clear URL's bttcli tasks and timers, held until they finish
+local freedBy = nil    -- who freed what the next census run finds gone (its --by)
 
 -- rcmd rewrites its plist on every use (use counts), so compare the assignments themselves
 local function rcmdSignature()
@@ -78,6 +85,8 @@ local schedule
 
 local function run(reason)
   if task and task:isRunning() then pending = reason; return end
+  local args = {CENSUS, "--json-only", "--hammerspoon-stdin"}
+  if freedBy then table.insert(args, "--by"); table.insert(args, freedBy); freedBy = nil end
   local hotkeys = {}
   for _, h in ipairs(hs.hotkey.getHotkeys()) do table.insert(hotkeys, {idx = h.idx, msg = h.msg}) end
   task = hs.task.new(PYTHON, function(code, _, stderr)
@@ -88,7 +97,7 @@ local function run(reason)
       saveIcons()
     end
     if pending then local r = pending; pending = nil; schedule(r) end
-  end, {CENSUS, "--json-only", "--hammerspoon-stdin"})
+  end, args)
   task:setInput(hs.json.encode(hotkeys))  -- stdin closes once written
   if not task:start() then
     print("[keymapwatch] couldn't start " .. PYTHON)
@@ -107,6 +116,54 @@ schedule = function(reason, delay)
 end
 
 function M.run(reason) run(reason or "a manual run") end
+
+-- What the census lists under this BTT uuid: a gesture's trigger, or a chord's keys
+local function listedTrigger(uuid)
+  local census = hs.json.read(CENSUS_JSON)
+  if not census then return nil end
+  for _, g in ipairs(census.gestures or {}) do
+    if g.uuid == uuid then return g.gesture, g.what end
+  end
+  for _, list in ipairs({census.hotkeys or {}, census.inApp or {}}) do
+    for _, h in ipairs(list) do
+      if h.uuid == uuid then return h.show, h.what end
+    end
+  end
+end
+
+local function bttcli(args, done)
+  local t
+  t = hs.task.new(BTTCLI, function(code, out)
+    clearing[t] = nil
+    done(code, out or "")
+  end, args)
+  clearing[t] = true
+  if not t:start() then clearing[t] = nil; done(-1, "") end
+end
+
+-- hammerspoon://keymap-clear?btt=<uuid>: disable that BTT trigger, check BTT took it, rerun the census
+local function clearBtt(uuid)
+  local trigger, what = listedTrigger(uuid)
+  if not trigger then
+    hs.sound.getByName("Basso"):play()
+    hs.alert.show("Not cleared: the census lists no BTT trigger " .. uuid, 4)
+    return
+  end
+  bttcli({"update_trigger", "uuid=" .. uuid, 'json={"BTTEnabled":0,"BTTEnabled2":0}'}, function()
+    bttcli({"get_trigger", "uuid=" .. uuid}, function(_, out)
+      local t = hs.json.decode(out) or {}
+      if t.BTTEnabled == 0 or t.BTTEnabled2 == 0 then
+        hs.alert.show(string.format("%s cleared\n%s · disabled in BTT", trigger, what), 3)
+        print(string.format("[keymapwatch] the keymap cleared %s (%s): BTT trigger %s disabled", trigger, what, uuid))
+        freedBy = "keymap ×: disabled in BTT"
+        schedule("the keymap's ×")
+      else
+        hs.sound.getByName("Basso"):play()
+        hs.alert.show(string.format("%s not cleared: BTT didn't take it", trigger), 4)
+      end
+    end)
+  end)
+end
 
 function M.init(root)
   iconDir = root .. "data/app-icons/"
@@ -144,6 +201,13 @@ function M.init(root)
     end
   end)
   appWatcher:start()
+  hs.urlevent.bind("keymap-clear", function(_, params)
+    local uuid = params.btt or ""
+    if not uuid:match("^[%x%-]+$") then return end
+    local t
+    t = hs.timer.doAfter(0, function() clearing[t] = nil; clearBtt(uuid) end)
+    clearing[t] = true
+  end)
   periodic = hs.timer.doEvery(EVERY, function() run("the quarter-hourly check") end)
   -- After the rest of stepper has bound its hotkeys
   startTimer = hs.timer.doAfter(5, function() startTimer = nil; run("the load") end)
