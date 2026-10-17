@@ -39,6 +39,10 @@ if not okSW then print("hs-stall-watch.lua: " .. tostring(errSW)) end
 -- changes, so the image wall is live. pcall, as above.
 local okIS, errIS = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F029-rhys-rsi-recursive-self-improvement/subfeatures/image-stream-introspection/live.lua")
 if not okIS then print("live.lua: " .. tostring(errIS)) end
+-- fleet F029/text-stream-introspection: the same for Paste's text and Monologue's dictations
+-- (stat polls; build.py runs as an hs.task). pcall, as above.
+local okTS, errTS = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F029-rhys-rsi-recursive-self-improvement/subfeatures/text-stream-introspection/live.lua")
+if not okTS then print("text live.lua: " .. tostring(errTS)) end
 -- fleet F042-webcams-as-magic-windows: re-signs the iPhone app before its 7-day free signing
 -- runs out, installing over Wi-Fi. pcall, as above.
 local okMW, errMW = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F042-webcams-as-magic-windows/ios/resign.lua")
