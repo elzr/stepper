@@ -32,7 +32,7 @@ Config: [`data/bear-notes.jsonc`](https://stepper.internal/data/bear-notes.jsonc
 Hyper + letter → open/raise a Bear note by title. Supports modifier variants:
 - **Right Cmd held**: open past-week variant (e.g., previous week's days note)
 - **Right Option held**: open next-week variant
-- **Right Shift held**: summon note window to cursor position
+- **Right Shift held**: ==🟢summon the note window to the cursor's screen, and a quick second press sends it back==, as for live windows ([below](#right-shift-summon-to-the-cursors-screen-and-back))
 
 Template variables (`${weekNum}`, `${weekDays}`, etc.) expand at load time from the `vars` section. Updated weekly by fleet's [F043/L001](https://fleet.internal/features/F043-Bear-hands/subfeatures/L001-weekly-updater-of-Bear-shortcuts/) (stepper/L005 until 2026-10-12).
 
@@ -44,7 +44,20 @@ Config: [`data/live-toggle-hotkeys.json`](https://stepper.internal/data/live-tog
 
 Hyper + live letter → toggle visibility of any window (not just Bear). Slots are reassignable at runtime:
 - **Right Option + hyper+key**: assign the frontmost window to that slot
-- **Right Shift + hyper+key**: summon window to cursor
+- **Right Shift + hyper+key**: summon window to cursor (below)
+
+#### Right Shift: summon to the cursor's screen, and back
+
+==🟢Since 2026-10-17== ([fleet's tab-groups-as-apps](https://fleet.internal/features/F029-rhys-rsi-recursive-self-improvement/subfeatures/workflows/subfeatures/tab-groups-as-apps/), the user's spec), R⇧◆key on a note or live window, in [bear-hud.lua](https://stepper.internal/lua/bear-hud.lua)'s `summonAction`:
+
+| The window is | R⇧◆key |
+|---|---|
+| on another screen than the cursor | ==🟢summons it==: centred on the cursor, focused |
+| just summoned (a second press within 2 s, `SUMMON_BACK_SECS`) | ==🟢sends it back== where it was, still up, and refocuses the window it was summoned over |
+| already on the cursor's screen | ==🔵the plain ◆key==: hides it if focused, raises it if not |
+| on the cursor's screen because it was summoned there earlier | puts it back home and minimizes it (the pre-2026-10-17 unsummon) |
+
+A window summoned again from a third screen keeps its first home. ==🔴Before 2026-10-17== the second R⇧ press always put the window home *and minimized it*, at any delay, and R⇧ on a window already under the cursor re-centred it instead of hiding it.
 
 Keys: ==🟢every ◆ letter that isn't a note or URL key==, A B C E G H J K L O Q U V X Y Z, listed as `liveKeys` in [bear-notes.jsonc](https://stepper.internal/data/bear-notes.jsonc) (X, Q, A and Z alone until 2026-10-09, when the user made the twelve free letters live). A note or URL key listed there too stays a note or URL: bear-hud.lua and F002's census both skip it.
 

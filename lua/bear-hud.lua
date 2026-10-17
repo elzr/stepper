@@ -538,6 +538,53 @@ local function centerOnCursor(win)
   hs.window.animationDuration = 0.3
 end
 
+-- A second right-shift press this soon after a summon sends the window back
+local SUMMON_BACK_SECS = 2
+
+-- Summon a window to the cursor, remembering where it came from. Summoned
+-- again from a third screen, it keeps its first home.
+local function summonToCursor(key, win)
+  local state = summonedNotes[key]
+  if not state then
+    local frame = win:frame()
+    state = {originalFrame = {x = frame.x, y = frame.y, w = frame.w, h = frame.h}}
+    summonedNotes[key] = state
+  end
+  state.at = hs.timer.secondsSinceEpoch()
+  local focused = hs.window.focusedWindow()
+  if focused and focused:id() ~= win:id() then state.prior = focused end
+  centerOnCursor(win)
+  focusModule.focusSingleWindow(win)
+end
+
+-- Put a summoned window back where it came from. hide: minimize it there too;
+-- otherwise it stays up and focus returns to the window it was summoned over.
+local function unsummon(key, win, hide)
+  local state = summonedNotes[key]
+  summonedNotes[key] = nil
+  hs.window.animationDuration = 0
+  win:setFrame(state.originalFrame)
+  hs.window.animationDuration = 0.3
+  if hide then
+    win:minimize()
+  elseif state.prior then
+    pcall(function() focusModule.focusSingleWindow(state.prior) end)
+  end
+end
+
+-- What a right-shift press does to a window: "back" right after a summon;
+-- "toggle" (the plain hotkey) when it is already on the cursor's screen, or
+-- "hide" (home, minimized) if it got there by a summon; else "summon".
+local function summonAction(key, win)
+  local state = summonedNotes[key]
+  if state and hs.timer.secondsSinceEpoch() - state.at < SUMMON_BACK_SECS then return "back" end
+  local here, there = hs.mouse.getCurrentScreen(), win:screen()
+  if here and there and here:id() == there:id() then
+    return state and "hide" or "toggle"
+  end
+  return "summon"
+end
+
 -- Handle a note hotkey press (simple toggle: open / raise / unfocus)
 local function handleNoteHotkey(noteTitle)
   print(string.format("[bear-hud] Hotkey for '%s'", noteTitle))
@@ -826,31 +873,17 @@ local function handleLiveToggle(slotKey)
   focusModule.flashFocusHighlight(win, nil)
 end
 
--- Handle a live window summon (right-shift + hyper: summon to cursor / unsummon)
+-- Handle a live window summon (right-shift + hyper): to the cursor's screen,
+-- back again on a quick second press, the plain toggle when already there
 local function handleLiveSummon(slotKey)
   local slot = liveSlots[slotKey]
   if not slot then return end
-  print(string.format("[bear-hud] Live %s summon '%s'", slotKey, slot.title))
   local win = findLiveSlotWindow(slot)
   if win and markBroken(slot, false) then saveLiveSlots() end
 
-  -- Already summoned → unsummon
-  local state = summonedNotes[slotKey]
-  if state and state.originalFrame and win then
-    print(string.format("[bear-hud] Unsummoning '%s'", slot.title))
-    hs.window.animationDuration = 0
-    win:setFrame(state.originalFrame)
-    hs.window.animationDuration = 0.3
-    win:minimize()
-    summonedNotes[slotKey] = nil
-    if layout and layout.triggerSave then
-      layout.triggerSave(string.format("unsummon-live:%s '%s'", slotKey, slot.title))
-    end
-    return
-  end
-
   -- Window not found
   if not win then
+    summonedNotes[slotKey] = nil
     -- Bear notes can be opened via URL then summoned
     if isBearSlot(slot) then
       print(string.format("[bear-hud] Opening + summoning Bear note '%s'", slot.title))
@@ -861,12 +894,7 @@ local function handleLiveSummon(slotKey)
         attempts = attempts + 1
         local w = findBearWindowByTitle(slot.title)
         if w then
-          local frame = w:frame()
-          summonedNotes[slotKey] = {
-            originalFrame = {x = frame.x, y = frame.y, w = frame.w, h = frame.h},
-          }
-          centerOnCursor(w)
-          focusModule.focusSingleWindow(w)
+          summonToCursor(slotKey, w)
           M.restoreForNote(slot.title, slot.title)
         elseif attempts < 30 then
           hs.timer.doAfter(0.1, waitAndSummon)
@@ -881,43 +909,27 @@ local function handleLiveSummon(slotKey)
     return
   end
 
-  -- Window exists → summon to cursor
-  print(string.format("[bear-hud] Summoning '%s' to cursor", slot.title))
+  local action = summonAction(slotKey, win)
+  print(string.format("[bear-hud] Live %s summon: %s '%s'", slotKey, action, slot.title))
+  if action == "toggle" then return handleLiveToggle(slotKey) end
   if isBearSlot(slot) then M.saveCurrentPosition() end
-
-  local frame = win:frame()
-  summonedNotes[slotKey] = {
-    originalFrame = {x = frame.x, y = frame.y, w = frame.w, h = frame.h},
-  }
-  centerOnCursor(win)
-  focusModule.focusSingleWindow(win)
+  if action == "summon" then
+    summonToCursor(slotKey, win)
+  else
+    unsummon(slotKey, win, action == "hide")
+  end
   if layout and layout.triggerSave then
-    layout.triggerSave(string.format("summon-live:%s '%s'", slotKey, slot.title))
+    layout.triggerSave(string.format("%s-live:%s '%s'", action, slotKey, slot.title))
   end
 end
 
--- Handle a summon hotkey press (right-shift + hyper: summon to cursor / unsummon)
+-- Handle a summon hotkey press (right-shift + hyper), as handleLiveSummon
 local function handleNoteSummon(noteTitle)
-  print(string.format("[bear-hud] Summon hotkey for '%s'", noteTitle))
   local noteWin = findBearWindowByTitle(noteTitle)
-
-  -- Already summoned → unsummon
-  local state = summonedNotes[noteTitle]
-  if state and state.originalFrame and noteWin then
-    print(string.format("[bear-hud] Unsummoning '%s'", noteTitle))
-    hs.window.animationDuration = 0
-    noteWin:setFrame(state.originalFrame)
-    hs.window.animationDuration = 0.3
-    noteWin:minimize()
-    summonedNotes[noteTitle] = nil
-    if layout and layout.triggerSave then
-      layout.triggerSave(string.format("unsummon-note:'%s'", noteTitle))
-    end
-    return
-  end
 
   -- Note not open → open it first, then summon after it appears
   if not noteWin then
+    summonedNotes[noteTitle] = nil
     print(string.format("[bear-hud] Opening + summoning '%s'", noteTitle))
     M.saveCurrentPosition()
     openNoteInBear(noteTitle)
@@ -926,12 +938,7 @@ local function handleNoteSummon(noteTitle)
       attempts = attempts + 1
       local win = findBearWindowByTitle(noteTitle)
       if win then
-        local frame = win:frame()
-        summonedNotes[noteTitle] = {
-          originalFrame = {x = frame.x, y = frame.y, w = frame.w, h = frame.h},
-        }
-        centerOnCursor(win)
-        focusModule.focusSingleWindow(win)
+        summonToCursor(noteTitle, win)
         M.restoreForNote(noteTitle, noteTitle)
       elseif attempts < 30 then
         hs.timer.doAfter(0.1, waitAndSummon)
@@ -943,18 +950,17 @@ local function handleNoteSummon(noteTitle)
     return
   end
 
-  -- Note exists → summon to cursor
-  print(string.format("[bear-hud] Summoning '%s' to cursor", noteTitle))
+  local action = summonAction(noteTitle, noteWin)
+  print(string.format("[bear-hud] Summon hotkey: %s '%s'", action, noteTitle))
+  if action == "toggle" then return handleNoteHotkey(noteTitle) end
   M.saveCurrentPosition()
-
-  local frame = noteWin:frame()
-  summonedNotes[noteTitle] = {
-    originalFrame = {x = frame.x, y = frame.y, w = frame.w, h = frame.h},
-  }
-  centerOnCursor(noteWin)
-  focusModule.focusSingleWindow(noteWin)
+  if action == "summon" then
+    summonToCursor(noteTitle, noteWin)
+  else
+    unsummon(noteTitle, noteWin, action == "hide")
+  end
   if layout and layout.triggerSave then
-    layout.triggerSave(string.format("summon-note:'%s'", noteTitle))
+    layout.triggerSave(string.format("%s-note:'%s'", action, noteTitle))
   end
 end
 
@@ -1337,7 +1343,11 @@ function M.init(projectRoot, focus)
 
           -- Window focus watcher for scoped hotkeys
           if #scopedHotkeys > 0 then
-            local scopeFilter = hs.window.filter.new(true)
+            -- Bear's windows only (2026-10-17): a filter over all apps made Hammerspoon track every
+            -- window of every app, and its AX calls stalled the main thread, holding every key
+            -- (fleet F040/taming-hammerspoon/key-responsiveness). Leaving Bear unfocuses its window,
+            -- which disables them, as focusing another app's window used to.
+            local scopeFilter = hs.window.filter.new({"Bear"})
             scopeFilter:subscribe(hs.window.filter.windowFocused, function(win)
               local title = win and win:title() or ""
               for _, entry in ipairs(scopedHotkeys) do
@@ -1347,6 +1357,9 @@ function M.init(projectRoot, focus)
                   entry.hotkey:disable()
                 end
               end
+            end)
+            scopeFilter:subscribe(hs.window.filter.windowUnfocused, function()
+              for _, entry in ipairs(scopedHotkeys) do entry.hotkey:disable() end
             end)
             -- Store reference to prevent GC
             M._scopeFilter = scopeFilter
