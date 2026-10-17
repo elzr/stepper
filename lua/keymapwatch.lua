@@ -23,7 +23,7 @@ local CENSUS_JSON = F002 .. "keybindings-census.json"
 local PYTHON = "/opt/homebrew/bin/python3"  -- native arm64, no Rosetta needed
 local BTTCLI = "/Applications/BetterTouchTool.app/Contents/SharedSupport/bin/bttcli"
 -- rcmd 3 (unsandboxed, since 2026-10-16) keeps its plist in ~/Library/Preferences; the App Store
--- build kept it in its container, still there for a rollback (fleet F040/rcmd-pro-migration.md)
+-- build kept it in its container, still there for a rollback (fleet F040/rcmd-migration)
 local RCMD_PLIST = (function()
   local home = os.getenv("HOME")
   local plist = home .. "/Library/Preferences/com.lowtechguys.rcmd.plist"
