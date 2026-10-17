@@ -35,6 +35,7 @@ stepper/
 ├── bin/                  # hs, hs-console.sh, hs-reload.sh: ~/bin symlinks here (reverse-symlinks-index.md)
 ├── docs/                 # Architecture notes and decision records
 ├── hammerspoon-init.lua  # ~/.hammerspoon/init.lua, symlinked here
+├── Spoons/               # WinWin.spoon; ~/.hammerspoon/Spoons symlinks here
 ├── reverse-symlinks-index.md # What's symlinked from outside the repo (fleet F033)
 ├── CLAUDE.md             # This file
 └── README.md             # User-facing documentation
