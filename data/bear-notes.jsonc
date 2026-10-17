@@ -18,7 +18,10 @@
     {"key": "T", "action": "open-bear-note", "title": "w${weekNum}thoughts ${weekDays}", "pastTitle": "w${pastWeekNum}thoughts ${pastWeekDays}", "nextTitle": "w${nextWeekNum}thoughts ${nextWeekDays}"}
   ],
   "urls": [
-    {"key": "F", "url": "raycast://extensions/sara/featurebase/index"}
+    {"key": "F", "url": "raycast://extensions/sara/featurebase/index"},
+    // Bear's note search, opening the note in its own window (fleet F025/bear-notes-in-new-windows). Double-tap
+    // ⌥ (BTT) opened it until 2026-10-16, when rcmd 3 took double-tap-and-hold right ⌥; ◆B was a live slot
+    {"key": "B", "url": "raycast://extensions/hmarr/bear/index"}
   ],
   // Live window slots, bound in bear-hud.lua: R⌥◆key gives one the focused window, ◆key toggles it,
   // R⇧◆key summons it. Every ◆ letter and digit not taken above or by BTT (◆1–5); a note or URL key
@@ -27,6 +30,6 @@
   // 2026-10-13: they're live now, holding those notes until re-set. P opened Spin's Raycast list
   // (raycast://extensions/sara/spin/index) from 2026-03-14 until 2026-10-13, when Featurebase's (◆F)
   // took over its projects; 6–0 were bound by nobody until that day
-  "liveKeys": ["A", "B", "C", "E", "G", "H", "I", "J", "K", "L", "M", "O", "P", "Q", "R", "S", "U", "V", "X", "Y", "Z",
+  "liveKeys": ["A", "C", "E", "G", "H", "I", "J", "K", "L", "M", "O", "P", "Q", "R", "S", "U", "V", "X", "Y", "Z",
                "6", "7", "8", "9", "0"]
 }
