@@ -1,3 +1,5 @@
+-- Loaded by ~/.hammerspoon/init.lua, a copy of bootstrap-init.lua, which falls back to a local copy
+-- of stepper when this folder can't be read. stepperLoaded tells it whether to refresh that copy.
 require("hs.ipc")  -- Enable CLI control first
 -- A reload freezes input for a few seconds, so say so first. Everything below loads on a
 -- timer: the main thread draws nothing while a load runs, so a notice shown and then
@@ -45,6 +47,7 @@ if not okBear then print("bear.lua: " .. tostring(errBear)) end
 -- stepper's error still reaches the console, raised again after the notice says so
 local okStep, errStep = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua")
 hs.alert.closeSpecific(reloadNotice)
+stepperLoaded = okStep
 hsLoaded = true
 if not okStep then
   hs.alert.show("Hammerspoon: stepper.lua failed to load · see the console", 6)

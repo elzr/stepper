@@ -175,6 +175,10 @@ function M.init(root)
   -- The census describes the MacBook's apps and is tracked in fleet, so only the MacBook runs it;
   -- another Mac's run would overwrite it with its own (machine.lua, fleet F040/well-kept-logs)
   local machine = dofile(root .. "lua/machine.lua")
+  if stepperFromLocalCopy then  -- bootstrap-init.lua's fallback: fleet's census may be out of reach
+    print("[keymapwatch] off: stepper runs from its local copy")
+    return
+  end
   if not machine.primary then
     print("[keymapwatch] off on this Mac (" .. machine.tag .. "): F002's census is the MacBook's")
     return

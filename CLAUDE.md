@@ -32,9 +32,10 @@ stepper/
 │   ├── live-toggle-hotkeys.json # live ◆ slots (letters and 6–0: bear-notes.jsonc's liveKeys); fleet F002's keymap.html shows them live (caddy lets it read this file), with icons from app-icons/ (not tracked). Only bear-hud writes it: the page asks over hammerspoon://keymap?free|set|move|erase
 │   ├── live-toggle-history.jsonl # a line per live slot set or freed (bear-hud appends); the keymap's ⏱ per key
 │   └── bear-hud-positions.json  # Runtime caret/scroll positions (not tracked)
-├── bin/                  # hs, hs-console.sh, hs-reload.sh: ~/bin symlinks here (reverse-symlinks-index.md)
+├── bin/                  # hs, hs-console.sh, hs-reload.sh: ~/bin symlinks here (reverse-symlinks-index.md); install-bootstrap.sh
+├── bootstrap-init.lua    # ~/.hammerspoon/init.lua is a COPY of it: loads hammerspoon-init.lua, or stepper's local copy without Dropbox
 ├── docs/                 # Architecture notes and decision records
-├── hammerspoon-init.lua  # ~/.hammerspoon/init.lua, symlinked here
+├── hammerspoon-init.lua  # The real init, loaded from here by the bootstrap
 ├── Spoons/               # WinWin.spoon; ~/.hammerspoon/Spoons symlinks here
 ├── reverse-symlinks-index.md # What's symlinked from outside the repo (fleet F033)
 ├── CLAUDE.md             # This file
@@ -45,7 +46,7 @@ Modules use the standard Lua pattern: return a table of public functions, loaded
 
 ## Loading from Hammerspoon
 
-The config lives in this Dropbox project folder and is loaded by `~/.hammerspoon/init.lua`, itself a symlink to this repo's `hammerspoon-init.lua` (edit it here), via:
+The config lives in this Dropbox project folder. ==🔴`~/.hammerspoon/init.lua` is a local copy of `bootstrap-init.lua`, never a symlink==, so Hammerspoon starts without Dropbox: it loads this repo's `hammerspoon-init.lua` (edit that one here), or, when this folder can't be read or `~/.config/fleet/stepper-from-local-copy` exists, stepper from its last good copy in `~/.local/share/stepper-lkg/`. After editing `bootstrap-init.lua`, run `bin/install-bootstrap.sh`. `hammerspoon-init.lua` loads stepper via:
 ```lua
 require("hs.ipc")  -- Enable CLI control
 dofile("/Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/stepper.lua")
