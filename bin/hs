@@ -1,0 +1,18 @@
+#!/bin/bash
+# Hammerspoon's CLI, safe to call from Claude Code: ~/bin/hs -c '…' (not on the PATH,
+# where `hs` is Node's http-server; always call it by this path, never through a
+# variable like $HS, which no permission rule can match).
+#
+# hs reads stdin for more code whenever stdin isn't a terminal, after running its -c
+# commands. Claude Code sometimes hands a Bash call a socket for stdin that never
+# closes, so the call ran its -c and then waited forever: three hs-console.sh calls
+# stuck for over an hour, 2026-10-17 (their stack: main -> fread). With -c, stdin is
+# /dev/null here; `echo code | ~/bin/hs` and -s / -i still read it.
+HS=/Applications/Hammerspoon.app/Contents/Frameworks/hs/hs
+for a in "$@"; do
+  case "$a" in -s|-i) exec "$HS" "$@" ;; --) break ;; esac
+done
+for a in "$@"; do
+  [ "$a" = "-c" ] && exec "$HS" "$@" </dev/null
+done
+exec "$HS" "$@"
