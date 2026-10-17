@@ -71,6 +71,15 @@ This reads `hs.console.getConsole()` via IPC — the actual console output with 
 
 Note: `log show --predicate 'process == "Hammerspoon"'` does NOT capture Hammerspoon's console output. Hammerspoon prints to its own console, not the macOS system log. Always use `hs-console.sh`.
 
+## The keyboard runs through Hammerspoon: never block it, never probe it from `hs -c`
+
+Stepper keeps active event taps on `keyDown` and `flagsChanged` ([modpairs.lua](openfile:///Users/sara/Library/CloudStorage/Dropbox/projects/log/2025/hammerspoon/stepper/lua/modpairs.lua), inputprobe). macOS hands every keystroke to those callbacks and waits for the answer, so ==🔴anything that stalls or breaks Hammerspoon's main thread stalls or kills the user's typing== while the mouse keeps working. Two ways to do that, both seen on 2026-10-17 ([case study](https://fleet.internal/features/F041-happy-hardware/subfeatures/UI-peripherals/case-studies/2026-10-17-intuos-in-android-mode-and-the-driver-that-lost-its-poster.md#the-keyboard-freeze)):
+
+1. ==🔴An event tap or any callback installed through `hs -c`== (IPC): the chunk's `print` is the IPC connection's, and once the command has returned every call to it raises `ipc.lua:402: attempt to index a nil value`. A tap whose callback errors on every event swallowed a minute of the user's keystrokes until a reload destroyed it. Diagnostics go in a `.lua` file loaded by init.lua, with the callback wrapped in `pcall`, writing to a file; `hs -c` is for one-shot queries and `hs.reload()`.
+2. ==🔴Blocking calls on the main thread==: `hs.application.open(bundle, wait)`, `hs.eventtap.keyStroke` with its default 0.2 s delay, `hs.osascript` round trips, `os.execute`, sleeps. Launch and then poll with `hs.timer.waitUntil`; pass `0` as keyStroke's delay; keep work in timers.
+
+When a user reports dead typing with a live mouse, ==🟢`~/bin/hs-reload.sh` is the first aid==: it destroys every tap and rebuilds the config in under a second.
+
 ## fn Key Workaround
 
 Hammerspoon cannot bind to `fn` directly. Instead, bind to the key that fn transforms the arrow keys into:
