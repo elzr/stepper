@@ -1211,11 +1211,13 @@ layout.init({screenswitch = screenswitch, screenmemory = screenmemory, screenmap
 -- Lost key-up forensics: builds inputprobe if needed and takes a baseline tap census
 inputprobe.init()
 
--- Dead ⌘⇥ forensics while AltTab is on trial: logs each ⌘⇥ that did nothing
--- to data/cmd-tab-watch.jsonl, with the lines around it from AltTab's own debug log,
--- which it keeps on (~/Library/Logs/AltTab/alttab.log; fleet F040/AltTab)
+-- Dead ⌘⇥ forensics, begun while AltTab was on trial: logs each ⌘⇥ that did nothing
+-- to data/cmd-tab-watch.jsonl, whoever owns ⌘⇥ (fleet F040/AltTab)
 cmdtabwatch.start()
-cmdtabwatch.superviseAltTabLog()
+-- Kept AltTab's own debug log on with a check every 2 min. Off since 2026-10-17: the
+-- trial ended 10-16 (rcmd 3 took ⌘⇥), and polling for a quit AltTab froze Hammerspoon at
+-- every tick (fleet F040/taming-hammerspoon/key-responsiveness, step 8). If AltTab is back:
+-- cmdtabwatch.superviseAltTabLog()
 
 -- Manual layout save: fn+ctrl+alt+delete (pinned, survives autosave overwrites)
 hs.hotkey.bind({"ctrl", "alt"}, "forwarddelete", layout.manualSave)
