@@ -167,6 +167,13 @@ local altTabTimer, launchCheck, quitPoll, verify, openTask, rotating
 local lastRelaunch = 0
 local relaunchFailed = false
 
+-- By bundle ID only. hs.application.get, finding no AltTab running, goes on to match the ID
+-- against every app's name and every window's title, reading each window over AX: 0.1-1.9 s
+-- with Hammerspoon's key taps held, every 2 min (2026-10-17, F040/key-responsiveness).
+local function altTabApp()
+  return hs.application.applicationsForBundleID(ALTTAB)[1]
+end
+
 local function altTabLogging(app)
   local args = hs.execute("/bin/ps -o args= -p " .. app:pid()) or ""
   return args:find("--logs=", 1, true) ~= nil
@@ -185,7 +192,7 @@ local function rotateAltTabLog()
 end
 
 local function ensureAltTabLog()
-  local app = hs.application.get(ALTTAB)
+  local app = altTabApp()
   if relaunchFailed or quitPoll or not app or altTabLogging(app) then return end
   local now = hs.timer.secondsSinceEpoch()
   if now - lastRelaunch < 60 then return end
@@ -196,7 +203,7 @@ local function ensureAltTabLog()
   local waited = 0
   quitPoll = hs.timer.doEvery(0.5, function()
     waited = waited + 0.5
-    if hs.application.get(ALTTAB) and waited < 10 then return end
+    if altTabApp() and waited < 10 then return end
     quitPoll:stop()
     quitPoll = nil
     openTask = hs.task.new("/usr/bin/open", nil, {"-g", "-a", ALTTAB_APP, "--stdout", altTabLog,
@@ -204,7 +211,7 @@ local function ensureAltTabLog()
     openTask:start()
     -- `open --args` drops the flag if an AltTab is still running; don't keep trying then
     verify = hs.timer.doAfter(8, function()
-      local back = hs.application.get(ALTTAB)
+      local back = altTabApp()
       if back and not altTabLogging(back) then
         relaunchFailed = true
         print("[cmdtabwatch] AltTab came back without its log; not retrying until the next reload")
@@ -228,7 +235,7 @@ end
 
 -- For IPC checks: hs -c "return hs.inspect(_G._stepper.cmdtabwatch.status())"
 function M.status()
-  local app = hs.application.get(ALTTAB)
+  local app = altTabApp()
   return {
     running = task ~= nil and task:isRunning(),
     pid = task and task:pid() or nil,
