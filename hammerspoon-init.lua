@@ -57,6 +57,9 @@ end
 -- After stepper: stepper.lua deletes every hotkey that exists when it loads.
 local okWP, errWP = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F041-happy-hardware/subfeatures/UI-peripherals/wacom-presentify.lua")
 if not okWP then print("wacom-presentify.lua: " .. tostring(errWP)) end
+-- fleet F041/UI-peripherals: the pen's upper side-button panel maps the pen to one display (⌃⌥⇧ I J K L M).
+local okWD, errWD = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F041-happy-hardware/subfeatures/UI-peripherals/wacom-displays.lua")
+if not okWD then print("wacom-displays.lua: " .. tostring(errWD)) end
 hsLoadSeconds = hs.timer.secondsSinceEpoch() - loadStarted
 hs.alert.show(string.format("Hammerspoon ready · %.1f s", hsLoadSeconds), 1.5)
 end)
