@@ -9,7 +9,11 @@ hsLoaded = false
 local loadStarted = hs.timer.secondsSinceEpoch()
 local reloadNotice = hs.alert.show("⟳ Hammerspoon reloading · input may lag a few seconds", 60)
 hs.timer.doAfter(0.1, function()
-require("rcmd")
+-- rcmd.lua is no longer loaded (2026-10-17): rcmd 3 doesn't use it (fleet F040/rcmd-migration), and
+-- its window filter re-read every window's title on any window change, freezing Hammerspoon for up
+-- to 1.8 s (Activity Monitor's alone took 1.5 s). Hammerspoon's filter taps held every key meanwhile,
+-- which lost Monologue's pastes (F040/taming-hammerspoon/key-responsiveness). Back on rcmd 2:
+-- require("rcmd")
 -- The tablogs' live now/ pages (reading F030-tablogs): Chrome's and Safari's watchers, and
 -- Safari kept running, hidden. pcall: it can't stop stepper from loading.
 local ok, err = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/reading/features/F030-tablogs/tablogs-now.lua")
@@ -27,6 +31,10 @@ if okRC then readwiseCopy = errRC else print("readwise-copy.lua: " .. tostring(e
 -- pcall: it can't stop stepper from loading.
 local okCP, errCP = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F044-security-mindset/subfeatures/ironing-out-clipboard-kinks/clipboard-kinks.lua")
 if not okCP then print("clipboard-kinks.lua: " .. tostring(errCP)) end
+-- fleet F040/taming-hammerspoon/key-responsiveness: log every main-thread stall over 100 ms (the filter
+-- taps hold every key meanwhile). Loaded here because a reload drops anything loaded by hand.
+local okSW, errSW = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F044-security-mindset/subfeatures/ironing-out-clipboard-kinks/test-tools/hs-stall-watch.lua")
+if not okSW then print("hs-stall-watch.lua: " .. tostring(errSW)) end
 -- fleet F029/image-stream-introspection: rebuilds the Paste stream whenever Paste's database
 -- changes, so the image wall is live. pcall, as above.
 local okIS, errIS = pcall(dofile, "/Users/sara/Library/CloudStorage/Dropbox/projects/log/2026/fleet/features/F029-rhys-rsi-recursive-self-improvement/subfeatures/image-stream-introspection/live.lua")
