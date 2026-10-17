@@ -22,8 +22,14 @@ local CENSUS = F002 .. "keybinding-census.py"
 local CENSUS_JSON = F002 .. "keybindings-census.json"
 local PYTHON = "/opt/homebrew/bin/python3"  -- native arm64, no Rosetta needed
 local BTTCLI = "/Applications/BetterTouchTool.app/Contents/SharedSupport/bin/bttcli"
-local RCMD_PLIST = os.getenv("HOME") ..
-  "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
+-- rcmd 3 (unsandboxed, since 2026-10-16) keeps its plist in ~/Library/Preferences; the App Store
+-- build kept it in its container, still there for a rollback (fleet F040/rcmd-pro-migration.md)
+local RCMD_PLIST = (function()
+  local home = os.getenv("HOME")
+  local plist = home .. "/Library/Preferences/com.lowtechguys.rcmd.plist"
+  if hs.fs.attributes(plist) then return plist end
+  return home .. "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
+end)()
 local CHATGPT_ASAR = "/Applications/ChatGPT.app/Contents/Resources/app.asar"
 local BEAR = "net.shinyfrog.bear"
 local FILTER_ICONS = {"com.hegenberg.BetterTouchTool", "com.raycast.macos"}  -- the page's BTT and Raycast filters

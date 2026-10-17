@@ -87,9 +87,14 @@ func displaySizes() -> [[String: Any]] {
 // rcmd's keys by app path (its appKeyAssignments, one JSON string each), so the screenmaps
 // can say which key brings a hidden app back. By path: an app replaced under a new bundle
 // ID keeps its path, and rcmd's key (memory: rcmd_bundle_id_drift).
+// rcmd 3 (unsandboxed, since 2026-10-16) keeps its plist in ~/Library/Preferences; the App
+// Store build kept it in its container, still there for a rollback.
 func rcmdKeys() -> [String: String] {
-  let plist = NSHomeDirectory() +
-    "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist"
+  let plist = [
+    NSHomeDirectory() + "/Library/Preferences/com.lowtechguys.rcmd.plist",
+    NSHomeDirectory() +
+      "/Library/Containers/com.lowtechguys.rcmd/Data/Library/Preferences/com.lowtechguys.rcmd.plist",
+  ].first { FileManager.default.fileExists(atPath: $0) } ?? ""
   guard let data = FileManager.default.contents(atPath: plist),
         let prefs = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
         let assignments = prefs["appKeyAssignments"] as? [String] else { return [:] }
