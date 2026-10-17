@@ -18,7 +18,7 @@ local SWIFTC = "/usr/bin/swiftc"              -- Xcode Command Line Tools
 local toolSource = scriptDir .. "inputprobe.swift"
 local toolBinary = scriptDir .. "inputprobe"  -- built from toolSource on demand, not tracked
 -- The console doesn't survive a Hammerspoon relaunch or reboot; this does (untracked)
-local logFile = scriptDir .. "../data/lost-key-ups.log"
+local logFile = dofile(scriptDir .. "machine.lua").dataDir(scriptDir .. "../data/") .. "lost-key-ups.log"  -- one per Mac
 
 -- The keys stepper binds (fn+arrows arrive as these) and the arrows themselves: an
 -- arrow still held where its fn-key should be means the fn remap split the pair

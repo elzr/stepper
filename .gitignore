@@ -25,3 +25,5 @@ cmd-tab-watch.jsonl
 cmd-tab-samples/
 # app icons bear-hud.lua saves for the live hotkeys on docs/diagrams.html
 data/app-icons/
+# another Mac's own layouts, screen memory, live hotkeys and logs (lua/machine.lua): data/<tag>/
+data/*/

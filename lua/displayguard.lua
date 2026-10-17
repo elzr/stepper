@@ -31,7 +31,7 @@ local SWIFTC = "/usr/bin/swiftc"             -- Xcode Command Line Tools; builds
 
 local scriptPath  = debug.getinfo(1, "S").source:match("@(.*/)")
 local featureDir  = scriptPath .. "../features/F010-sync-display-names-in-Lunar/"
-local dataFile    = scriptPath .. "../data/display-guard.json"
+local dataFile    = dofile(scriptPath .. "machine.lua").dataDir(scriptPath .. "../data/") .. "display-guard.json"  -- one per Mac
 local probeScript = featureDir .. "display-serials.py"
 local toolSource  = featureDir .. "display-arrange.swift"
 local toolBinary  = featureDir .. "display-arrange"   -- built from toolSource on demand, not tracked

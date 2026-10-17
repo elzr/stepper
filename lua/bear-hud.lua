@@ -965,9 +965,10 @@ end
 function M.init(projectRoot, focus)
   focusModule = focus
   projectDir = projectRoot
-  positionsFile = projectRoot .. "data/bear-hud-positions.json"
-  liveToggleFile = projectRoot .. "data/live-toggle-hotkeys.json"
-  historyFile = projectRoot .. "data/live-toggle-history.jsonl"
+  local machineData = dofile(projectRoot .. "lua/machine.lua").dataDir(projectRoot .. "data/")  -- one set per Mac
+  positionsFile = machineData .. "bear-hud-positions.json"
+  liveToggleFile = machineData .. "live-toggle-hotkeys.json"
+  historyFile = machineData .. "live-toggle-history.jsonl"
   loadPositions()
   loadLiveSlots()
 

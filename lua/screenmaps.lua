@@ -25,7 +25,7 @@
 local M = {}
 
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
-local dataDir = scriptPath .. "../data/"
+local dataDir = dofile(scriptPath .. "machine.lua").dataDir(scriptPath .. "../data/")  -- one per Mac
 local iconDir = dataDir .. "app-icons/"
 local nowFile = dataDir .. "screenmaps-now.json"
 local MOVE_TOL = 2  -- px: a frame within this of the last one hasn't moved (Retina rounding)

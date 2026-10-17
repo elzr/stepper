@@ -24,7 +24,7 @@
 local M = {}
 
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
-local dataFile = scriptPath .. "../data/screen-memory.json"
+local dataFile = dofile(scriptPath .. "machine.lua").dataDir(scriptPath .. "../data/") .. "screen-memory.json"  -- one per Mac
 
 local PRUNE_AGE = 30 * 24 * 3600  -- 30 days in seconds
 local WRITE_DEBOUNCE = 5          -- seconds after last change

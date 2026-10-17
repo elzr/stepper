@@ -12,10 +12,11 @@ local scriptDir = debug.getinfo(1, "S").source:match("@(.*/)")
 local SWIFTC = "/usr/bin/swiftc"                -- Xcode Command Line Tools
 local toolSource = scriptDir .. "cmdtabwatch.swift"
 local toolBinary = scriptDir .. "cmdtabwatch"  -- built from toolSource on demand, not tracked
--- The console doesn't survive a Hammerspoon relaunch; these do (untracked)
+-- The console doesn't survive a Hammerspoon relaunch; these do (untracked), one set per Mac (machine.lua)
+local machineData = dofile(scriptDir .. "machine.lua").dataDir(scriptDir .. "../data/")
 local defaults = {
-  log = scriptDir .. "../data/cmd-tab-watch.jsonl",
-  samples = scriptDir .. "../data/cmd-tab-samples",
+  log = machineData .. "cmd-tab-watch.jsonl",
+  samples = machineData .. "cmd-tab-samples",
   pidfile = hs.fs.temporaryDirectory() .. "cmdtabwatch.pid",
 }
 

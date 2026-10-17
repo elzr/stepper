@@ -22,7 +22,7 @@
 local M = {}
 
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
-local dataDir = scriptPath .. "../data/"
+local dataDir = dofile(scriptPath .. "machine.lua").dataDir(scriptPath .. "../data/")  -- one per Mac
 local backupDir = dataDir .. "layout-backups/"
 local lunarSyncScript = scriptPath .. "../features/F010-sync-display-names-in-Lunar/lunar-sync-names.py"
 local PYTHON = "/opt/homebrew/bin/python3"   -- native; the Intel /usr/local one goes away with F040

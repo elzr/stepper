@@ -166,6 +166,13 @@ local function clearBtt(uuid)
 end
 
 function M.init(root)
+  -- The census describes the MacBook's apps and is tracked in fleet, so only the MacBook runs it;
+  -- another Mac's run would overwrite it with its own (machine.lua, fleet F040/well-kept-logs)
+  local machine = dofile(root .. "lua/machine.lua")
+  if not machine.primary then
+    print("[keymapwatch] off on this Mac (" .. machine.tag .. "): F002's census is the MacBook's")
+    return
+  end
   iconDir = root .. "data/app-icons/"
   rcmdKeys = rcmdSignature()
   local function watch(path, reason, changed)
